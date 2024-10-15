@@ -22,5 +22,11 @@
         "fileName": "baozi.js",
         "key": "baozi",
         "version": "1.0.0"
+    },
+    {
+        "name": "Picacg",
+        "fileName": "picacg.js",
+        "key": "picacg",
+        "version": "1.0.0"
     }
 ]
