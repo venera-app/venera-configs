@@ -28,5 +28,11 @@
         "fileName": "picacg.js",
         "key": "picacg",
         "version": "1.0.0"
+    },
+    {
+        "name": "nhentai",
+        "fileName": "nhentai.js",
+        "key": "nhentai",
+        "version": "1.0.0"
     }
 ]

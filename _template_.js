@@ -52,6 +52,22 @@ class NewComicSource extends ComicSource {
         },
 
         /**
+         * [Optional] login with webview
+         */
+        loginWithWebview: {
+            url: "",
+            /**
+             * check login status
+             * @param url {string} - current url
+             * @param title {string} - current title
+             * @returns {boolean} - return true if login success
+             */
+            checkStatus: (url, title) => {
+
+            },
+        },
+
+        /**
          * logout function, clear account related data
          */
         logout: () => {
@@ -74,13 +90,16 @@ class NewComicSource extends ComicSource {
             // title is used to identify the page, it should be unique
             title: "",
 
-            /// singlePageWithMultiPart or multiPageComicList
-            type: "singlePageWithMultiPart",
+            /// multiPartPage or multiPageComicList or mixed
+            type: "multiPartPage",
 
             /**
              * load function
              * @param page {number | null} - page number, null for `singlePageWithMultiPart` type
-             * @returns {{}} - for `singlePageWithMultiPart` type, return {[string]: Comic[]}; for `multiPageComicList` type, return {comics: Comic[], maxPage: number}
+             * @returns {{}}
+             * - for `multiPartPage` type, return [{title: string, comics: Comic[], viewMore: string?}]
+             * - for `multiPageComicList` type, for each page(1-based), return {comics: Comic[], maxPage: number}
+             * - for `mixed` type, use param `page` as index. for each index(0-based), return {data: [], maxPage: number?}, data is an array contains Comic[] or {title: string, comics: Comic[], viewMore: string?}
              */
             load: async (page) => {
                 /*
@@ -140,8 +159,11 @@ class NewComicSource extends ComicSource {
                 // if `search`, use search.load to load comics
                 itemType: "category",
 
-                // [Optional] must have same length as categories, used to provide loading param for each category
-                categoryParams: ["all", "adventure", "school"]
+                // [Optional] {string[]?} must have same length as categories, used to provide loading param for each category
+                categoryParams: ["all", "adventure", "school"],
+
+                // [Optional] {string} cannot be used with `categoryParams`, set all category params to this value
+                groupParam: null,
             }
         ],
         // enable ranking page
@@ -286,7 +308,10 @@ class NewComicSource extends ComicSource {
                 // option label
                 label: "sort"
             }
-        ]
+        ],
+
+        // enable tags suggestions
+        enableTagsSuggestions: false,
     }
 
     // favorite related
@@ -572,6 +597,27 @@ class NewComicSource extends ComicSource {
             }
              */
         },
+        /**
+         * [Optional] Handle links
+         */
+        link: {
+            /**
+             * set accepted domains
+             */
+            domains: [
+                'example.com'
+            ],
+            /**
+             * parse url to comic id
+             * @param url {string}
+             * @returns {string | null}
+             */
+            linkToId: (url) => {
+
+            }
+        },
+        // enable tags translate
+        enableTagsTranslate: false,
     }
 
 
