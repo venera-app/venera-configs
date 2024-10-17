@@ -295,6 +295,10 @@ class Nhentai extends ComicSource {
          * @returns {Promise<ComicDetails>}
          */
         loadInfo: async (id) => {
+            if(id.startsWith("nh")) {
+                id = id.replace("nhentai", "")
+                id = id.replace("nh", "")
+            }
             let res = await Network.get(`${this.baseUrl}/g/${id}/`, {})
             if(res.status !== 200) {
                 throw "Invalid Status Code: " + res.status
@@ -459,6 +463,12 @@ class Nhentai extends ComicSource {
             'Popular Month': '本月热门',
             'Popular All': '热门',
             'sort': '排序',
+            "Languages": "语言",
+            "Artists": "画师",
+            "Characters": "角色",
+            "Groups": "团队",
+            "Parodies": "原作",
+            "Categories": "分类",
         },
         'zh_TW': {
             'Tags': '標籤',
@@ -469,6 +479,12 @@ class Nhentai extends ComicSource {
             'Popular Month': '本月熱門',
             'Popular All': '熱門',
             'sort': '排序',
+            "Languages": "語言",
+            "Artists": "畫師",
+            "Characters": "角色",
+            "Groups": "團隊",
+            "Parodies": "原作",
+            "Categories": "分類",
         },
         'en': {}
     }
