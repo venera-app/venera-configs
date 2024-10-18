@@ -12,7 +12,7 @@ class Nhentai extends ComicSource {
     minAppVersion = "1.0.0"
 
     // update url
-    url = "https://raw.githubusercontent.com/venera-app/venera_configs/master/nhentai.js"
+    url = "https://raw.githubusercontent.com/venera-app/venera-configs/refs/heads/main/nhentai.js"
 
     baseUrl = "https://nhentai.net"
 
