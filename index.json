@@ -34,5 +34,11 @@
         "fileName": "nhentai.js",
         "key": "nhentai",
         "version": "1.0.0"
+    },
+    {
+        "name": "紳士漫畫",
+        "fileName": "wnacg.js",
+        "key": "wnacg",
+        "version": "1.0.0"
     }
 ]

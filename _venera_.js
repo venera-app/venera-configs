@@ -242,9 +242,31 @@ function createUuid() {
     });
 }
 
+/**
+ * Generate a random integer between min and max
+ * @param min {number}
+ * @param max {number}
+ * @returns {number}
+ */
 function randomInt(min, max) {
     return sendMessage({
         method: 'random',
+        type: 'int',
+        min: min,
+        max: max
+    });
+}
+
+/**
+ * Generate a random double between min and max
+ * @param min {number}
+ * @param max {number}
+ * @returns {number}
+ */
+function randomDouble(min, max) {
+    return sendMessage({
+        method: 'random',
+        type: 'double',
         min: min,
         max: max
     });
@@ -478,8 +500,8 @@ class HtmlDocument {
             key: this.key,
             query: query
         })
-        if(!k) return null;
-        return new HtmlElement(k);
+        if(k == null) return null;
+        return new HtmlElement(k, this.key);
     }
 
     /**
@@ -494,7 +516,19 @@ class HtmlDocument {
             key: this.key,
             query: query
         })
-        return ks.map(k => new HtmlElement(k));
+        return ks.map(k => new HtmlElement(k, this.key));
+    }
+
+    /**
+     * Dispose the HTML document.
+     * This should be called when the document is no longer needed.
+     */
+    dispose() {
+        sendMessage({
+            method: "html",
+            function: "dispose",
+            key: this.key
+        })
     }
 }
 
@@ -504,12 +538,16 @@ class HtmlDocument {
 class HtmlElement {
     key = 0;
 
+    doc = 0;
+
     /**
      * Constructor for HtmlDom.
      * @param {number} k - The key of the element.
+     * @param {number} doc - The key of the document.
      */
-    constructor(k) {
+    constructor(k, doc) {
         this.key = k;
+        this.doc = doc;
     }
 
     /**
@@ -520,7 +558,8 @@ class HtmlElement {
         return sendMessage({
             method: "html",
             function: "getText",
-            key: this.key
+            key: this.key,
+            doc: this.doc,
         })
     }
 
@@ -532,7 +571,8 @@ class HtmlElement {
         return sendMessage({
             method: "html",
             function: "getAttributes",
-            key: this.key
+            key: this.key,
+            doc: this.doc,
         })
     }
 
@@ -546,10 +586,11 @@ class HtmlElement {
             method: "html",
             function: "dom_querySelector",
             key: this.key,
-            query: query
+            query: query,
+            doc: this.doc,
         })
-        if(!k) return null;
-        return new HtmlElement(k);
+        if(k == null) return null;
+        return new HtmlElement(k, this.doc);
     }
 
     /**
@@ -562,9 +603,10 @@ class HtmlElement {
             method: "html",
             function: "dom_querySelectorAll",
             key: this.key,
-            query: query
+            query: query,
+            doc: this.doc,
         })
-        return ks.map(k => new HtmlElement(k));
+        return ks.map(k => new HtmlElement(k, this.doc));
     }
 
     /**
@@ -575,9 +617,10 @@ class HtmlElement {
         let ks = sendMessage({
             method: "html",
             function: "getChildren",
-            key: this.key
+            key: this.key,
+            doc: this.doc,
         })
-        return ks.map(k => new HtmlElement(k));
+        return ks.map(k => new HtmlElement(k, this.doc));
     }
 
     /**
@@ -588,9 +631,10 @@ class HtmlElement {
         let ks = sendMessage({
             method: "html",
             function: "getNodes",
-            key: this.key
+            key: this.key,
+            doc: this.doc,
         })
-        return ks.map(k => new HtmlNode(k));
+        return ks.map(k => new HtmlNode(k, this.doc));
     }
 
     /**
@@ -601,7 +645,8 @@ class HtmlElement {
         return sendMessage({
             method: "html",
             function: "getInnerHTML",
-            key: this.key
+            key: this.key,
+            doc: this.doc,
         })
     }
 
@@ -613,18 +658,61 @@ class HtmlElement {
         let k = sendMessage({
             method: "html",
             function: "getParent",
-            key: this.key
+            key: this.key,
+            doc: this.doc,
         })
-        if(!k) return null;
+        if(k == null) return null;
         return new HtmlElement(k);
+    }
+
+    /**
+     * Get class names of the element.
+     * @returns {string[]} An array of class names.
+     */
+    get classNames() {
+        return sendMessage({
+            method: "html",
+            function: "getClassNames",
+            key: this.key,
+            doc: this.doc,
+        })
+    }
+
+    /**
+     * Get id of the element.
+     * @returns {string | null} The id of the element.
+     */
+    get id() {
+        return sendMessage({
+            method: "html",
+            function: "getId",
+            key: this.key,
+            doc: this.doc,
+        })
+    }
+
+    /**
+     * Get local name of the element.
+     * @returns {string} The tag name of the element.
+     */
+    get localName() {
+        return sendMessage({
+            method: "html",
+            function: "getLocalName",
+            key: this.key,
+            doc: this.doc,
+        })
     }
 }
 
 class HtmlNode {
     key = 0;
 
-    constructor(k) {
+    doc = 0;
+
+    constructor(k, doc) {
         this.key = k;
+        this.doc = doc;
     }
 
     /**
@@ -635,7 +723,8 @@ class HtmlNode {
         return sendMessage({
             method: "html",
             function: "node_text",
-            key: this.key
+            key: this.key,
+            doc: this.doc,
         })
     }
 
@@ -647,7 +736,8 @@ class HtmlNode {
         return sendMessage({
             method: "html",
             function: "node_type",
-            key: this.key
+            key: this.key,
+            doc: this.doc,
         })
     }
 
@@ -659,10 +749,11 @@ class HtmlNode {
         let k = sendMessage({
             method: "html",
             function: "node_toElement",
-            key: this.key
+            key: this.key,
+            doc: this.doc,
         })
-        if(!k) return null;
-        return new HtmlElement(k);
+        if(k == null) return null;
+        return new HtmlElement(k, this.doc);
     }
 }
 
@@ -697,9 +788,10 @@ let console = {
  * @param description {string}
  * @param maxPage {number?}
  * @param language {string?}
+ * @param favoriteId {string?} - Only set this field if the comic is from favorites page
  * @constructor
  */
-function Comic({id, title, subtitle, cover, tags, description, maxPage, language}) {
+function Comic({id, title, subtitle, cover, tags, description, maxPage, language, favoriteId}) {
     this.id = id;
     this.title = title;
     this.subtitle = subtitle;
@@ -708,6 +800,7 @@ function Comic({id, title, subtitle, cover, tags, description, maxPage, language
     this.description = description;
     this.maxPage = maxPage;
     this.language = language;
+    this.favoriteId = favoriteId;
 }
 
 /**

@@ -324,9 +324,10 @@ class NewComicSource extends ComicSource {
          * @param comicId {string}
          * @param folderId {string}
          * @param isAdding {boolean} - true for add, false for delete
+         * @param favoriteId {string?} - [Comic.favoriteId]
          * @returns {Promise<any>} - return any value to indicate success
          */
-        addOrDelFavorite: async (comicId, folderId, isAdding) => {
+        addOrDelFavorite: async (comicId, folderId, isAdding, favoriteId) => {
             /*
             ```
             let res = await Network.post('...')
@@ -359,6 +360,38 @@ class NewComicSource extends ComicSource {
                 folders: folders,
                 favorited: data.favorited
             }
+            ```
+            */
+        },
+        /**
+         * add a folder
+         * @param name {string}
+         * @returns {Promise<any>} - return any value to indicate success
+         */
+        addFolder: async (name) => {
+            /*
+            ```
+            let res = await Network.post('...')
+            if (res.status === 401) {
+                throw `Login expired`;
+            }
+            return 'ok'
+            ```
+            */
+        },
+        /**
+         * delete a folder
+         * @param folderId {string}
+         * @returns {Promise<void>} - return any value to indicate success
+         */
+        deleteFolder: async (folderId) => {
+            /*
+            ```
+            let res = await Network.delete('...')
+            if (res.status === 401) {
+                throw `Login expired`;
+            }
+            return 'ok'
             ```
             */
         },
