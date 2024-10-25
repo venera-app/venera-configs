@@ -195,6 +195,12 @@ class Ehentai extends ComicSource {
             Network.setCookies('https://exhentai.org', cookies)
             throw `Exception: empty data\nYou may not have permission to access this page.`
         }
+        if(res.body[0] !== '<') {
+            if(res.body.includes("IP")) {
+                throw "Your IP address has been banned"
+            }
+            throw "Failed to load page"
+        }
         let document = new HtmlDocument(res.body);
         let galleries = [];
 
