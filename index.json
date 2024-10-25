@@ -40,5 +40,11 @@
         "fileName": "wnacg.js",
         "key": "wnacg",
         "version": "1.0.0"
+    },
+    {
+        "name": "ehentai",
+        "fileName": "ehentai.js",
+        "key": "ehentai",
+        "version": "1.0.0"
     }
 ]

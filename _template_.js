@@ -24,7 +24,7 @@ class NewComicSource extends ComicSource {
     // [Optional] account related
     account = {
         /**
-         * login, return any value to indicate success
+         * [Optional] login with account and password, return any value to indicate success
          * @param account {string}
          * @param pwd {string}
          * @returns {Promise<any>}
@@ -63,6 +63,35 @@ class NewComicSource extends ComicSource {
              * @returns {boolean} - return true if login success
              */
             checkStatus: (url, title) => {
+
+            },
+            /**
+             * [Optional] Callback when login success
+             */
+            onLoginSuccess: () => {
+
+            },
+        },
+
+        /**
+         * [Optional] login with cookies
+         * Note: If `this.account.login` is implemented, this will be ignored
+         */
+        loginWithCookies: {
+            fields: [
+                "ipb_member_id",
+                "ipb_pass_hash",
+                "igneous",
+                "star",
+            ],
+            /**
+             * Validate cookies, return false if cookies are invalid.
+             *
+             * Use `Network.setCookies` to set cookies before validate.
+             * @param values {string[]} - same order as `fields`
+             * @returns {Promise<boolean>}
+             */
+            validate: async (values) => {
 
             },
         },
@@ -132,7 +161,15 @@ class NewComicSource extends ComicSource {
                 return comics
                 ```
                 */
-            }
+            },
+
+            /**
+             * Only use for `multiPageComicList` type.
+             * `loadNext` would be ignored if `load` function is implemented.
+             * @param next {string | null} - next page token, null if first page
+             * @returns {Promise<{comics: Comic[], next: string?}>} - next is null if no next page.
+             */
+            loadNext(next) {},
         }
     ]
 
@@ -266,7 +303,7 @@ class NewComicSource extends ComicSource {
         /**
          * load search result
          * @param keyword {string}
-         * @param options {string[]} - options from optionList
+         * @param options {(string | null)[]} - options from optionList
          * @param page {number}
          * @returns {Promise<{comics: Comic[], maxPage: number}>}
          */
@@ -300,13 +337,21 @@ class NewComicSource extends ComicSource {
         // provide options for search
         optionList: [
             {
+                // [Optional] default is `select`
+                // type: select, multi-select, dropdown
+                // For select, there is only one selected value
+                // For multi-select, there are multiple selected values or none. The `load` function will receive a json string which is an array of selected values
+                // For dropdown, there is one selected value at most. If no selected value, the `load` function will receive a null
+                type: "select",
                 // For a single option, use `-` to separate the value and text, left for value, right for text
                 options: [
                     "0-time",
                     "1-popular"
                 ],
                 // option label
-                label: "sort"
+                label: "sort",
+                // default selected options
+                default: null,
             }
         ],
 
@@ -427,7 +472,16 @@ class NewComicSource extends ComicSource {
             }
             ```
             */
-        }
+        },
+        /**
+         * load comics with next page token
+         * @param next {string | null} - next page token, null for first page
+         * @param folder {string}
+         * @returns {Promise<{comics: Comic[], next: string?}>}
+         */
+        loadNext: async (next, folder) => {
+
+        },
     }
 
     /// single comic related
@@ -442,6 +496,10 @@ class NewComicSource extends ComicSource {
         },
         /**
          * [Optional] load thumbnails of a comic
+         *
+         * To render a part of an image as thumbnail, return `${url}@x=${start}-${end}&y=${start}-${end}`
+         * - If width is not provided, use full width
+         * - If height is not provided, use full height
          * @param id {string}
          * @param next {string?} - next page token, null for first page
          * @returns {Promise<{thumbnails: string[], next: string?}>} - `next` is next page token, null for no more
@@ -458,6 +516,17 @@ class NewComicSource extends ComicSource {
             ```
             */
         },
+
+        /**
+         * rate a comic
+         * @param id
+         * @param rating {number} - [0-10] app use 5 stars, 1 rating = 0.5 stars,
+         * @returns {Promise<any>} - return any value to indicate success
+         */
+        starRating: async (id, rating) => {
+
+        },
+
         /**
          * load images of a chapter
          * @param comicId {string}
@@ -479,7 +548,7 @@ class NewComicSource extends ComicSource {
          * @param url
          * @param comicId
          * @param epId
-         * @returns {{}}
+         * @returns {{} | Promise<{}>}
          */
         onImageLoad: (url, comicId, epId) => {
             /*
