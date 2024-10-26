@@ -47,6 +47,18 @@ class Picacg extends ComicSource {
     }
 
     account = {
+        reLogin: async () => {
+            if(!this.isLogged) {
+                throw new Error('Not logged in');
+            }
+            let account = this.loadData('account')
+            if(Array.isArray(account)) {
+                throw new Error('Failed to reLogin: Invalid account data');
+            }
+            let username = account[0]
+            let password = account[1]
+            return await this.account.login(username, password)
+        },
         login: async (account, pwd) => {
             let res = await Network.post(
                 `${this.api}/auth/sign-in`,
@@ -102,6 +114,13 @@ class Picacg extends ComicSource {
                     `${this.api}/comics/random`,
                     this.buildHeaders('GET', 'comics/random', this.loadData('token'))
                 )
+                if(res.status === 401) {
+                    await this.account.reLogin()
+                    res = await Network.get(
+                        `${this.api}/comics/random`,
+                        this.buildHeaders('GET', 'comics/random', this.loadData('token'))
+                    )
+                }
                 if (res.status !== 200) {
                     throw 'Invalid status code: ' + res.status
                 }
@@ -126,6 +145,13 @@ class Picacg extends ComicSource {
                     `${this.api}/comics?page=${page}&s=dd`,
                     this.buildHeaders('GET', `comics?page=${page}&s=dd`, this.loadData('token'))
                 )
+                if(res.status === 401) {
+                    await this.account.reLogin()
+                    res = await Network.get(
+                        `${this.api}/comics?page=${page}&s=dd`,
+                        this.buildHeaders('GET', `comics?page=${page}&s=dd`, this.loadData('token'))
+                    )
+                }
                 if (res.status !== 200) {
                     throw 'Invalid status code: ' + res.status
                 }
@@ -206,6 +232,13 @@ class Picacg extends ComicSource {
                 `${this.api}/comics?page=${page}&${type}=${encodeURIComponent(category)}&s=${options[0]}`,
                 this.buildHeaders('GET', `comics?page=${page}&${type}=${encodeURIComponent(category)}&s=${options[0]}`, this.loadData('token'))
             )
+            if(res.status === 401) {
+                await this.account.reLogin()
+                res = await Network.get(
+                    `${this.api}/comics?page=${page}&${type}=${encodeURIComponent(category)}&s=${options[0]}`,
+                    this.buildHeaders('GET', `comics?page=${page}&${type}=${encodeURIComponent(category)}&s=${options[0]}`, this.loadData('token'))
+                )
+            }
             if (res.status !== 200) {
                 throw 'Invalid status code: ' + res.status
             }
@@ -241,6 +274,13 @@ class Picacg extends ComicSource {
                     `${this.api}/comics/leaderboard?tt=${option}&ct=VC`,
                     this.buildHeaders('GET', `comics/leaderboard?tt=${option}&ct=VC`, this.loadData('token'))
                 )
+                if(res.status === 401) {
+                    await this.account.reLogin()
+                    res = await Network.get(
+                        `${this.api}/comics/leaderboard?tt=${option}&ct=VC`,
+                        this.buildHeaders('GET', `comics/leaderboard?tt=${option}&ct=VC`, this.loadData('token'))
+                    )
+                }
                 if (res.status !== 200) {
                     throw 'Invalid status code: ' + res.status
                 }
@@ -268,6 +308,17 @@ class Picacg extends ComicSource {
                     sort: options[0],
                 })
             )
+            if(res.status === 401) {
+                await this.account.reLogin()
+                res = await Network.post(
+                    `${this.api}/comics/advanced-search?page=${page}`,
+                    this.buildHeaders('POST', `comics/advanced-search?page=${page}`, this.loadData('token')),
+                    JSON.stringify({
+                        keyword: keyword,
+                        sort: options[0],
+                    })
+                )
+            }
             if (res.status !== 200) {
                 throw 'Invalid status code: ' + res.status
             }
@@ -304,6 +355,9 @@ class Picacg extends ComicSource {
                 this.buildHeaders('POST', `comics/${comicId}/favourite`, this.loadData('token')),
                 '{}'
             )
+            if(res.status === 401) {
+                throw `Login expired`
+            }
             if(res.status !== 200) {
                 throw 'Invalid status code: ' + res.status
             }
@@ -316,6 +370,9 @@ class Picacg extends ComicSource {
                 `${this.api}/users/favourite?page=${page}&s=${sort}`,
                 this.buildHeaders('GET', `users/favourite?page=${page}&s=${sort}`, this.loadData('token'))
             )
+            if(res.status === 401) {
+                throw `Login expired`
+            }
             if (res.status !== 200) {
                 throw 'Invalid status code: ' + res.status
             }
