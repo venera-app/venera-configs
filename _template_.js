@@ -334,6 +334,18 @@ class NewComicSource extends ComicSource {
             */
         },
 
+        /**
+         * load search result with next page token.
+         * The field will be ignored if `load` function is implemented.
+         * @param keyword {string}
+         * @param options {(string)[]} - options from optionList
+         * @param next {string | null}
+         * @returns {Promise<{comics: Comic[], maxPage: number}>}
+         */
+        loadNext: async (keyword, options, next) => {
+
+        },
+
         // provide options for search
         optionList: [
             {

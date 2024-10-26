@@ -397,13 +397,13 @@ class Ehentai extends ComicSource {
     /// search related
     search = {
         /**
-         * load search result
+         * load search result with next page token
          * @param keyword {string}
          * @param options {(string)[]} - options from optionList
-         * @param page {number}
+         * @param next {string | null}
          * @returns {Promise<{comics: Comic[], maxPage: number}>}
          */
-        load: async (keyword, options, page) => {
+        loadNext: async (keyword, options, next) => {
             let category = JSON.parse(options[0]);
             let stars = options[1];
             let language = options[2];
@@ -421,7 +421,7 @@ class Ehentai extends ComicSource {
             if(stars) {
                 url += `&f_srdd=${stars}`
             }
-            return this.getGalleries(url, false);
+            return this.getGalleries(next ?? url, false);
         },
 
         // provide options for search
