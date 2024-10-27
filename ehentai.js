@@ -100,6 +100,7 @@ class Ehentai extends ComicSource {
                         domain: ".exhentai.org"
                     }))
                 }
+                Network.deleteCookies('https://e-hentai.org')
                 Network.setCookies('https://e-hentai.org', cookies)
                 let res = await Network.get(
                     "https://forums.e-hentai.org/",
