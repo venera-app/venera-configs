@@ -655,6 +655,7 @@ class Ehentai extends ComicSource {
                 isFavorite: isFavorited,
                 uploader: uploader,
                 uploadTime: time,
+                url: id,
             })
 
             comic.folder = folder
