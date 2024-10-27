@@ -385,7 +385,7 @@ class Ehentai extends ComicSource {
              * @returns {Promise<{comics: Comic[], maxPage: number}>}
              */
             load: async (option, page) => {
-                let res = await this.getGalleries(`${this.baseUrl}/toplist.php?tl=${option}&=${page}`, true);
+                let res = await this.getGalleries(`https://e-hentai.org/toplist.php?tl=${option}&=${page}`, true);
                 return {
                     comics: res.comics,
                     maxPage: 200,
