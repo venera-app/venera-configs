@@ -81,6 +81,12 @@ class Ehentai extends ComicSource {
              * @returns {Promise<boolean>}
              */
             validate: async (values) => {
+                if (values.length !== 4) {
+                    return false
+                }
+                if (values[0].length === 0 || values[1].length === 0) {
+                    return false
+                }
                 let cookies = []
                 for (let i = 0; i < values.length; i++) {
                     cookies.push(new Cookie({
@@ -94,13 +100,8 @@ class Ehentai extends ComicSource {
                         domain: ".exhentai.org"
                     }))
                 }
+                Network.deleteCookies('https://e-hentai.org')
                 Network.setCookies('https://e-hentai.org', cookies)
-                if (cookies.length !== 4) {
-                    return false
-                }
-                if (cookies[0].length === 0 || cookies[1].length === 0) {
-                    return false
-                }
                 let res = await Network.get(
                     "https://forums.e-hentai.org/",
                     {
