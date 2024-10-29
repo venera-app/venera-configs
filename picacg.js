@@ -404,28 +404,31 @@ class Picacg extends ComicSource {
                 return data.data.comic
             }
             let epsLoader = async () => {
-                let eps = new Map()
+                let eps = new Map();
                 let i = 1;
                 let j = 1;
-                while(true) {
+                let allEps = [];
+                while (true) {
                     let res = await Network.get(
                         `${this.api}/comics/${id}/eps?page=${i}`,
                         this.buildHeaders('GET', `comics/${id}/eps?page=${i}`, this.loadData('token'))
-                    )
+                    );
                     if (res.status !== 200) {
-                        throw 'Invalid status code: ' + res.status
+                        throw 'Invalid status code: ' + res.status;
                     }
-                    let data = JSON.parse(res.body)
-                    data.data.eps.docs.forEach(e => {
-                        eps.set(j.toString(), e.title)
-                        j++
-                    })
-                    if(data.data.eps.pages === i) {
-                        break
+                    let data = JSON.parse(res.body);
+                    allEps.push(...data.data.eps.docs);
+                    if (data.data.eps.pages === i) {
+                        break;
                     }
-                    i++
+                    i++;
                 }
-                return eps
+                allEps.sort((a, b) => a.order - b.order);
+                allEps.forEach(e => {
+                    eps.set(j.toString(), e.title);
+                    j++;
+                });
+                return eps;
             }
             let relatedLoader = async () => {
                 let res = await Network.get(
