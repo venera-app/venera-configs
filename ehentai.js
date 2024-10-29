@@ -710,10 +710,15 @@ class Ehentai extends ComicSource {
                     }
                     images.push(url)
                 }
-                for(let e of document.querySelectorAll("div.gt200 > a > div")) {
+                for(let e of document.querySelectorAll("div.gt200 > a > div")
+                    .map(e => e.children.length === 0 ? e : e.children[0])) {
                     let style = e.attributes['style'];
                     let r = style.split("background:transparent url(")[1]
                     let url = r.split(")")[0]
+                    if(r.includes('px')) {
+                        let position = Number(r.split(') -')[1].split('px')[0])
+                        url += `@x=${position}-${position + 100}`
+                    }
                     images.push(url)
                 }
             }
