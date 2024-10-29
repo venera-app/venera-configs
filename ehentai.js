@@ -228,7 +228,8 @@ class Ehentai extends ComicSource {
                 for (let node of item.children[2 + t].children[0].children[1].children) {
                     let tag = node.attributes["title"]
                     if (tag.startsWith("language:")) {
-                        language = tag.split(":")[1].trim()
+                        let l = tag.split(":")[1].trim()
+                        language = l === 'translated' ? language : l
                         continue
                     }
                     tags.push(tag)
@@ -283,7 +284,7 @@ class Ehentai extends ComicSource {
                 let link = item.querySelector("td.gl1e > div > a")?.attributes["href"] ?? "";
                 let tags = item.querySelectorAll("div.gtl").map((e) => e.attributes["title"] ?? "");
                 let pages = Number(item.querySelectorAll("td.gl2e > div > div.gl3e > div").find((element) => element.text.includes("pages"))?.text.match(/\d+/)[0] ?? "");
-                let language = tags.find((e) => e.startsWith("language:"))?.split(":")[1].trim() ?? null;
+                let language = tags.find((e) => e.startsWith("language:") && !e.includes('translated'))?.split(":")[1].trim() ?? null;
                 galleries.push(new Comic({
                     id: link,
                     title: title,
@@ -699,7 +700,17 @@ class Ehentai extends ComicSource {
             });
             images.push(...document.querySelectorAll("div.gdtl > a > img").map((e) => e.attributes["src"]))
             if(images.length === 0) {
-                for(let e of document.querySelectorAll("div#gdt > a > div")) {
+                for(let e of document.querySelectorAll("div.gt100 > a > div")) {
+                    let style = e.attributes['style'];
+                    let r = style.split("background:transparent url(")[1]
+                    let url = r.split(")")[0]
+                    if(r.includes('px')) {
+                        let position = Number(r.split(') -')[1].split('px')[0])
+                        url += `@x=${position}-${position + 100}`
+                    }
+                    images.push(url)
+                }
+                for(let e of document.querySelectorAll("div.gt200 > a > div").map((e) => e.children[0])) {
                     let style = e.attributes['style'];
                     let r = style.split("background:transparent url(")[1]
                     let url = r.split(")")[0]
