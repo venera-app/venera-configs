@@ -308,7 +308,16 @@ class Nhentai extends ComicSource {
             let title = document.querySelector("h1.title").text;
             let subtitle = document.querySelector("h2.subtitle")?.text;
             let tags = new Map();
-            let uploadTime = document.querySelector("time")?.attributes["datetime"]
+            let uploadTime = new Date(Date.parse(document.querySelector("time")?.attributes["datetime"]))
+            let formatTime = (time) => {
+                const year = time.getFullYear()
+                const month = time.getMonth() + 1
+                const day = time.getDate()
+                const hour = time.getHours()
+                const minute = time.getMinutes()
+                return `${year}-${month}-${day} ${hour}:${minute}`
+            }
+            uploadTime = formatTime(uploadTime)
             for (let field of document.querySelectorAll("div.tag-container")) {
                 let name = field.nodes[0].text.trim().replaceAll(':', '')
                 if(name === "Uploaded") {
