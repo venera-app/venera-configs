@@ -97,7 +97,7 @@ class Picacg extends ComicSource {
             subTitle: comic.author,
             cover: comic.thumb.fileServer + '/static/' + comic.thumb.path,
             tags: tags,
-            description: `${comic.totalLikes} likes`,
+            description: `${comic.totalLikes ?? comic.likesCount} likes`,
             maxPage: comic.pagesCount,
         })
     }
