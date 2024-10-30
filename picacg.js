@@ -52,7 +52,7 @@ class Picacg extends ComicSource {
                 throw new Error('Not logged in');
             }
             let account = this.loadData('account')
-            if(Array.isArray(account)) {
+            if(!Array.isArray(account)) {
                 throw new Error('Failed to reLogin: Invalid account data');
             }
             let username = account[0]
