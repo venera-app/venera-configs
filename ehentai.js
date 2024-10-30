@@ -263,6 +263,7 @@ class Ehentai extends ComicSource {
                 galleries.push(new Comic({
                     id: link,
                     title: title,
+                    cover: coverPath,
                     description: time,
                     stars: stars,
                     maxPage: pages,
@@ -282,7 +283,7 @@ class Ehentai extends ComicSource {
                 let coverPath = item.querySelector("td.gl1e > div > a > img")?.attributes["src"] ?? "";
                 let stars = this.getStarsFromPosition(item.querySelector("td.gl2e > div > div.gl3e > div.ir")?.attributes["style"] ?? "");
                 let link = item.querySelector("td.gl1e > div > a")?.attributes["href"] ?? "";
-                let tags = item.querySelectorAll("div.gtl").map((e) => e.attributes["title"] ?? "");
+                let tags = item.querySelectorAll('div.gt, div.gtl').map((e) => e.attributes["title"] ?? "");
                 let pages = Number(item.querySelectorAll("td.gl2e > div > div.gl3e > div").find((element) => element.text.includes("pages"))?.text.match(/\d+/)[0] ?? "");
                 let language = tags.find((e) => e.startsWith("language:") && !e.includes('translated'))?.split(":")[1].trim() ?? null;
                 galleries.push(new Comic({
@@ -308,7 +309,10 @@ class Ehentai extends ComicSource {
                 let type = item.querySelector("td.gl1m > div.cs")?.text ?? "Unknown";
                 let time = item.querySelectorAll("td.gl2m > div").find((element) => !isNaN(Date.parse(element.text)))?.text ?? "Unknown";
                 let uploader = item.querySelector("td.gl5m > div > a")?.text ?? "Unknown";
-                let coverPath = item.querySelector("td.gl2m > div > div > img")?.attributes["src"] ?? "";
+                let coverPath = item.querySelector("td.gl2m > div > div > img")?.attributes["src"];
+                if (coverPath[0] === 'd') {
+                    coverPath = item.querySelector("td.gl2m > div > div > img")?.attributes["data-src"];
+                }
                 let stars = this.getStarsFromPosition(item.querySelector("td.gl4m > div.ir")?.attributes["style"] ?? "");
                 let link = item.querySelector("td.gl3m > a")?.attributes["href"] ?? "";
                 galleries.push(new Comic({
