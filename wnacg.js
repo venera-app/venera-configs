@@ -7,7 +7,7 @@ class Wnacg extends ComicSource {
     // unique id of the source
     key = "wnacg"
 
-    version = "1.0.0"
+    version = "1.0.1"
 
     minAppVersion = "1.0.0"
 
@@ -104,7 +104,7 @@ class Wnacg extends ComicSource {
                 }
                 let result = []
                 for (let i = 0; i < titleBlocks.length; i++) {
-                    let title = titleBlocks[i].querySelector("div.title_h2").text.replaceAll('\n', '').trim()
+                    let title = titleBlocks[i].querySelector("div.title_h2").text.replaceAll(/\s+/g, '')
                     let link = titleBlocks[i].querySelector("div.r > a").attributes["href"]
                     let comics = []
                     let comicBlock = comicBlocks[i]
@@ -115,7 +115,7 @@ class Wnacg extends ComicSource {
                     result.push({
                         title: title,
                         comics: comics,
-                        viewMore: `category:${link}`
+                        viewMore: `category:${title}@${link}`
                     })
                 }
                 document.dispose()
