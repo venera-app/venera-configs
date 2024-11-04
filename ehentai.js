@@ -549,14 +549,18 @@ class Ehentai extends ComicSource {
             let document = new HtmlDocument(res.body);
             let folders = new Map();
             folders.set("-1", "All")
+            let sum = 0;
             for (let item of document.querySelectorAll("div.fp")) {
+                if (item.text === "Show All Favorites") continue;
                 let name = item.children[2]?.text ?? `Favorite ${folders.size}`
                 let length = item.children[0]?.text;
                 if(length) {
                     name += ` (${length})`
+                    sum += +length
                 }
                 folders.set((folders.size-1).toString(), name)
             }
+            folders.set("-1", `All (${sum})`)
             document.dispose()
             let favorited = []
             if(comicId) {
