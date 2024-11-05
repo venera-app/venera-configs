@@ -630,7 +630,7 @@ class Ehentai extends ComicSource {
             }
 
             let coverPath = document.querySelector("div#gleft > div#gd1 > div").attributes["style"];
-            coverPath = RegExp("https?://([-a-zA-Z0-9.]+(/\\S*)?\\.(?:jpg|jpeg|gif|png))").exec(coverPath)[0];
+            coverPath = RegExp("https?://([-a-zA-Z0-9.]+(/\\S*)?\\.(?:jpg|jpeg|gif|png|webp))").exec(coverPath)[0];
 
             let uploader = document.getElementById("gdn")?.children[0]?.text
 
@@ -701,32 +701,35 @@ class Ehentai extends ComicSource {
             let document = new HtmlDocument(res.body);
             let images = document.querySelectorAll("div.gdtm > div").map((e) => {
                 let style = e.attributes['style'];
+                let width = Number(style.split('width:')[1].split('px')[0])
                 let r = style.split("background:transparent url(")[1]
                 let url = r.split(")")[0]
                 let position = Number(r.split(') -')[1].split('px')[0])
-                return url + `@x=${position}-${position + 100}`
+                return url + `@x=${position}-${position + width}`
             });
             images.push(...document.querySelectorAll("div.gdtl > a > img").map((e) => e.attributes["src"]))
             if(images.length === 0) {
                 for(let e of document.querySelectorAll("div.gt100 > a > div")
                     .map(e => e.children.length === 0 ? e : e.children[0])) {
                     let style = e.attributes['style'];
+                    let width = Number(style.split('width:')[1].split('px')[0])
                     let r = style.split("background:transparent url(")[1]
                     let url = r.split(")")[0]
                     if(r.includes('px')) {
                         let position = Number(r.split(') -')[1].split('px')[0])
-                        url += `@x=${position}-${position + 100}`
+                        url += `@x=${position}-${position + width}`
                     }
                     images.push(url)
                 }
                 for(let e of document.querySelectorAll("div.gt200 > a > div")
                     .map(e => e.children.length === 0 ? e : e.children[0])) {
                     let style = e.attributes['style'];
+                    let width = Number(style.split('width:')[1].split('px')[0])
                     let r = style.split("background:transparent url(")[1]
                     let url = r.split(")")[0]
                     if(r.includes('px')) {
                         let position = Number(r.split(') -')[1].split('px')[0])
-                        url += `@x=${position}-${position + 100}`
+                        url += `@x=${position}-${position + width}`
                     }
                     images.push(url)
                 }
