@@ -579,7 +579,16 @@ class NewComicSource extends ComicSource {
                 // * @returns {ArrayBuffer}
                 onResponse: (data) => {
                     return data
-                }
+                },
+                // {string | null} a js script. The script will be executed in a new Isolate.
+                // The script should contain a function named `modifyImage`, which receives an [Image] as the only argument, and returns an [Image].
+                // Only [Image] api is available in the script.
+                // Do not use this field if it is not necessary.
+                modifyImage: `
+                    function modifyImage(buffer) {
+
+                    }
+                `,
             }
             ```
             */
@@ -606,7 +615,16 @@ class NewComicSource extends ComicSource {
                 // modify response data
                 onResponse: (data) => {
                     return data
-                }
+                },
+                // {string | null} a js script. The script will be executed in a new Isolate.
+                // The script should contain a function named `modifyImage`, which receives an [Image] as the only argument, and returns an [Image].
+                // Only [Image] api is available in the script.
+                // Do not use this field if it is not necessary.
+                modifyImage: `
+                    function modifyImage(image) {
+
+                    }
+                `,
             }
             ```
             */
