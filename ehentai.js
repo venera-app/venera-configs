@@ -1058,9 +1058,10 @@ class Ehentai extends ComicSource {
                 if(url.includes('?')) {
                     url = url.split('?')[0]
                 }
-                let uri = new URL(url)
-                if(uri.pathname.startsWith('/g/')) {
-                    return url
+                let reg = RegExp("https?://(e-|ex)hentai.org/g/(\\d+)/(\\w+)/")
+                let match = reg.exec(url)
+                if(match) {
+                    return `https://e-hentai.org/g/${match[2]}/${match[3]}/`
                 }
                 return null
             }
