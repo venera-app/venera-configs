@@ -5,7 +5,7 @@ class Baozi extends ComicSource {
     // 唯一标识符
     key = "baozi"
 
-    version = "1.0.0"
+    version = "1.0.1"
 
     minAppVersion = "1.0.0"
 
@@ -30,7 +30,7 @@ class Baozi extends ComicSource {
             let json = JSON.parse(res.body)
             let token = json.data
             Network.setCookies(this.baseUrl, [
-                Cookie('TSID', token, '.baozimh.com'),
+                new Cookie({name: 'TSID', value: token, domain: '.baozimh.com'}),
             ])
             return 'ok'
         },
