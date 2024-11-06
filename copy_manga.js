@@ -4,7 +4,7 @@ class CopyManga extends ComicSource {
 
     key = "copy_manga"
 
-    version = "1.0.0"
+    version = "1.0.1"
 
     minAppVersion = "1.0.0"
 
@@ -40,7 +40,7 @@ class CopyManga extends ComicSource {
         /// login func
         login: async (account, pwd) => {
             let salt = randomInt(1000, 9999)
-            let base64 = Convert.encodeBase64(`${pwd}-${salt}`)
+            let base64 = Convert.encodeBase64(Convert.encodeUtf8(`${pwd}-${salt}`))
             let res = await Network.post(
                 "https://api.copymanga.tv/api/v3/login?platform=3",
                 {
