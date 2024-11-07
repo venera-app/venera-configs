@@ -597,6 +597,9 @@ class Ehentai extends ComicSource {
             if (res.status !== 200) {
                 throw `Invalid status code: ${res.status}`
             }
+            if(res.body.trim().length === 0) {
+                throw `Exception: empty data\nYou may not have permission to access this page.`
+            }
             let document = new HtmlDocument(res.body);
 
             let tags = new Map();
