@@ -606,7 +606,12 @@ class Ehentai extends ComicSource {
             for(let tr of document.querySelectorAll("div#taglist > table > tbody > tr")) {
                 tags.set(
                     tr.children[0].text.substring(0, tr.children[0].text.length - 1),
-                    tr.children[1].children.map((e) => e.children[0].text)
+                    tr.children[1].children.map((e) =>
+                        e.children[0]
+                        .attributes["onclick"]
+                        .split(":")[1]
+                        .split("'")[0]
+                    )
                 )
             }
 
