@@ -697,6 +697,7 @@ class Ehentai extends ComicSource {
             let res = await Network.get(url, {
                 'cache-time': 'long',
                 'prevent-parallel': 'true',
+                'cookie': 'nw=1'
             });
             if(res.status !== 200) {
                 throw `Invalid status code: ${res.status}`
@@ -932,7 +933,9 @@ class Ehentai extends ComicSource {
          * @returns {Promise<{comments: Comment[], maxPage: number?}>}
          */
         loadComments: async (comicId, subId, page, replyTo) => {
-            let res = await Network.get(`${comicId}?hc=1`, {});
+            let res = await Network.get(`${comicId}?hc=1`, {
+                'cookie': 'nw=1'
+            });
             if(res.status !== 200) {
                 throw `Invalid status code: ${res.status}`
             }
