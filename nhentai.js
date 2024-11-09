@@ -7,7 +7,7 @@ class Nhentai extends ComicSource {
     // unique id of the source
     key = "nhentai"
 
-    version = "1.0.0"
+    version = "1.0.1"
 
     minAppVersion = "1.0.0"
 
@@ -385,8 +385,19 @@ class Nhentai extends ComicSource {
             let mediaId = data.media_id
             let images = []
             for (let image of data.images.pages) {
-                let ext = image.t === "j" ? "jpg" : (image.t === "p" ? "png" : "gif")
-                images.push(`https://i7.nhentai.net/galleries/${mediaId}/${images.length + 1}.${ext}`)
+                let ext = 'jpg'
+                switch(image.t) {
+                    case 'p':
+                        ext = 'png'
+                        break
+                    case 'g':
+                        ext = 'gif'
+                        break
+                    case 'w':
+                        ext = 'webp'
+                        break
+                }
+                images.push(`https://i3.nhentai.net/galleries/${mediaId}/${images.length + 1}.${ext}`)
             }
             return {
                 images: images,
