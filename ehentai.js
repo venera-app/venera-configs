@@ -7,7 +7,7 @@ class Ehentai extends ComicSource {
     // unique id of the source
     key = "ehentai"
 
-    version = "1.0.5"
+    version = "1.0.6"
 
     minAppVersion = "1.0.0"
 
@@ -837,15 +837,14 @@ class Ehentai extends ComicSource {
          * @param image
          * @param comicId
          * @param epId
+         * @param nl
          * @returns {{}}
          */
-        onImageLoad: async (image, comicId, epId) => {
+        onImageLoad: async (image, comicId, epId, nl) => {
             let first = await this.comic.loadThumbnails(comicId)
             console.log(first)
             let key = await this.comic.getKey(first.urls[0])
             let page = Number(image)
-
-            console.log(key)
 
             let getImageFromApi = async (nl) => {
                 if(key.mpvkey) {
@@ -904,13 +903,22 @@ class Ehentai extends ComicSource {
                 }
             }
 
-            let res = await getImageFromApi()
+            let res = await getImageFromApi(nl)
+
+            let onLoadFailed = null
+
+            if(res.nl) {
+                onLoadFailed = async () => {
+                    return this.comic.onImageLoad(image, comicId, epId, res.nl)
+                }
+            }
 
             return {
                 url: res.url,
                 headers: {
                     'referer': this.baseUrl,
-                }
+                },
+                onLoadFailed: onLoadFailed,
             }
         },
         /**

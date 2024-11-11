@@ -560,74 +560,20 @@ class NewComicSource extends ComicSource {
          * @param url
          * @param comicId
          * @param epId
-         * @returns {{} | Promise<{}>}
+         * @returns {ImageLoadingConfig | Promise<ImageLoadingConfig>}
          */
         onImageLoad: (url, comicId, epId) => {
-            /*
-            ```
-            return {
-                url: `${url}?id=comicId`,
-                // http method
-                method: 'GET',
-                // any
-                data: null,
-                headers: {
-                    'user-agent': 'pica_comic/v3.1.0',
-                },
-                // * modify response data
-                // * @param data {ArrayBuffer}
-                // * @returns {ArrayBuffer}
-                onResponse: (data) => {
-                    return data
-                },
-                // {string | null} a js script. The script will be executed in a new Isolate.
-                // The script should contain a function named `modifyImage`, which receives an [Image] as the only argument, and returns an [Image].
-                // Only [Image] api is available in the script.
-                // Do not use this field if it is not necessary.
-                modifyImage: `
-                    function modifyImage(buffer) {
-
-                    }
-                `,
-            }
-            ```
-            */
-
             return {}
         },
         /**
          * [Optional] provide configs for a thumbnail loading
          * @param url {string}
-         * @returns {{}}
+         * @returns {ImageLoadingConfig | Promise<ImageLoadingConfig>}
+         *
+         * `ImageLoadingConfig.modifyImage` and `ImageLoadingConfig.onLoadFailed` will be ignored.
+         * They are not supported for thumbnails.
          */
         onThumbnailLoad: (url) => {
-            /*
-            ```
-            return {
-                url: `${url}?id=comicId`,
-                // http method
-                method: 'GET',
-                // {any}
-                data: null,
-                headers: {
-                    'user-agent': 'pica_comic/v3.1.0',
-                },
-                // modify response data
-                onResponse: (data) => {
-                    return data
-                },
-                // {string | null} a js script. The script will be executed in a new Isolate.
-                // The script should contain a function named `modifyImage`, which receives an [Image] as the only argument, and returns an [Image].
-                // Only [Image] api is available in the script.
-                // Do not use this field if it is not necessary.
-                modifyImage: `
-                    function modifyImage(image) {
-
-                    }
-                `,
-            }
-            ```
-            */
             return {}
         },
         /**
