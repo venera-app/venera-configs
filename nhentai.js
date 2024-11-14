@@ -214,7 +214,7 @@ class Nhentai extends ComicSource {
         load: async (keyword, options, page) => {
             let sort = options[0] || "popular"
             sort = sort.replaceAll("@", "-")
-            let url = `${this.baseUrl}/search/?q=${keyword}&page=${page}${sort}`
+            let url = `${this.baseUrl}/search/?q=${keyword}&page=${page}&sort=${sort}`
             let res = await Network.get(url, {})
             if(res.status !== 200) {
                 throw "Invalid Status Code: " + res.status
