@@ -7,7 +7,7 @@ class Ehentai extends ComicSource {
     // unique id of the source
     key = "ehentai"
 
-    version = "1.0.6"
+    version = "1.0.7"
 
     minAppVersion = "1.0.0"
 
@@ -392,8 +392,14 @@ class Ehentai extends ComicSource {
              */
             load: async (option, page) => {
                 let res = await this.getGalleries(`https://e-hentai.org/toplist.php?tl=${option}&=${page}`, true);
+                let comics = res.comics
+                if(this.loadSetting('domain') === 'exhentai.org') {
+                    comics.forEach((e) => {
+                        e.id = e.id.replace('e-hentai', 'exhentai')
+                    })
+                }
                 return {
-                    comics: res.comics,
+                    comics: comics,
                     maxPage: 200,
                 }
             }
