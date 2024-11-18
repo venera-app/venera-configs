@@ -7,7 +7,7 @@ class Wnacg extends ComicSource {
     // unique id of the source
     key = "wnacg"
 
-    version = "1.0.1"
+    version = "1.0.2"
 
     minAppVersion = "1.0.0"
 
@@ -342,8 +342,9 @@ class Wnacg extends ComicSource {
             for (let comicElement of comicElements) {
                 comics.push(this.parseComic(comicElement))
             }
-            let total = document.querySelectorAll("p.result > b")[0].text.match(/\d+/)
-            let pages = Math.ceil(Number(total) / 24)
+            let total = document.querySelectorAll("p.result > b")[0].text.replaceAll(',', '')
+            const comicsPerPage = 24
+            let pages = Math.ceil(Number(total) / comicsPerPage)
             document.dispose()
             return {
                 comics: comics,
