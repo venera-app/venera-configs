@@ -587,6 +587,12 @@ class NewComicSource extends ComicSource {
         },
         /**
          * [Optional] load comments
+         *
+         * Since app version 1.0.6, rich text is supported in comments.
+         * Following html tags are supported: ['a', 'b', 'i', 'u', 's', 'br', 'span', 'img'].
+         * span tag supports style attribute, but only support font-weight, font-style, text-decoration.
+         * All images will be placed at the end of the comment.
+         * Auto link detection is enabled, but only http/https links are supported.
          * @param comicId {string}
          * @param subId {string?} - ComicDetails.subId
          * @param page {number}
