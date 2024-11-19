@@ -7,7 +7,7 @@ class Ehentai extends ComicSource {
     // unique id of the source
     key = "ehentai"
 
-    version = "1.0.8"
+    version = "1.0.9"
 
     minAppVersion = "1.0.0"
 
@@ -175,6 +175,17 @@ class Ehentai extends ComicSource {
         return 0.5;
     }
 
+    async onLoadFailed() {
+        let cookies = await Network.getCookies('https://e-hentai.org')
+        cookies.forEach((c) => {
+            c.domain = '.exhentai.org'
+        })
+        cookies.filter((item) => item.name !== 'igneous')
+        Network.deleteCookies('https://exhentai.org')
+        Network.setCookies('https://exhentai.org', cookies)
+        throw `You may not have permission to access this page. Please check your network or try to login again.`
+    }
+
     /**
      *
      * @param url {string}
@@ -183,18 +194,21 @@ class Ehentai extends ComicSource {
      */
     async getGalleries(url, isLeaderBoard) {
         let t = isLeaderBoard ? 1 : 0;
-        let res = await Network.get(url, {});
+        let res
+        try {
+            res = await Network.get(url, {});
+        }
+        catch (e) {
+            if(e.toString().toLowerCase().includes("redirect")) {
+                await this.onLoadFailed()
+            }
+            throw e
+        }
         if (res.status !== 200) {
             throw `Invalid status code: ${res.status}`
         }
         if(res.body.trim().length === 0) {
-            let cookies = await Network.getCookies('https://e-hentai.org')
-            cookies.forEach((c) => {
-                c.domain = '.exhentai.org'
-            })
-            Network.deleteCookies('https://exhentai.org')
-            Network.setCookies('https://exhentai.org', cookies)
-            throw `Exception: empty data\nYou may not have permission to access this page.`
+            await this.onLoadFailed()
         }
         if(res.body[0] !== '<') {
             if(res.body.includes("IP")) {
