@@ -7,7 +7,7 @@ class Ehentai extends ComicSource {
     // unique id of the source
     key = "ehentai"
 
-    version = "1.0.9"
+    version = "1.0.10"
 
     minAppVersion = "1.0.0"
 
@@ -681,6 +681,7 @@ class Ehentai extends ComicSource {
             if(subtitle != null && subtitle.trim() === "") {
                 subtitle = null;
             }
+            let comments = this.comic.parseComments(document)
 
             let comic = new ComicDetails({
                 id: id,
@@ -694,6 +695,7 @@ class Ehentai extends ComicSource {
                 uploader: uploader,
                 uploadTime: time,
                 url: id,
+                comments: comments.comments,
             })
 
             comic.folder = folder
@@ -957,22 +959,7 @@ class Ehentai extends ComicSource {
                 }
             }
         },
-        /**
-         * [Optional] load comments
-         * @param comicId {string}
-         * @param subId {string?} - ComicDetails.subId
-         * @param page {number}
-         * @param replyTo {string?} - commentId to reply, not null when reply to a comment
-         * @returns {Promise<{comments: Comment[], maxPage: number?}>}
-         */
-        loadComments: async (comicId, subId, page, replyTo) => {
-            let res = await Network.get(`${comicId}?hc=1`, {
-                'cookie': 'nw=1'
-            });
-            if(res.status !== 200) {
-                throw `Invalid status code: ${res.status}`
-            }
-            let document = new HtmlDocument(res.body)
+        parseComments: (document) => {
             let comments = []
             for(let c of document.querySelectorAll('div.c1')) {
                 let name = c.querySelector('div.c3 > a').text
@@ -1002,12 +989,30 @@ class Ehentai extends ComicSource {
                 }))
             }
 
-            document.dispose()
-
             return {
                 comments: comments,
                 maxPage: 1
             }
+        },
+        /**
+         * [Optional] load comments
+         * @param comicId {string}
+         * @param subId {string?} - ComicDetails.subId
+         * @param page {number}
+         * @param replyTo {string?} - commentId to reply, not null when reply to a comment
+         * @returns {Promise<{comments: Comment[], maxPage: number?}>}
+         */
+        loadComments: async (comicId, subId, page, replyTo) => {
+            let res = await Network.get(`${comicId}?hc=1`, {
+                'cookie': 'nw=1'
+            });
+            if(res.status !== 200) {
+                throw `Invalid status code: ${res.status}`
+            }
+            let document = new HtmlDocument(res.body)
+            let result = this.comic.parseComments(document)
+            document.dispose()
+            return result
         },
         /**
          * [Optional] send a comment, return any value to indicate success

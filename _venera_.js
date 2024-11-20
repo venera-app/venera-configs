@@ -699,7 +699,7 @@ class HtmlElement {
             doc: this.doc,
         })
         if(k == null) return null;
-        return new HtmlElement(k);
+        return new HtmlElement(k, this.doc);
     }
 
     /**
@@ -850,6 +850,7 @@ let console = {
  * @param id {string}
  * @param title {string}
  * @param subtitle {string}
+ * @param subTitle {string} - equal to subtitle
  * @param cover {string}
  * @param tags {string[]}
  * @param description {string}
@@ -859,10 +860,11 @@ let console = {
  * @param stars {number?} - 0-5, double
  * @constructor
  */
-function Comic({id, title, subtitle, cover, tags, description, maxPage, language, favoriteId, stars}) {
+function Comic({id, title, subtitle, subTitle, cover, tags, description, maxPage, language, favoriteId, stars}) {
     this.id = id;
     this.title = title;
     this.subtitle = subtitle;
+    this.subTitle = subTitle;
     this.cover = cover;
     this.tags = tags;
     this.description = description;
@@ -878,8 +880,8 @@ function Comic({id, title, subtitle, cover, tags, description, maxPage, language
  * @param cover {string}
  * @param description {string?}
  * @param tags {Map<string, string[]> | {} | null | undefined}
- * @param chapters {Map<string, string> | {} | null | undefined}} - key: chapter id, value: chapter title
- * @param isFavorite {boolean | null | undefined}} - favorite status. If the comic source supports multiple folders, this field should be null
+ * @param chapters {Map<string, string> | {} | null | undefined} - key: chapter id, value: chapter title
+ * @param isFavorite {boolean | null | undefined} - favorite status. If the comic source supports multiple folders, this field should be null
  * @param subId {string?} - a param which is passed to comments api
  * @param thumbnails {string[]?} - for multiple page thumbnails, set this to null, and use `loadThumbnails` api to load thumbnails
  * @param recommend {Comic[]?} - related comics
@@ -892,9 +894,10 @@ function Comic({id, title, subtitle, cover, tags, description, maxPage, language
  * @param url {string?}
  * @param stars {number?} - 0-5, double
  * @param maxPage {number?}
+ * @param comments {Comment[]?}- `since 1.0.7` App will display comments in the details page.
  * @constructor
  */
-function ComicDetails({title, cover, description, tags, chapters, isFavorite, subId, thumbnails, recommend, commentCount, likesCount, isLiked, uploader, updateTime, uploadTime, url, stars, maxPage}) {
+function ComicDetails({title, cover, description, tags, chapters, isFavorite, subId, thumbnails, recommend, commentCount, likesCount, isLiked, uploader, updateTime, uploadTime, url, stars, maxPage, comments}) {
     this.title = title;
     this.cover = cover;
     this.description = description;
@@ -913,6 +916,7 @@ function ComicDetails({title, cover, description, tags, chapters, isFavorite, su
     this.url = url;
     this.stars = stars;
     this.maxPage = maxPage;
+    this.comments = comments;
 }
 
 /**
