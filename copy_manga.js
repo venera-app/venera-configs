@@ -4,7 +4,7 @@ class CopyManga extends ComicSource {
 
     key = "copy_manga"
 
-    version = "1.0.1"
+    version = "1.0.2"
 
     minAppVersion = "1.0.0"
 
@@ -139,8 +139,8 @@ class CopyManga extends ComicSource {
                 categories: ["全部", "爱情", "欢乐向", "冒险", "奇幻", "百合", "校园", "科幻", "东方", "耽美", "生活", "格斗", "轻小说", "悬疑",
                     "其它", "神鬼", "职场", "TL", "萌系", "治愈", "长条", "四格", "节操", "伪娘", "性转换", "异世界"],
                 itemType: "category",
-                categoryParams: ["", "aiqing", "huanlexiang", "maoxian", "qihuan", "baihe", "xiaoyuan", "kehuan", "dongfang", "danmei", "shenghuo", "gedou", "qingshuo", "xuanyi",
-                    "qita", "shengui", "zhichang", "teenslove", "mengxi", "zhiliao", "changtiao", "sige", "jiecao", "weiniang", "xingzhuanhuan", "yishijie"]
+                categoryParams: ["", "aiqing", "huanlexiang", "maoxian", "qihuan", "baihe", "xiaoyuan", "kehuan", "dongfang", "danmei", "shenghuo", "gedou", "qingxiaoshuo", "xuanyi",
+                    "qita", "shengui", "zhichang", "teenslove", "mengxi", "zhiyu", "changtiao", "sige", "jiecao", "weiniang", "xingzhuanhuan", "yishijie"]
             }
         ]
     }
