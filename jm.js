@@ -15,10 +15,10 @@ class JM extends ComicSource {
     url = "https://raw.githubusercontent.com/venera-app/venera-configs/refs/heads/main/jm.js"
 
     static apiDomains = [
-        "https://www.cdnxxx-proxy.xyz",
-        "https://www.cdnxxx-proxy.co",
-        "https://www.cdnxxx-proxy.vip",
-        "https://www.cdnxxx-proxy.org"
+        "https://www.jmapiproxyxxx.vip",
+        "https://www.cdnblackmyth.vip",
+        "https://www.cdnblackmyth.xyz",
+        "https://www.cdnxxx-proxy.co"
     ];
 
     static imageUrls = [
@@ -84,7 +84,7 @@ class JM extends ComicSource {
     }
 
     getHeaders(time) {
-        const jmVersion = "1.7.2"
+        const jmVersion = "1.7.5"
         const jmAuthKey = "18comicAPPContent"
         let token = Convert.md5(Convert.encodeUtf8(`${time}${jmAuthKey}`))
 
