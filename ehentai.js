@@ -7,7 +7,7 @@ class Ehentai extends ComicSource {
     // unique id of the source
     key = "ehentai"
 
-    version = "1.0.10"
+    version = "1.1.0"
 
     minAppVersion = "1.0.0"
 
@@ -1069,6 +1069,79 @@ class Ehentai extends ComicSource {
             }
 
             return json.comment_score
+        },
+        archive: {
+            getArchives: async (cid) => {
+                let comicInfo = await this.comic.loadInfo(cid)
+                let urlParseResult = this.parseUrl(cid)
+                let gid = urlParseResult.id
+                let token = urlParseResult.token
+                let res = await Network.get(`${this.baseUrl}/archiver.php?gid=${gid}&token=${token}`, {})
+                if(res.status !== 200) {
+                    throw `Invalid status code: ${res.status}`
+                }
+                let document = new HtmlDocument(res.body)
+                let body = document.querySelector("div#db")
+                let index = this.baseUrl.includes("exhentai") ? 1 : 3
+                let origin = body.children[index].children[0];
+                let originCost = origin.querySelector("div > strong").text;
+                let originSize = origin.querySelector("p > strong").text;
+                let resample = body.children[index].children[1];
+                let resampleCost = resample.querySelector("div > strong").text;
+                let resampleSize = resample.querySelector("p > strong").text;
+                return [
+                    {
+                        id: '0',
+                        title: 'Original',
+                        description: `Cost: ${originCost}, Size: ${originSize}`,
+                    },
+                    {
+                        id: '1',
+                        title: 'Resample',
+                        description: `Cost: ${resampleCost}, Size: ${resampleSize}`,
+                    }
+                ]
+            },
+            getDownloadUrl: async (cid, aid) => {
+                let data = aid === '0'
+                    ? "dltype=org&dlcheck=Download+Original+Archive"
+                    : "dltype=res&dlcheck=Download+Resample+Archive"
+                let urlParseResult = this.parseUrl(cid)
+                let gid = urlParseResult.id
+                let token = urlParseResult.token
+                let res = await Network.post(`${this.baseUrl}/archiver.php?gid=${gid}&token=${token}`, {
+                    "Content-Type": "application/x-www-form-urlencoded",
+                }, data)
+                if (res.status !== 200) {
+                    throw `Invalid status code: ${res.status}`
+                }
+                let document = new HtmlDocument(res.body)
+                let link = document.querySelector("a")?.attributes["href"]
+                if(!link) {
+                    throw "Failed to get download link"
+                }
+                let res2 = await Network.get(link, {
+                    'http_client': 'dart:io' // The server is uncomfortable with the default client
+                })
+                document.dispose()
+                document = new HtmlDocument(res2.body)
+                let link2 = document.querySelector("a")?.attributes["href"]
+                document.dispose()
+                function getHost(url) {
+                    const regex = /^(?:https?:\/\/)?(?:www\.)?([^\/]+)/i;
+                    const match = url.match(regex);
+                    return match ? match[1] : null;
+                }
+                let host = getHost(link)
+                let resultLink = "https://" + host + link2
+                let test = await Network.sendRequest('HEAD', resultLink, {
+                    'http_client': 'dart:io',
+                }, null)
+                if(test.status === 410) {
+                    throw "IP quota exhausted."
+                }
+                return resultLink
+            },
         },
         /**
          * [Optional] Handle tag click event
