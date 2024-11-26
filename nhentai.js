@@ -7,7 +7,7 @@ class Nhentai extends ComicSource {
     // unique id of the source
     key = "nhentai"
 
-    version = "1.0.2"
+    version = "1.0.3"
 
     minAppVersion = "1.0.0"
 
@@ -183,7 +183,8 @@ class Nhentai extends ComicSource {
             }
             category = category.replaceAll(" ", "-")
             let sort = (options[0] || "popular").replaceAll("@", "-")
-            let url = `${this.baseUrl}/${param}/${category}${sort}?page=${page}`
+            category = category.replaceAll('.', '-');
+            let url = `${this.baseUrl}/${param}/${encodeURIComponent(category)}${sort}?page=${page}`
             let res = await Network.get(url, {})
             return this.parseComicList(res.body)
         },
@@ -305,8 +306,12 @@ class Nhentai extends ComicSource {
             }
             let document = new HtmlDocument(res.body)
             let cover = document.querySelector("div#cover > a > img").attributes["data-src"];
-            let title = document.querySelector("h1.title").text;
-            let subtitle = document.querySelector("h2.subtitle")?.text;
+            let title = document.querySelector("h2.title")?.text;
+            let subtitle = document.querySelector("h1.title").text;
+            if(!title) {
+                title = subtitle
+                subtitle = null
+            }
             let tags = new Map();
             let uploadTime = new Date(Date.parse(document.querySelector("time")?.attributes["datetime"]))
             let formatTime = (time) => {
