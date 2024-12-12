@@ -7,7 +7,7 @@ class Ehentai extends ComicSource {
     // unique id of the source
     key = "ehentai"
 
-    version = "1.1.0"
+    version = "1.1.1"
 
     minAppVersion = "1.0.0"
 
@@ -962,7 +962,7 @@ class Ehentai extends ComicSource {
         parseComments: (document) => {
             let comments = []
             for(let c of document.querySelectorAll('div.c1')) {
-                let name = c.querySelector('div.c3 > a').text
+                let name = c.querySelector('div.c3 > a')?.text ?? ""
                 let time = c.querySelector('div.c3')?.text?.split("Posted on")?.at(1)?.split('by')?.at(0)?.trim() ?? 'unknown'
                 let content = ''
                 if(typeof appVersion) {
