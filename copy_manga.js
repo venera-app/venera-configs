@@ -137,11 +137,23 @@ class CopyManga extends ComicSource {
             {
                 name: "主题",
                 type: "fixed",
-                categories: ["全部", "愛情", "歡樂向", "冒險", "奇幻", "百合", "校园", "科幻", "東方", "耽美", "生活", "格鬥", "轻小说", "悬疑",
-                    "其他", "神鬼", "职场", "TL", "萌系", "治愈", "長條", "四格", "节操", "伪娘", "性转换", "AA", "异世界"],
-                itemType: "category",
-                categoryParams: ["", "aiqing", "huanlexiang", "maoxian", "qihuan", "baihe", "xiaoyuan", "kehuan", "dongfang", "danmei", "shenghuo", "gedou", "qingxiaoshuo", "xuanyi",
-                    "qita", "shengui", "zhichang", "teenslove", "mengxi", "zhiyu", "changtiao", "sige", "jiecao", "weiniang", "xingzhuanhuan", "aa", "yishijie"]
+                categories: [ "全部",
+                    "愛情", "歡樂向", "冒險", "奇幻", "百合", "校园", "科幻", "東方", "耽美", "生活", 
+                    "格鬥", "轻小说", "悬疑", "其他", "神鬼", "职场", "TL", "萌系", "治愈", "長條", 
+                    "四格", "节操", "舰娘", "竞技", "搞笑", "伪娘", "热血", "励志", "性转换", "彩色", 
+                    "後宮", "美食", "侦探", "AA", "音乐舞蹈", "魔幻", "战争", "历史", "异世界", "惊悚", 
+                    "机战", "都市", "穿越", "恐怖", "C100", "重生", "C99", "C101", "C97", "C96", "生存", 
+                    "宅系", "武侠", "C98", "C95", "FATE", "转生", "無修正", "仙侠", "LoveLive"
+                ],
+                categoryParams: [ "",
+                    "aiqing", "huanlexiang", "maoxian", "qihuan", "baihe", "xiaoyuan", "kehuan", "dongfang", "danmei", "shenghuo",
+                    "gedou", "qingxiaoshuo", "xuanyi", "qita", "shengui", "zhichang", "teenslove", "mengxi", "zhiyu", "changtiao",
+                    "sige", "jiecao", "jianniang", "jingji", "gaoxiao", "weiniang", "rexue", "lizhi", "xingzhuanhuan", "COLOR",
+                    "hougong", "meishi", "zhentan", "aa", "yinyuewudao", "mohuan", "zhanzheng", "lishi", "yishijie", "jingsong", 
+                    "jizhan", "dushi", "chuanyue", "kongbu", "comiket100", "chongsheng", "comiket99", "comiket101", "comiket97", "comiket96", "shengcun",
+                    "zhaixi", "wuxia", "C98", "comiket95", "fate", "zhuansheng", "Uncensored", "xianxia", "loveLive"
+                ],
+                itemType: "category"
             }
         ]
     }
