@@ -137,11 +137,11 @@ class CopyManga extends ComicSource {
             {
                 name: "主题",
                 type: "fixed",
-                categories: ["全部", "爱情", "欢乐向", "冒险", "奇幻", "百合", "校园", "科幻", "东方", "耽美", "生活", "格斗", "轻小说", "悬疑",
-                    "其它", "神鬼", "职场", "TL", "萌系", "治愈", "长条", "四格", "节操", "伪娘", "性转换", "异世界"],
+                categories: ["全部", "愛情", "歡樂向", "冒險", "奇幻", "百合", "校园", "科幻", "東方", "耽美", "生活", "格鬥", "轻小说", "悬疑",
+                    "其他", "神鬼", "职场", "TL", "萌系", "治愈", "長條", "四格", "节操", "伪娘", "性转换", "AA", "异世界"],
                 itemType: "category",
                 categoryParams: ["", "aiqing", "huanlexiang", "maoxian", "qihuan", "baihe", "xiaoyuan", "kehuan", "dongfang", "danmei", "shenghuo", "gedou", "qingxiaoshuo", "xuanyi",
-                    "qita", "shengui", "zhichang", "teenslove", "mengxi", "zhiyu", "changtiao", "sige", "jiecao", "weiniang", "xingzhuanhuan", "yishijie"]
+                    "qita", "shengui", "zhichang", "teenslove", "mengxi", "zhiyu", "changtiao", "sige", "jiecao", "weiniang", "xingzhuanhuan", "aa", "yishijie"]
             }
         ]
     }
