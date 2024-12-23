@@ -231,7 +231,7 @@ class CopyManga extends ComicSource {
                 author = keyword.substring("作者:".length).trim();
             }
             // 通过onClickTag传入时有"作者:"前缀，处理这种情况
-            if (author & author in this.author_path_word_dict){
+            if (author && author in this.author_path_word_dict){
                 let path_word = encodeURIComponent(this.author_path_word_dict[author]);
                 var res = await Network.get(
                     `https://api.copymanga.tv/api/v3/comics?limit=21&offset=${(page - 1) * 21}&ordering=-datetime_updated&author=${path_word}&platform=3`,
@@ -240,7 +240,10 @@ class CopyManga extends ComicSource {
             }
             // 一般的搜索情况
             else{
-                q_type = options[0];
+                let q_type = "";
+                if(options && options[0]){
+                    q_type = options[0];
+                }
                 keyword = encodeURIComponent(keyword)
                 var res = await Network.get(
                     `https://api.copymanga.tv/api/v3/search/comic?limit=21&offset=${(page - 1) * 21}&q=${keyword}&q_type=${q_type}&platform=3`,
