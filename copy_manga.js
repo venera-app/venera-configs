@@ -257,7 +257,7 @@ class CopyManga extends ComicSource {
                     q_type = options[0];
                 }
                 keyword = encodeURIComponent(keyword)
-                search_url = this.loadSetting('search_api') == "webAPI" ? "https://www.copymanga.tv/api/kb/web/searchbc/comics" : "https://api.copymanga.tv/api/v3/search/comic"
+                let search_url = this.loadSetting('search_api') == "webAPI" ? "https://www.copymanga.tv/api/kb/web/searchbc/comics" : "https://api.copymanga.tv/api/v3/search/comic"
                 var res = await Network.get(
                     `${search_url}?limit=21&offset=${(page - 1) * 21}&q=${keyword}&q_type=${q_type}&platform=3`,
                     this.headers
