@@ -4,7 +4,7 @@ class CopyManga extends ComicSource {
 
     key = "copy_manga"
 
-    version = "1.0.2"
+    version = "1.0.3"
 
     minAppVersion = "1.0.0"
 
@@ -32,6 +32,7 @@ class CopyManga extends ComicSource {
             "authorization": `Token${token}`,
             "platform": "3",
         }
+        this.author_path_word_dict = {}
     }
 
     /// account
@@ -136,17 +137,40 @@ class CopyManga extends ComicSource {
             {
                 name: "主题",
                 type: "fixed",
-                categories: ["全部", "爱情", "欢乐向", "冒险", "奇幻", "百合", "校园", "科幻", "东方", "耽美", "生活", "格斗", "轻小说", "悬疑",
-                    "其它", "神鬼", "职场", "TL", "萌系", "治愈", "长条", "四格", "节操", "伪娘", "性转换", "异世界"],
-                itemType: "category",
-                categoryParams: ["", "aiqing", "huanlexiang", "maoxian", "qihuan", "baihe", "xiaoyuan", "kehuan", "dongfang", "danmei", "shenghuo", "gedou", "qingxiaoshuo", "xuanyi",
-                    "qita", "shengui", "zhichang", "teenslove", "mengxi", "zhiyu", "changtiao", "sige", "jiecao", "weiniang", "xingzhuanhuan", "yishijie"]
+                categories: [ "全部",
+                    "愛情", "歡樂向", "冒險", "奇幻", "百合", "校园", "科幻", "東方", "耽美", "生活", 
+                    "格鬥", "轻小说", "悬疑", "其他", "神鬼", "职场", "TL", "萌系", "治愈", "長條", 
+                    "四格", "节操", "舰娘", "竞技", "搞笑", "伪娘", "热血", "励志", "性转换", "彩色", 
+                    "後宮", "美食", "侦探", "AA", "音乐舞蹈", "魔幻", "战争", "历史", "异世界", "惊悚", 
+                    "机战", "都市", "穿越", "恐怖", "C100", "重生", "C99", "C101", "C97", "C96", "生存", 
+                    "宅系", "武侠", "C98", "C95", "FATE", "转生", "無修正", "仙侠", "LoveLive"
+                ],
+                categoryParams: [ "",
+                    "aiqing", "huanlexiang", "maoxian", "qihuan", "baihe", "xiaoyuan", "kehuan", "dongfang", "danmei", "shenghuo",
+                    "gedou", "qingxiaoshuo", "xuanyi", "qita", "shengui", "zhichang", "teenslove", "mengxi", "zhiyu", "changtiao",
+                    "sige", "jiecao", "jianniang", "jingji", "gaoxiao", "weiniang", "rexue", "lizhi", "xingzhuanhuan", "COLOR",
+                    "hougong", "meishi", "zhentan", "aa", "yinyuewudao", "mohuan", "zhanzheng", "lishi", "yishijie", "jingsong", 
+                    "jizhan", "dushi", "chuanyue", "kongbu", "comiket100", "chongsheng", "comiket99", "comiket101", "comiket97", "comiket96", "shengcun",
+                    "zhaixi", "wuxia", "C98", "comiket95", "fate", "zhuansheng", "Uncensored", "xianxia", "loveLive"
+                ],
+                itemType: "category"
             }
         ]
     }
 
     categoryComics = {
         load: async (category, param, options, page) => {
+            // 如果传入了category，则匹配其对应的param
+            if (category && !param) {
+                const categories = this.category.parts[0].categories;
+                const categoryParams = this.category.parts[0].categoryParams;
+                const index = categories.indexOf(category);
+                if (index !== -1) {
+                    param = categoryParams[index];
+                } else {
+                    param = "";
+                }
+            }
             options = options.map(e => e.replace("*", "-"))
             let res = await Network.get(
                 `https://api.copymanga.tv/api/v3/comics?limit=21&offset=${(page - 1) * 21}&ordering=${options[1]}&theme=${param}&top=${options[0]}&platform=3`,
@@ -214,11 +238,30 @@ class CopyManga extends ComicSource {
 
     search = {
         load: async (keyword, options, page) => {
-            keyword = encodeURIComponent(keyword)
-            var res = await Network.get(
-                `https://api.copymanga.tv/api/v3/search/comic?limit=21&offset=${(page - 1) * 21}&q=${keyword}&q_type=&platform=3`,
-                this.headers
-            )
+            let author;
+            if (keyword.startsWith("作者:")) {
+                author = keyword.substring("作者:".length).trim();
+            }
+            // 通过onClickTag传入时有"作者:"前缀，处理这种情况
+            if (author && author in this.author_path_word_dict){
+                let path_word = encodeURIComponent(this.author_path_word_dict[author]);
+                var res = await Network.get(
+                    `https://api.copymanga.tv/api/v3/comics?limit=21&offset=${(page - 1) * 21}&ordering=-datetime_updated&author=${path_word}&platform=3`,
+                    this.headers
+                )
+            }
+            // 一般的搜索情况
+            else{
+                let q_type = "";
+                if(options && options[0]){
+                    q_type = options[0];
+                }
+                keyword = encodeURIComponent(keyword)
+                var res = await Network.get(
+                    `https://api.copymanga.tv/api/v3/search/comic?limit=21&offset=${(page - 1) * 21}&q=${keyword}&q_type=${q_type}&platform=3`,
+                    this.headers
+                )
+            }
             if (res.status !== 200) {
                 throw `Invalid status code: ${res.status}`
             }
@@ -254,18 +297,18 @@ class CopyManga extends ComicSource {
                 maxPage: (data["results"]["total"] - (data["results"]["total"] % 21)) / 21 + 1
             }
         },
-        /*
         optionList: [
             {
+                type: "select",
                 options: [
-                    "0-time",
-                    "1-popular"
+                    "-全部",
+                    "name-名称",
+                    "author-作者",
+                    "local-汉化组"
                 ],
-                label: "sort"
+                label: "搜索选项"
             }
         ]
-        */
-        optionList: []
     }
 
     favorites = {
@@ -410,8 +453,14 @@ class CopyManga extends ComicSource {
             let title = comicData.name;
             let cover = comicData.cover;
             let authors = comicData.author.map(e => e.name);
-            let tags = comicData.theme.map(e => e.name);
-            let updateTime = comicData.datetime_updated;
+            // author_path_word_dict长度限制为最大100
+            if (Object.keys(this.author_path_word_dict).length > 100) {
+                this.author_path_word_dict = {};
+            }
+            // 储存author对应的path_word
+            comicData.author.forEach(e=>(this.author_path_word_dict[e.name] = e.path_word));
+            let tags = comicData.theme.map(e => e?.name).filter(name => name !== undefined && name !== null);
+            let updateTime = comicData.datetime_updated ? comicData.datetime_updated : "";
             let description = comicData.brief;
 
 
@@ -514,6 +563,27 @@ class CopyManga extends ComicSource {
             } else {
                 return "ok"
             }
+        },
+        onClickTag: (namespace, tag) => {
+            if(namespace == "标签"){
+                return {
+                    // 'search' or 'category'
+                    action: 'category',
+                    keyword: `${tag}`,
+                    // {string?} only for category action
+                    param: null,
+                }
+            }
+            if(namespace == "作者"){
+                return {
+                    // 'search' or 'category'
+                    action: 'search',
+                    keyword: `${namespace}:${tag}`,
+                    // {string?} only for category action
+                    param: null,
+                }
+            }
+            throw "未支持此类Tag检索"
         }
     }
 }
