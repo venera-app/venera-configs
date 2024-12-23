@@ -257,8 +257,9 @@ class CopyManga extends ComicSource {
                     q_type = options[0];
                 }
                 keyword = encodeURIComponent(keyword)
+                search_url = this.loadSetting('search_api') == "webAPI" ? "https://www.copymanga.tv/api/kb/web/searchbc/comics" : "https://api.copymanga.tv/api/v3/search/comic"
                 var res = await Network.get(
-                    `https://${this.loadSetting('search_url')}?limit=21&offset=${(page - 1) * 21}&q=${keyword}&q_type=${q_type}&platform=3`,
+                    `${search_url}?limit=21&offset=${(page - 1) * 21}&q=${keyword}&q_type=${q_type}&platform=3`,
                     this.headers
                 )
             }
@@ -588,7 +589,7 @@ class CopyManga extends ComicSource {
     }
 
     settings = {
-        search_url: {
+        search_api: {
             // title
             title: "搜索方式",
             // type: input, select, switch
@@ -596,15 +597,15 @@ class CopyManga extends ComicSource {
             // options
             options: [
                 {
-                    value: 'api.copymanga.tv/api/v3/search/comic',
+                    value: 'baseAPI',
                     text: '基础API'
                 },
                 {
-                    value: 'www.copymanga.tv/api/kb/web/searchbc/comics',
+                    value: 'webAPI',
                     text: '网页端API（可搜版权作）'
                 },
             ],
-            default: 'www.copymanga.tv/api/kb/web/searchbc/comics',
+            default: 'webAPI',
         },
     }
 }
