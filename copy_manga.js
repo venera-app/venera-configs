@@ -213,10 +213,10 @@ class CopyManga extends ComicSource {
             },
             {
                 options: [
-                    "*datetime_updated-时间正序",
-                    "datetime_updated-时间倒序",
-                    "*popular-热度正序",
-                    "popular-热度倒序",
+                    "*datetime_updated-时间倒序",
+                    "datetime_updated-时间正序",
+                    "*popular-热度倒序",
+                    "popular-热度正序",
                 ],
                 notShowWhen: null,
                 showWhen: null
