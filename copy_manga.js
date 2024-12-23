@@ -253,12 +253,19 @@ class CopyManga extends ComicSource {
             // 一般的搜索情况
             else{
                 let q_type = "";
+                let base_url = "https://api.copymanga.tv/api/v3/search/comic";
                 if(options && options[0]){
                     q_type = options[0];
                 }
+                if(options && options[1]){
+                    let searchWithWebAPI = JSON.parse(options[1]).length > 0;
+                    if(searchWithWebAPI){
+                        base_url = "https://www.copymanga.tv/api/kb/web/searchbc/comics"
+                    }
+                }
                 keyword = encodeURIComponent(keyword)
                 var res = await Network.get(
-                    `https://api.copymanga.tv/api/v3/search/comic?limit=21&offset=${(page - 1) * 21}&q=${keyword}&q_type=${q_type}&platform=3`,
+                    `${base_url}?limit=21&offset=${(page - 1) * 21}&q=${keyword}&q_type=${q_type}&platform=3`,
                     this.headers
                 )
             }
@@ -307,6 +314,13 @@ class CopyManga extends ComicSource {
                     "local-汉化组"
                 ],
                 label: "搜索选项"
+            },
+            {
+                type: "multi-select",
+                options: [
+                    "1-使用网页端API（可搜版权作品）"
+                ],
+                default: ["1"]
             }
         ]
     }
