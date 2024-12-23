@@ -253,19 +253,12 @@ class CopyManga extends ComicSource {
             // 一般的搜索情况
             else{
                 let q_type = "";
-                let base_url = "https://api.copymanga.tv/api/v3/search/comic";
                 if(options && options[0]){
                     q_type = options[0];
                 }
-                if(options && options[1]){
-                    let searchWithWebAPI = JSON.parse(options[1]).length > 0;
-                    if(searchWithWebAPI){
-                        base_url = "https://www.copymanga.tv/api/kb/web/searchbc/comics"
-                    }
-                }
                 keyword = encodeURIComponent(keyword)
                 var res = await Network.get(
-                    `${base_url}?limit=21&offset=${(page - 1) * 21}&q=${keyword}&q_type=${q_type}&platform=3`,
+                    `${this.loadSetting('search_url')}?limit=21&offset=${(page - 1) * 21}&q=${keyword}&q_type=${q_type}&platform=3`,
                     this.headers
                 )
             }
@@ -315,13 +308,6 @@ class CopyManga extends ComicSource {
                 ],
                 label: "搜索选项"
             },
-            {
-                type: "multi-select",
-                options: [
-                    "1-使用网页端API（可搜版权作品）"
-                ],
-                default: ["1"]
-            }
         ]
     }
 
@@ -599,5 +585,26 @@ class CopyManga extends ComicSource {
             }
             throw "未支持此类Tag检索"
         }
+    }
+
+    settings = {
+        search_url: {
+            // title
+            title: "搜索方式",
+            // type: input, select, switch
+            type: "select",
+            // options
+            options: [
+                {
+                    value: 'https://api.copymanga.tv/api/v3/search/comic',
+                    text: '基础API'
+                },
+                {
+                    value: 'https://www.copymanga.tv/api/kb/web/searchbc/comics',
+                    text: '网页端API（可搜版权作）'
+                },
+            ],
+            default: 'https://www.copymanga.tv/api/kb/web/searchbc/comics',
+        },
     }
 }
