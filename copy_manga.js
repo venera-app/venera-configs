@@ -597,15 +597,16 @@ class CopyManga extends ComicSource {
             // options
             options: [
                 {
+                    value: 'webAPI',
+                    text: '网页端API'
+                },
+                {
                     value: 'baseAPI',
                     text: '基础API'
                 },
-                {
-                    value: 'webAPI',
-                    text: '网页端API（可搜版权作）'
-                },
+
             ],
-            default: 'webAPI',
+            default: 'webAPI'
         },
     }
 }
