@@ -459,7 +459,7 @@ class CopyManga extends ComicSource {
             }
             // 储存author对应的path_word
             comicData.author.forEach(e=>(this.author_path_word_dict[e.name] = e.path_word));
-            let tags = comicData.theme.map(e => e.name);
+            let tags = comicData.theme.map(e => e?.name).filter(name => name !== undefined && name !== null);
             let updateTime = comicData.datetime_updated;
             let description = comicData.brief;
 
