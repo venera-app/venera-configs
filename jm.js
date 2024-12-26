@@ -16,8 +16,8 @@ class JM extends ComicSource {
 
     static apiDomains = [
         "https://www.jmapiproxyxxx.vip",
-        "https://www.cdnblackmyth.vip",
-        "https://www.cdnblackmyth.xyz",
+        "https://www.cdnblackmyth.club",
+        "https://www.cdnmhws.cc",
         "https://www.cdnxxx-proxy.co"
     ];
 
