@@ -7,7 +7,7 @@ class JM extends ComicSource {
     // unique id of the source
     key = "jm"
 
-    version = "1.0.0"
+    version = "1.0.1"
 
     minAppVersion = "1.0.2"
 
@@ -16,8 +16,8 @@ class JM extends ComicSource {
 
     static apiDomains = [
         "https://www.jmapiproxyxxx.vip",
-        "https://www.cdnblackmyth.vip",
-        "https://www.cdnblackmyth.xyz",
+        "https://www.cdnblackmyth.club",
+        "https://www.cdnmhws.cc",
         "https://www.cdnxxx-proxy.co"
     ];
 
@@ -169,6 +169,9 @@ class JM extends ComicSource {
                     let id = e.id.toString()
                     if (type === 'category_id') {
                         id = e.slug
+                    }
+                    if (type === 'library') {
+                        continue
                     }
                     let comics = e.content.map((e) => this.parseComic(e))
                     result.push({
