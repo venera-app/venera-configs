@@ -170,6 +170,9 @@ class JM extends ComicSource {
                     if (type === 'category_id') {
                         id = e.slug
                     }
+                    if (type === 'library') {
+                        continue
+                    }
                     let comics = e.content.map((e) => this.parseComic(e))
                     result.push({
                         title: e.title,
