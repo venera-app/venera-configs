@@ -7,7 +7,7 @@ class Ehentai extends ComicSource {
     // unique id of the source
     key = "ehentai"
 
-    version = "1.1.1"
+    version = "1.1.2"
 
     minAppVersion = "1.0.0"
 
@@ -273,7 +273,7 @@ class Ehentai extends ComicSource {
                 let coverPath = item.querySelector("img")?.attributes["src"] ?? "";
                 let stars = this.getStarsFromPosition(item.querySelector("div.gl5t > div > div.ir")?.attributes["style"] ?? "");
                 let link = item.querySelector("a")?.attributes["href"] ?? "";
-                let pages = Number(item.querySelectorAll("div.gl5t > div > div").find((element) => element.text.includes("pages"))?.text.match(/\d+/)[0] ?? "0");
+                let pages = Number(item.querySelectorAll("div.gl5t > div > div").find((element) => element.text.includes("page"))?.text.match(/\d+/)[0] ?? "0");
                 galleries.push(new Comic({
                     id: link,
                     title: title,
@@ -298,7 +298,7 @@ class Ehentai extends ComicSource {
                 let stars = this.getStarsFromPosition(item.querySelector("td.gl2e > div > div.gl3e > div.ir")?.attributes["style"] ?? "");
                 let link = item.querySelector("td.gl1e > div > a")?.attributes["href"] ?? "";
                 let tags = item.querySelectorAll('div.gt, div.gtl').map((e) => e.attributes["title"] ?? "");
-                let pages = Number(item.querySelectorAll("td.gl2e > div > div.gl3e > div").find((element) => element.text.includes("pages"))?.text.match(/\d+/)[0] ?? "");
+                let pages = Number(item.querySelectorAll("td.gl2e > div > div.gl3e > div").find((element) => element.text.includes("page"))?.text.match(/\d+/)[0] ?? "");
                 let language = tags.find((e) => e.startsWith("language:") && !e.includes('translated'))?.split(":")[1].trim() ?? null;
                 galleries.push(new Comic({
                     id: link,
@@ -637,7 +637,7 @@ class Ehentai extends ComicSource {
 
             let maxPage = "1"
             for(let element of document.querySelectorAll("td.gdt2")) {
-                if (element.text.includes("pages")) {
+                if (element.text.includes("page")) {
                     maxPage = element.text.match(/\d+/)[0];
                 }
             }
