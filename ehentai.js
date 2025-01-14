@@ -232,10 +232,14 @@ class Ehentai extends ComicSource {
                 let title = item.children[2 + t].children[0].children[0].text;
                 let link = item.children[2 + t].children[0].attributes["href"];
                 let uploader = "";
-                let pages;
+                let pages = 0;
                 try {
-                    pages = Number(item.children[3 + t].children[1].text.match(/\d+/)[0]);
-                    uploader = item.children[3 + t].children[0].children[0].text;
+                    if (url.includes("/favorites.php")) {
+                        pages = Number(item.children[1 + t].children[1].children[1].children[1].children[1].text.match(/\d+/)[0]);
+                    } else {
+                        pages = Number(item.children[3 + t].children[1].text.match(/\d+/)[0]);
+                        uploader = item.children[3 + t].children[0].children[0].text;
+                    }
                 } catch(e) {}
                 let tags = [];
                 let language = null
