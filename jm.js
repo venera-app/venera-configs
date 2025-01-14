@@ -7,7 +7,7 @@ class JM extends ComicSource {
     // unique id of the source
     key = "jm"
 
-    version = "1.0.1"
+    version = "1.0.2"
 
     minAppVersion = "1.0.2"
 
@@ -18,7 +18,7 @@ class JM extends ComicSource {
         "https://www.jmapiproxyxxx.vip",
         "https://www.cdnblackmyth.club",
         "https://www.cdnmhws.cc",
-        "https://www.cdnxxx-proxy.co"
+        "https://www.cdnmhwscc.org"
     ];
 
     static imageUrls = [
@@ -27,6 +27,10 @@ class JM extends ComicSource {
         "https://cdn-msp2.jmapiproxy1.cc",
         "https://cdn-msp3.jmapiproxy3.cc",
     ];
+
+    static apiUa = "Mozilla/5.0 (Linux; Android 10; K; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/130.0.0.0 Mobile Safari/537.36"
+
+    static imgUa = "okhttp/3.12.1"
 
     get baseUrl() {
         let index = parseInt(this.loadSetting('apiDomain')) - 1
@@ -41,6 +45,14 @@ class JM extends ComicSource {
         let stream = this.loadSetting('imageStream')
         let index = parseInt(stream) - 1
         return JM.imageUrls[index]
+    }
+
+    get apiUa() {
+        return JM.apiUa;
+    }
+
+    get imgUa() {
+        return JM.imgUa;
     }
 
     getCoverUrl(id) {
@@ -84,14 +96,15 @@ class JM extends ComicSource {
     }
 
     getHeaders(time) {
-        const jmVersion = "1.7.5"
+        const jmVersion = "1.7.6"
         const jmAuthKey = "18comicAPPContent"
         let token = Convert.md5(Convert.encodeUtf8(`${time}${jmAuthKey}`))
 
         return {
             "token": Convert.hexEncode(token),
             "tokenparam": `${time},${jmVersion}`,
-            "accept-encoding": "gzip",
+            "Accept-Encoding": "gzip",
+            "User-Agent": this.apiUa,
         }
     }
 
@@ -503,6 +516,10 @@ class JM extends ComicSource {
                 return {}
             }
             return {
+                headers: {
+                    "Accept-Encoding": "gzip",
+                    "User-Agent": this.imgUa,
+                },
                 modifyImage: `
                     let modifyImage = (image) => {
                         const num = ${num}
@@ -528,6 +545,19 @@ class JM extends ComicSource {
                         return res
                     }
                 `,
+            }
+        },
+        /**
+         * [Optional] provide configs for a thumbnail loading
+         * @param url {string}
+         * @returns {{}}
+         */
+        onThumbnailLoad: (url) => {
+            return {
+                headers: {
+                    "Accept-Encoding": "gzip",
+                    "User-Agent": this.imgUa,
+                }
             }
         },
         /**
