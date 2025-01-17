@@ -7,14 +7,14 @@ class JM extends ComicSource {
     // unique id of the source
     key = "jm"
 
-    version = "1.0.2"
+    version = "1.0.3"
 
-    minAppVersion = "1.0.2"
+    minAppVersion = "1.1.5"
 
     // update url
     url = "https://raw.githubusercontent.com/venera-app/venera-configs/refs/heads/main/jm.js"
 
-    static apiDomains = [
+    static apiUrls = [
         "https://www.jmapiproxyxxx.vip",
         "https://www.cdnblackmyth.club",
         "https://www.cdnmhws.cc",
@@ -34,7 +34,16 @@ class JM extends ComicSource {
 
     get baseUrl() {
         let index = parseInt(this.loadSetting('apiDomain')) - 1
-        return JM.apiDomains[index]
+        return JM.apiUrls[index]
+    }
+
+    overwriteApiUrls(domains) {
+        if (domains.length != 0) {
+            JM.apiUrls = []
+            for (let domain of domains) {
+                JM.apiUrls.push(`https://${domain}`)
+            }
+        }
     }
 
     isNum(str) {
@@ -65,6 +74,25 @@ class JM extends ComicSource {
 
     getAvatarUrl(imageName) {
         return `${this.imageUrl}/media/users/${imageName}`
+    }
+
+    async init() {
+        if (this.loadSetting('refreshDomainsOnStart')) await this.refreshApiDomains()
+    }
+
+    async refreshApiDomains() {
+        let today = new Date();
+        let url = "https://jmappc01-1308024008.cos.ap-guangzhou.myqcloud.com/server-2024.txt"
+        let domainSecret = "diosfjckwpqpdfjkvnqQjsik"
+        let res = await fetch(
+            `${url}?time=${today.getFullYear()}${today.getMonth() + 1}${today.getDate()}`,
+            {headers: {"User-Agent": this.imgUa}}
+        )
+        if (res.status == 200) {
+            let data = this.convertData(await res.text(), domainSecret)
+            let json = JSON.parse(data)
+            if (json["Server"]) this.overwriteApiUrls(json["Server"])
+        }
     }
 
     /**
@@ -114,9 +142,8 @@ class JM extends ComicSource {
      * @param time {number}
      * @returns {string}
      */
-    convertData(input, time) {
-        let secret = '185Hcomic3PAPP7R'
-        let key = Convert.encodeUtf8(Convert.hexEncode(Convert.md5(Convert.encodeUtf8(`${time}${secret}`))))
+    convertData(input, secret) {  
+        let key = Convert.encodeUtf8(Convert.hexEncode(Convert.md5(Convert.encodeUtf8(secret))))
         let data = Convert.decodeBase64(input)
         let decrypted = Convert.decryptAesEcb(data, key)
         let res = Convert.decodeUtf8(decrypted)
@@ -134,6 +161,7 @@ class JM extends ComicSource {
      */
     async get(url) {
         let time = Math.floor(Date.now() / 1000)
+        let kJmSecret = "185Hcomic3PAPP7R"
         let res = await Network.get(url, this.getHeaders(time))
         if(res.status !== 200) {
             if(res.status === 401) {
@@ -151,7 +179,7 @@ class JM extends ComicSource {
         if(typeof data !== 'string') {
             throw 'Invalid Data'
         }
-        return this.convertData(data, time)
+        return this.convertData(data, `${time}${kJmSecret}`)
     }
 
     // explore page list
@@ -607,6 +635,11 @@ class JM extends ComicSource {
     ```
      */
     settings = {
+        refreshDomainsOnStart: {
+            title: "Refresh Domain List on Startup",
+            type: "switch",
+            default: true,
+        },
         apiDomain: {
             title: "Api Domain",
             type: "select",
@@ -650,10 +683,12 @@ class JM extends ComicSource {
     // [Optional] translations for the strings in this config
     translation = {
         'zh_CN': {
+            'Refresh Domain List on Startup': '启动时刷新域名列表',
             'Api Domain': 'Api域名',
             'Image Stream': '图片分流',
         },
         'zh_TW': {
+            'Refresh Domain List on Startup': '啟動時刷新域名列表',
             'Api Domain': 'Api域名',
             'Image Stream': '圖片分流',
         },
