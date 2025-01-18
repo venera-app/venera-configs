@@ -740,6 +740,14 @@ class NewComicSource extends ComicSource {
             type: "input",
             validator: null, // string | null, regex string
             default: '',
+        },
+        setting4: {
+            title: "Setting4",
+            type: "callback",
+            buttonText: "Click me",
+            callback: () => {
+                // do something
+            }
         }
     }
 
