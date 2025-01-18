@@ -745,6 +745,12 @@ class NewComicSource extends ComicSource {
             title: "Setting4",
             type: "callback",
             buttonText: "Click me",
+            /**
+             * callback function
+             *
+             * If the callback function returns a Promise, the button will show a loading indicator until the promise is resolved.
+             * @returns {void | Promise<any>}
+             */
             callback: () => {
                 // do something
             }

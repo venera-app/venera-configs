@@ -4,6 +4,13 @@ Venera JavaScript Library
 This library provides a set of APIs for interacting with the Venera app.
 */
 
+function setTimeout(callback, delay) {
+    sendMessage({
+        method: 'delay',
+        time: delay,
+    }).then(callback);
+}
+
 /// encode, decode, hash, decrypt
 let Convert = {
     /**
@@ -1196,4 +1203,50 @@ class Image {
         })
         return new Image(key);
     }
+}
+
+/**
+ * UI related apis
+ * @since 1.2.0
+ */
+let UI = {
+    /**
+     * Show a message
+     * @param message {string}
+     */
+    showMessage: (message) => {
+        sendMessage({
+            method: 'UI',
+            function: 'showMessage',
+            message: message,
+        })
+    },
+
+    /**
+     * Show a dialog. Any action will close the dialog.
+     * @param title {string}
+     * @param content {string}
+     * @param actions {{text:string, callback: () => void}[]}
+     */
+    showDialog: (title, content, actions) => {
+        sendMessage({
+            method: 'UI',
+            function: 'showDialog',
+            title: title,
+            content: content,
+            actions: actions,
+        })
+    },
+
+    /**
+     * Open [url] in external browser
+     * @param url {string}
+     */
+    launchUrl: (url) => {
+        sendMessage({
+            method: 'UI',
+            function: 'launchUrl',
+            url: url,
+        })
+    },
 }
