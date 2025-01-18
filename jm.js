@@ -14,18 +14,18 @@ class JM extends ComicSource {
     // update url
     url = "https://raw.githubusercontent.com/venera-app/venera-configs/refs/heads/main/jm.js"
 
-    static apiUrls = [
-        "https://www.jmapiproxyxxx.vip",
-        "https://www.cdnblackmyth.club",
-        "https://www.cdnmhws.cc",
-        "https://www.cdnmhwscc.org"
+    static apiDomains = [
+        "www.jmapiproxyxxx.vip",
+        "www.cdnblackmyth.club",
+        "www.cdnmhws.cc",
+        "www.cdnmhwscc.org"
     ];
 
-    static imageUrls = [
-        "https://cdn-msp.jmapiproxy3.cc",
-        "https://cdn-msp3.jmapiproxy3.cc",
-        "https://cdn-msp2.jmapiproxy1.cc",
-        "https://cdn-msp3.jmapiproxy3.cc",
+    static imageDomains = [
+        "cdn-msp.jmapiproxy3.cc",
+        "cdn-msp3.jmapiproxy3.cc",
+        "cdn-msp2.jmapiproxy1.cc",
+        "cdn-msp3.jmapiproxy3.cc",
     ];
 
     static apiUa = "Mozilla/5.0 (Linux; Android 10; K; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/130.0.0.0 Mobile Safari/537.36"
@@ -34,16 +34,11 @@ class JM extends ComicSource {
 
     get baseUrl() {
         let index = parseInt(this.loadSetting('apiDomain')) - 1
-        return JM.apiUrls[index]
+        return `https://${JM.apiDomains[index]}`
     }
 
     overwriteApiUrls(domains) {
-        if (domains.length != 0) {
-            JM.apiUrls = []
-            for (let domain of domains) {
-                JM.apiUrls.push(`https://${domain}`)
-            }
-        }
+        if (domains.length != 0) JM.apiDomains = domains
     }
 
     isNum(str) {
@@ -53,7 +48,7 @@ class JM extends ComicSource {
     get imageUrl() {
         let stream = this.loadSetting('imageStream')
         let index = parseInt(stream) - 1
-        return JM.imageUrls[index]
+        return `https://${JM.imageDomains[index]}`
     }
 
     get apiUa() {
@@ -77,13 +72,20 @@ class JM extends ComicSource {
     }
 
     async init() {
-        if (this.loadSetting('refreshDomainsOnStart')) await this.refreshApiDomains()
+        if (this.loadSetting('refreshDomainsOnStart')) await this.refreshApiDomains(false)
     }
 
-    async refreshApiDomains() {
+    /**
+     *
+     * @param showConfirmDialog {boolean}
+     */
+    async refreshApiDomains(showConfirmDialog) {
         let today = new Date();
         let url = "https://jmappc01-1308024008.cos.ap-guangzhou.myqcloud.com/server-2024.txt"
         let domainSecret = "diosfjckwpqpdfjkvnqQjsik"
+        let title = ""
+        let message = ""
+        let domains = []
         let res = await fetch(
             `${url}?time=${today.getFullYear()}${today.getMonth() + 1}${today.getDate()}`,
             {headers: {"User-Agent": this.imgUa}}
@@ -91,7 +93,37 @@ class JM extends ComicSource {
         if (res.status == 200) {
             let data = this.convertData(await res.text(), domainSecret)
             let json = JSON.parse(data)
-            if (json["Server"]) this.overwriteApiUrls(json["Server"])
+            if (json["Server"]) {
+                title = "Update Success"
+                message = "New domains:\n\n"
+                domains = json["Server"]
+            }
+        }
+        if (domains.length == 0) {
+            title = "Update Failed"
+            message = `Using built-in domains:\n\n`
+            domains = JM.apiDomains
+        }
+        for (let i = 0; i < domains.length; i++) {
+            message = message + `Stream ${i + 1}: ${domains[i]}\n`
+        }
+        if (showConfirmDialog) {
+            UI.showDialog(
+                title,
+                message,
+                [
+                    {
+                        text: "Cancle",
+                        callback: () => {}
+                    },
+                    {
+                        text: "Save",
+                        callback: () => this.overwriteApiUrls(domains)
+                    }
+                ]
+            )
+        } else {
+            this.overwriteApiUrls(domains)
         }
     }
 
@@ -635,6 +667,12 @@ class JM extends ComicSource {
     ```
      */
     settings = {
+        refreshDomains: {
+            title: "Refresh Domain List",
+            type: "callback",
+            buttonText: "Refresh",
+            callback: () => this.refreshApiDomains(true)
+        },
         refreshDomainsOnStart: {
             title: "Refresh Domain List on Startup",
             type: "switch",
@@ -683,11 +721,15 @@ class JM extends ComicSource {
     // [Optional] translations for the strings in this config
     translation = {
         'zh_CN': {
+            'Refresh Domain List': '刷新域名列表',
+            'Refresh': '刷新',
             'Refresh Domain List on Startup': '启动时刷新域名列表',
             'Api Domain': 'Api域名',
             'Image Stream': '图片分流',
         },
         'zh_TW': {
+            'Refresh Domain List': '刷新域名列表',
+            'Refresh': '刷新',
             'Refresh Domain List on Startup': '啟動時刷新域名列表',
             'Api Domain': 'Api域名',
             'Image Stream': '圖片分流',
