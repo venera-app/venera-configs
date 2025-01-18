@@ -740,6 +740,20 @@ class NewComicSource extends ComicSource {
             type: "input",
             validator: null, // string | null, regex string
             default: '',
+        },
+        setting4: {
+            title: "Setting4",
+            type: "callback",
+            buttonText: "Click me",
+            /**
+             * callback function
+             *
+             * If the callback function returns a Promise, the button will show a loading indicator until the promise is resolved.
+             * @returns {void | Promise<any>}
+             */
+            callback: () => {
+                // do something
+            }
         }
     }
 
