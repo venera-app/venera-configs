@@ -491,6 +491,7 @@ let Network = {
  * @param url {string}
  * @param options {{method: string, headers: Object, body: any}}
  * @returns {Promise<{ok: boolean, status: number, statusText: string, headers: {}, arrayBuffer: (function(): Promise<ArrayBuffer>), text: (function(): Promise<string>), json: (function(): Promise<any>)}>}
+ * @since 1.2.0
  */
 async function fetch(url, options) {
     let method = 'GET';
