@@ -734,39 +734,36 @@ class Ehentai extends ComicSource {
                 throw `Invalid status code: ${res.status}`
             }
             let document = new HtmlDocument(res.body);
-            let images = document.querySelectorAll("div.gdtm > div").map((e) => {
+            /**
+             * @param e {HtmlElement}
+             */
+            let parseImageUrl = (e) => {
                 let style = e.attributes['style'];
                 let width = Number(style.split('width:')[1].split('px')[0])
+                let height = Number(style.split('height:')[1].split('px')[0])
                 let r = style.split("background:transparent url(")[1]
                 let url = r.split(")")[0]
-                let position = Number(r.split(') -')[1].split('px')[0])
-                return url + `@x=${position}-${position + width}`
+                let range = '';
+                if(r.includes('px')) {
+                    let position = Number(r.split(') -')[1].split('px')[0])
+                    range += `x=${position}-${position + width}`
+                }
+                if (height)  range += `${range ? "&" : ""}y=0-${height}`;
+                if (range)  url += `@${range}`;
+                return url;
+            };
+            let images = document.querySelectorAll("div.gdtm > div").map((e) => {
+                return parseImageUrl(e)
             });
             images.push(...document.querySelectorAll("div.gdtl > a > img").map((e) => e.attributes["src"]))
             if(images.length === 0) {
                 for(let e of document.querySelectorAll("div.gt100 > a > div")
                     .map(e => e.children.length === 0 ? e : e.children[0])) {
-                    let style = e.attributes['style'];
-                    let width = Number(style.split('width:')[1].split('px')[0])
-                    let r = style.split("background:transparent url(")[1]
-                    let url = r.split(")")[0]
-                    if(r.includes('px')) {
-                        let position = Number(r.split(') -')[1].split('px')[0])
-                        url += `@x=${position}-${position + width}`
-                    }
-                    images.push(url)
+                    images.push(parseImageUrl(e))
                 }
                 for(let e of document.querySelectorAll("div.gt200 > a > div")
                     .map(e => e.children.length === 0 ? e : e.children[0])) {
-                    let style = e.attributes['style'];
-                    let width = Number(style.split('width:')[1].split('px')[0])
-                    let r = style.split("background:transparent url(")[1]
-                    let url = r.split(")")[0]
-                    if(r.includes('px')) {
-                        let position = Number(r.split(') -')[1].split('px')[0])
-                        url += `@x=${position}-${position + width}`
-                    }
-                    images.push(url)
+                    images.push(parseImageUrl(e))
                 }
             }
             let urls = document.querySelectorAll("table.ptb > tbody > tr > td > a").map((e) => e.attributes["href"])
