@@ -131,28 +131,85 @@ class CopyManga extends ComicSource {
         }
     ]
 
+    category_param_dict = {
+        "全部": "",
+        "愛情": "aiqing",
+        "歡樂向": "huanlexiang",
+        "冒險": "maoxian",
+        "奇幻": "qihuan",
+        "百合": "baihe",
+        "校园": "xiaoyuan",
+        "科幻": "kehuan",
+        "東方": "dongfang",
+        "耽美": "danmei",
+        "生活": "shenghuo",
+        "格鬥": "gedou",
+        "轻小说": "qingxiaoshuo",
+        "悬疑": "xuanyi",
+        "其他": "qita",
+        "神鬼": "shengui",
+        "职场": "zhichang",
+        "TL": "teenslove",
+        "萌系": "mengxi",
+        "治愈": "zhiyu",
+        "長條": "changtiao",
+        "四格": "sige",
+        "节操": "jiecao",
+        "舰娘": "jianniang",
+        "竞技": "jingji",
+        "搞笑": "gaoxiao",
+        "伪娘": "weiniang",
+        "热血": "rexue",
+        "励志": "lizhi",
+        "性转换": "xingzhuanhuan",
+        "彩色": "COLOR",
+        "後宮": "hougong",
+        "美食": "meishi",
+        "侦探": "zhentan",
+        "AA": "aa",
+        "音乐舞蹈": "yinyuewudao",
+        "魔幻": "mohuan",
+        "战争": "zhanzheng",
+        "历史": "lishi",
+        "异世界": "yishijie",
+        "惊悚": "jingsong",
+        "机战": "jizhan",
+        "都市": "dushi",
+        "穿越": "chuanyue",
+        "恐怖": "kongbu",
+        "C100": "comiket100",
+        "重生": "chongsheng",
+        "C99": "comiket99",
+        "C101": "comiket101",
+        "C97": "comiket97",
+        "C96": "comiket96",
+        "生存": "shengcun",
+        "宅系": "zhaixi",
+        "武侠": "wuxia",
+        "C98": "C98",
+        "C95": "comiket95",
+        "FATE": "fate",
+        "转生": "zhuansheng",
+        "無修正": "Uncensored",
+        "仙侠": "xianxia",
+        "LoveLive": "loveLive"
+    }
+
     category = {
         title: "拷贝漫画",
         parts: [
             {
+                name: "拷贝漫画",
+                type: "fixed",
+                categories: ["排行"],
+                categoryParams: ["ranking"],
+                itemType: "category"
+            },
+            {
                 name: "主题",
                 type: "fixed",
-                categories: [ "全部",
-                    "愛情", "歡樂向", "冒險", "奇幻", "百合", "校园", "科幻", "東方", "耽美", "生活", 
-                    "格鬥", "轻小说", "悬疑", "其他", "神鬼", "职场", "TL", "萌系", "治愈", "長條", 
-                    "四格", "节操", "舰娘", "竞技", "搞笑", "伪娘", "热血", "励志", "性转换", "彩色", 
-                    "後宮", "美食", "侦探", "AA", "音乐舞蹈", "魔幻", "战争", "历史", "异世界", "惊悚", 
-                    "机战", "都市", "穿越", "恐怖", "C100", "重生", "C99", "C101", "C97", "C96", "生存", 
-                    "宅系", "武侠", "C98", "C95", "FATE", "转生", "無修正", "仙侠", "LoveLive"
-                ],
-                categoryParams: [ "",
-                    "aiqing", "huanlexiang", "maoxian", "qihuan", "baihe", "xiaoyuan", "kehuan", "dongfang", "danmei", "shenghuo",
-                    "gedou", "qingxiaoshuo", "xuanyi", "qita", "shengui", "zhichang", "teenslove", "mengxi", "zhiyu", "changtiao",
-                    "sige", "jiecao", "jianniang", "jingji", "gaoxiao", "weiniang", "rexue", "lizhi", "xingzhuanhuan", "COLOR",
-                    "hougong", "meishi", "zhentan", "aa", "yinyuewudao", "mohuan", "zhanzheng", "lishi", "yishijie", "jingsong", 
-                    "jizhan", "dushi", "chuanyue", "kongbu", "comiket100", "chongsheng", "comiket99", "comiket101", "comiket97", "comiket96", "shengcun",
-                    "zhaixi", "wuxia", "C98", "comiket95", "fate", "zhuansheng", "Uncensored", "xianxia", "loveLive"
-                ],
+                categories: Object.keys(this.category_param_dict),
+                categoryParams: Object.values(this.category_param_dict),
                 itemType: "category"
             }
         ]
@@ -162,14 +219,12 @@ class CopyManga extends ComicSource {
         load: async (category, param, options, page) => {
             // 如果传入了category，则匹配其对应的param
             if (category && !param) {
-                const categories = this.category.parts[0].categories;
-                const categoryParams = this.category.parts[0].categoryParams;
-                const index = categories.indexOf(category);
-                if (index !== -1) {
-                    param = categoryParams[index];
-                } else {
-                    param = "";
+                if (category === "排行"){
+                    param = ""
+                }else{
+                    param = category_param_dict[category] || "";
                 }
+
             }
             options = options.map(e => e.replace("*", "-"))
             let res = await Network.get(
@@ -221,7 +276,7 @@ class CopyManga extends ComicSource {
                     "finish-已完结"
                 ],
                 notShowWhen: null,
-                showWhen: null
+                showWhen: Object.keys(this.category_param_dict)
             },
             {
                 options: [
@@ -231,7 +286,29 @@ class CopyManga extends ComicSource {
                     "popular-热度正序",
                 ],
                 notShowWhen: null,
-                showWhen: null
+                showWhen: Object.keys(this.category_param_dict)
+            },
+            {
+                options: [
+                    "-全部",
+                    "japan-日漫",
+                    "korea-韩漫",
+                    "west-美漫",
+                    "finish-已完结"
+                ],
+                notShowWhen: null,
+                showWhen: ["排行"]
+            },
+            {
+                options: [
+                    "-全部",
+                    "japan-日漫",
+                    "korea-韩漫",
+                    "west-美漫",
+                    "finish-已完结"
+                ],
+                notShowWhen: null,
+                showWhen: ["排行"]
             }
         ]
     }
