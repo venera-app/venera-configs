@@ -4,6 +4,13 @@ Venera JavaScript Library
 This library provides a set of APIs for interacting with the Venera app.
 */
 
+function setTimeout(callback, delay) {
+    sendMessage({
+        method: 'delay',
+        time: delay,
+    }).then(callback);
+}
+
 /// encode, decode, hash, decrypt
 let Convert = {
     /**
@@ -485,6 +492,37 @@ let Network = {
         });
     },
 };
+
+/**
+ * [fetch] function for sending HTTP requests. Same api as the browser fetch.
+ * @param url {string}
+ * @param options {{method: string, headers: Object, body: any}}
+ * @returns {Promise<{ok: boolean, status: number, statusText: string, headers: {}, arrayBuffer: (function(): Promise<ArrayBuffer>), text: (function(): Promise<string>), json: (function(): Promise<any>)}>}
+ * @since 1.2.0
+ */
+async function fetch(url, options) {
+    let method = 'GET';
+    let headers = {};
+    let data = null;
+
+    if (options) {
+        method = options.method || method;
+        headers = options.headers || headers;
+        data = options.body || data;
+    }
+
+    let result = await Network.fetchBytes(method, url, headers, data);
+
+    return {
+        ok: result.status >= 200 && result.status < 300,
+        status: result.status,
+        statusText: '',
+        headers: result.headers,
+        arrayBuffer: async () => result.body,
+        text: async () => Convert.decodeUtf8(result.body),
+        json: async () => JSON.parse(Convert.decodeUtf8(result.body)),
+    }
+}
 
 /**
  * HtmlDocument class for parsing HTML and querying elements.
@@ -1164,5 +1202,145 @@ class Image {
             height: height
         })
         return new Image(key);
+    }
+}
+
+/**
+ * UI related apis
+ * @since 1.2.0
+ */
+let UI = {
+    /**
+     * Show a message
+     * @param message {string}
+     */
+    showMessage: (message) => {
+        sendMessage({
+            method: 'UI',
+            function: 'showMessage',
+            message: message,
+        })
+    },
+
+    /**
+     * Show a dialog. Any action will close the dialog.
+     * @param title {string}
+     * @param content {string}
+     * @param actions {{text:string, callback: () => void | Promise<void>, style: "text"|"filled"|"danger"}[]} - If callback returns a promise, the button will show a loading indicator until the promise is resolved.
+     * @since 1.2.1
+     */
+    showDialog: (title, content, actions) => {
+        sendMessage({
+            method: 'UI',
+            function: 'showDialog',
+            title: title,
+            content: content,
+            actions: actions,
+        })
+    },
+
+    /**
+     * Open [url] in external browser
+     * @param url {string}
+     */
+    launchUrl: (url) => {
+        sendMessage({
+            method: 'UI',
+            function: 'launchUrl',
+            url: url,
+        })
+    },
+
+    /**
+     * Show a loading dialog.
+     * @param onCancel {() => void | null | undefined} - Called when the loading dialog is canceled. If [onCancel] is null, the dialog cannot be canceled by the user.
+     * @returns {number} - A number that can be used to cancel the loading dialog.
+     * @since 1.2.1
+     */
+    showLoading: (onCancel) => {
+        return sendMessage({
+            method: 'UI',
+            function: 'showLoading',
+            onCancel: onCancel
+        })
+    },
+
+    /**
+     * Cancel a loading dialog.
+     * @param id {number} - returned by [showLoading]
+     * @since 1.2.1
+     */
+    cancelLoading: (id) => {
+        sendMessage({
+            method: 'UI',
+            function: 'cancelLoading',
+            id: id
+        })
+    },
+
+    /**
+     * Show an input dialog
+     * @param title {string}
+     * @param validator {(string) => string | null | undefined} - A function that validates the input. If the function returns a string, the dialog will show the error message.
+     * @returns {string | null} - The input value. If the dialog is canceled, return null.
+     */
+    showInputDialog: (title, validator) => {
+        return sendMessage({
+            method: 'UI',
+            function: 'showInputDialog',
+            title: title,
+            validator: validator
+        })
+    },
+
+    /**
+     * Show a select dialog
+     * @param title {string}
+     * @param options {string[]}
+     * @param initialIndex {number?}
+     * @returns {number | null} - The selected index. If the dialog is canceled, return null.
+     */
+    showSelectDialog: (title, options, initialIndex) => {
+        return sendMessage({
+            method: 'UI',
+            function: 'showSelectDialog',
+            title: title,
+            options: options,
+            initialIndex: initialIndex
+        })
+    }
+}
+
+/**
+ * App related apis
+ * @since 1.2.1
+ */
+let APP = {
+    /**
+     * Get the app version
+     * @returns {string} - The app version
+     */
+    get version() {
+        return appVersion // defined in the engine
+    },
+
+    /**
+     * Get current app locale
+     * @returns {string} - The app locale, in the format of [languageCode]_[countryCode]
+     */
+    get locale() {
+        return sendMessage({
+            method: 'getLocale'
+        })
+    },
+
+    /**
+     * Get current running platform
+     * @returns {string} - The platform name, "android", "ios", "windows", "macos", "linux"
+     */
+    get platform() {
+        return sendMessage({
+            method: 'getPlatform'
+        })
     }
 }

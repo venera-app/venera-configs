@@ -3,7 +3,7 @@ class Picacg extends ComicSource {
 
     key = "picacg"
 
-    version = "1.0.0"
+    version = "1.0.1"
 
     minAppVersion = "1.0.0"
 
@@ -445,7 +445,17 @@ class Picacg extends ComicSource {
                 })
                 return comics
             }
-            let [info, eps, related] = await Promise.all([infoLoader(), epsLoader(), relatedLoader()])
+            let info, eps, related
+            try {
+                [info, eps, related] = await Promise.all([infoLoader(), epsLoader(), relatedLoader()])
+            }
+            catch (e) {
+                if (e === 'Invalid status code: 401') {
+                    await this.account.reLogin();
+                    [info, eps, related] = await Promise.all([infoLoader(), epsLoader(), relatedLoader()]);
+                }
+                throw e
+            }
             let tags = {}
             if(info.author) {
                 tags['Author'] = [info.author];

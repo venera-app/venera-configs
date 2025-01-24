@@ -308,7 +308,7 @@ class CopyManga extends ComicSource {
                     "local-汉化组"
                 ],
                 label: "搜索选项"
-            },
+            }
         ]
     }
 
@@ -585,6 +585,27 @@ class CopyManga extends ComicSource {
                 }
             }
             throw "未支持此类Tag检索"
+        }
+    }
+
+    settings = {
+        search_api: {
+            // title
+            title: "搜索方式",
+            // type: input, select, switch
+            type: "select",
+            // options
+            options: [
+                {
+                    value: 'baseAPI',
+                    text: '基础API'
+                },
+                {
+                    value: 'webAPI',
+                    text: '网页端API（可搜屏蔽作）'
+                }
+            ],
+            default: 'baseAPI'
         }
     }
 

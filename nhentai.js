@@ -7,7 +7,7 @@ class Nhentai extends ComicSource {
     // unique id of the source
     key = "nhentai"
 
-    version = "1.0.3"
+    version = "1.0.4"
 
     minAppVersion = "1.0.0"
 
@@ -75,7 +75,12 @@ class Nhentai extends ComicSource {
     parseComicList(html) {
         let document = new HtmlDocument(html)
         let comicElements = document.querySelectorAll("div.gallery")
-        let total = Number(document.querySelector("div#content > h1").text);
+        let h1 = document.querySelector("div#content > h1").text
+        let numbers = h1.match(/\d+/g)
+        let total = comicElements.length;
+        if(numbers) {
+            total = parseInt(numbers.join(''))
+        }
         return {
             comics: comicElements.map(e => this.parseComic(e)),
             maxPage: Math.ceil(total / 25)
@@ -216,7 +221,7 @@ class Nhentai extends ComicSource {
             let sort = options[0] || "popular"
             sort = sort.replaceAll("@", "-")
             let url = `${this.baseUrl}/search/?q=${keyword}&page=${page}&sort=${sort}`
-            let res = await Network.get(url, {})
+            let res = await Network.get(url);
             if(res.status !== 200) {
                 throw "Invalid Status Code: " + res.status
             }

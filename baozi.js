@@ -5,7 +5,7 @@ class Baozi extends ComicSource {
     // 唯一标识符
     key = "baozi"
 
-    version = "1.0.1"
+    version = "1.0.2"
 
     minAppVersion = "1.0.0"
 
@@ -43,10 +43,8 @@ class Baozi extends ComicSource {
         registerWebsite: `https://cn.baozimh.com/user/signup`
     }
 
-    lang = 'cn'
-
     get baseUrl(){
-        return `https://${this.lang}.baozimh.com`
+        return `https://www.baozimh.com`
     }
 
     parseComic(e) {
@@ -302,7 +300,7 @@ class Baozi extends ComicSource {
         },
         // 获取章节图片
         loadEp: async (comicId, epId) => {
-            let res = await Network.get(`https://${this.lang}.czmanga.com/comic/chapter/${comicId}/0_${epId}.html`)
+            let res = await Network.get(`https://www.czmanga.com/comic/chapter/${comicId}/0_${epId}.html`)
             if (res.status !== 200) {
                 throw "Invalid status code: " + res.status
             }

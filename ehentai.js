@@ -7,7 +7,7 @@ class Ehentai extends ComicSource {
     // unique id of the source
     key = "ehentai"
 
-    version = "1.1.1"
+    version = "1.1.2"
 
     minAppVersion = "1.0.0"
 
@@ -232,10 +232,14 @@ class Ehentai extends ComicSource {
                 let title = item.children[2 + t].children[0].children[0].text;
                 let link = item.children[2 + t].children[0].attributes["href"];
                 let uploader = "";
-                let pages;
+                let pages = 0;
                 try {
-                    pages = Number(item.children[3 + t].children[1].text.match(/\d+/)[0]);
-                    uploader = item.children[3 + t].children[0].children[0].text;
+                    if (url.includes("/favorites.php")) {
+                        pages = Number(item.children[1 + t].children[1].children[1].children[1].children[1].text.match(/\d+/)[0]);
+                    } else {
+                        pages = Number(item.children[3 + t].children[1].text.match(/\d+/)[0]);
+                        uploader = item.children[3 + t].children[0].children[0].text;
+                    }
                 } catch(e) {}
                 let tags = [];
                 let language = null
@@ -273,7 +277,7 @@ class Ehentai extends ComicSource {
                 let coverPath = item.querySelector("img")?.attributes["src"] ?? "";
                 let stars = this.getStarsFromPosition(item.querySelector("div.gl5t > div > div.ir")?.attributes["style"] ?? "");
                 let link = item.querySelector("a")?.attributes["href"] ?? "";
-                let pages = Number(item.querySelectorAll("div.gl5t > div > div").find((element) => element.text.includes("pages"))?.text.match(/\d+/)[0] ?? "0");
+                let pages = Number(item.querySelectorAll("div.gl5t > div > div").find((element) => element.text.includes("page"))?.text.match(/\d+/)[0] ?? "0");
                 galleries.push(new Comic({
                     id: link,
                     title: title,
@@ -298,7 +302,7 @@ class Ehentai extends ComicSource {
                 let stars = this.getStarsFromPosition(item.querySelector("td.gl2e > div > div.gl3e > div.ir")?.attributes["style"] ?? "");
                 let link = item.querySelector("td.gl1e > div > a")?.attributes["href"] ?? "";
                 let tags = item.querySelectorAll('div.gt, div.gtl').map((e) => e.attributes["title"] ?? "");
-                let pages = Number(item.querySelectorAll("td.gl2e > div > div.gl3e > div").find((element) => element.text.includes("pages"))?.text.match(/\d+/)[0] ?? "");
+                let pages = Number(item.querySelectorAll("td.gl2e > div > div.gl3e > div").find((element) => element.text.includes("page"))?.text.match(/\d+/)[0] ?? "");
                 let language = tags.find((e) => e.startsWith("language:") && !e.includes('translated'))?.split(":")[1].trim() ?? null;
                 galleries.push(new Comic({
                     id: link,
@@ -637,7 +641,7 @@ class Ehentai extends ComicSource {
 
             let maxPage = "1"
             for(let element of document.querySelectorAll("td.gdt2")) {
-                if (element.text.includes("pages")) {
+                if (element.text.includes("page")) {
                     maxPage = element.text.match(/\d+/)[0];
                 }
             }
@@ -730,39 +734,36 @@ class Ehentai extends ComicSource {
                 throw `Invalid status code: ${res.status}`
             }
             let document = new HtmlDocument(res.body);
-            let images = document.querySelectorAll("div.gdtm > div").map((e) => {
+            /**
+             * @param e {HtmlElement}
+             */
+            let parseImageUrl = (e) => {
                 let style = e.attributes['style'];
                 let width = Number(style.split('width:')[1].split('px')[0])
+                let height = Number(style.split('height:')[1].split('px')[0])
                 let r = style.split("background:transparent url(")[1]
                 let url = r.split(")")[0]
-                let position = Number(r.split(') -')[1].split('px')[0])
-                return url + `@x=${position}-${position + width}`
+                let range = '';
+                if(r.includes('px')) {
+                    let position = Number(r.split(') -')[1].split('px')[0])
+                    range += `x=${position}-${position + width}`
+                }
+                if (height)  range += `${range ? "&" : ""}y=0-${height}`;
+                if (range)  url += `@${range}`;
+                return url;
+            };
+            let images = document.querySelectorAll("div.gdtm > div").map((e) => {
+                return parseImageUrl(e)
             });
             images.push(...document.querySelectorAll("div.gdtl > a > img").map((e) => e.attributes["src"]))
             if(images.length === 0) {
                 for(let e of document.querySelectorAll("div.gt100 > a > div")
                     .map(e => e.children.length === 0 ? e : e.children[0])) {
-                    let style = e.attributes['style'];
-                    let width = Number(style.split('width:')[1].split('px')[0])
-                    let r = style.split("background:transparent url(")[1]
-                    let url = r.split(")")[0]
-                    if(r.includes('px')) {
-                        let position = Number(r.split(') -')[1].split('px')[0])
-                        url += `@x=${position}-${position + width}`
-                    }
-                    images.push(url)
+                    images.push(parseImageUrl(e))
                 }
                 for(let e of document.querySelectorAll("div.gt200 > a > div")
                     .map(e => e.children.length === 0 ? e : e.children[0])) {
-                    let style = e.attributes['style'];
-                    let width = Number(style.split('width:')[1].split('px')[0])
-                    let r = style.split("background:transparent url(")[1]
-                    let url = r.split(")")[0]
-                    if(r.includes('px')) {
-                        let position = Number(r.split(') -')[1].split('px')[0])
-                        url += `@x=${position}-${position + width}`
-                    }
-                    images.push(url)
+                    images.push(parseImageUrl(e))
                 }
             }
             let urls = document.querySelectorAll("table.ptb > tbody > tr > td > a").map((e) => e.attributes["href"])

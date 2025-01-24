@@ -7,30 +7,38 @@ class JM extends ComicSource {
     // unique id of the source
     key = "jm"
 
-    version = "1.0.0"
+    version = "1.0.3"
 
-    minAppVersion = "1.0.2"
+    minAppVersion = "1.2.1"
 
     // update url
     url = "https://raw.githubusercontent.com/venera-app/venera-configs/refs/heads/main/jm.js"
 
     static apiDomains = [
-        "https://www.jmapiproxyxxx.vip",
-        "https://www.cdnblackmyth.vip",
-        "https://www.cdnblackmyth.xyz",
-        "https://www.cdnxxx-proxy.co"
+        "www.jmapiproxyxxx.vip",
+        "www.cdnblackmyth.club",
+        "www.cdnmhws.cc",
+        "www.cdnmhwscc.org"
     ];
 
-    static imageUrls = [
-        "https://cdn-msp.jmapiproxy3.cc",
-        "https://cdn-msp3.jmapiproxy3.cc",
-        "https://cdn-msp2.jmapiproxy1.cc",
-        "https://cdn-msp3.jmapiproxy3.cc",
+    static imageDomains = [
+        "cdn-msp.jmapiproxy3.cc",
+        "cdn-msp3.jmapiproxy3.cc",
+        "cdn-msp2.jmapiproxy1.cc",
+        "cdn-msp3.jmapiproxy3.cc",
     ];
+
+    static apiUa = "Mozilla/5.0 (Linux; Android 10; K; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/130.0.0.0 Mobile Safari/537.36"
+
+    static imgUa = "okhttp/3.12.1"
 
     get baseUrl() {
         let index = parseInt(this.loadSetting('apiDomain')) - 1
-        return JM.apiDomains[index]
+        return `https://${JM.apiDomains[index]}`
+    }
+
+    overwriteApiUrls(domains) {
+        if (domains.length != 0) JM.apiDomains = domains
     }
 
     isNum(str) {
@@ -40,7 +48,15 @@ class JM extends ComicSource {
     get imageUrl() {
         let stream = this.loadSetting('imageStream')
         let index = parseInt(stream) - 1
-        return JM.imageUrls[index]
+        return `https://${JM.imageDomains[index]}`
+    }
+
+    get apiUa() {
+        return JM.apiUa;
+    }
+
+    get imgUa() {
+        return JM.imgUa;
     }
 
     getCoverUrl(id) {
@@ -53,6 +69,62 @@ class JM extends ComicSource {
 
     getAvatarUrl(imageName) {
         return `${this.imageUrl}/media/users/${imageName}`
+    }
+
+    async init() {
+        if (this.loadSetting('refreshDomainsOnStart')) await this.refreshApiDomains(false)
+    }
+
+    /**
+     *
+     * @param showConfirmDialog {boolean}
+     */
+    async refreshApiDomains(showConfirmDialog) {
+        let today = new Date();
+        let url = "https://jmappc01-1308024008.cos.ap-guangzhou.myqcloud.com/server-2024.txt"
+        let domainSecret = "diosfjckwpqpdfjkvnqQjsik"
+        let title = ""
+        let message = ""
+        let domains = []
+        let res = await fetch(
+            `${url}?time=${today.getFullYear()}${today.getMonth() + 1}${today.getDate()}`,
+            {headers: {"User-Agent": this.imgUa}}
+        )
+        if (res.status == 200) {
+            let data = this.convertData(await res.text(), domainSecret)
+            let json = JSON.parse(data)
+            if (json["Server"]) {
+                title = "Update Success"
+                message = "New domains:\n\n"
+                domains = json["Server"]
+            }
+        }
+        if (domains.length == 0) {
+            title = "Update Failed"
+            message = `Using built-in domains:\n\n`
+            domains = JM.apiDomains
+        }
+        for (let i = 0; i < domains.length; i++) {
+            message = message + `Stream ${i + 1}: ${domains[i]}\n`
+        }
+        if (showConfirmDialog) {
+            UI.showDialog(
+                title,
+                message,
+                [
+                    {
+                        text: "Cancle",
+                        callback: () => {}
+                    },
+                    {
+                        text: "Save",
+                        callback: () => this.overwriteApiUrls(domains)
+                    }
+                ]
+            )
+        } else {
+            this.overwriteApiUrls(domains)
+        }
     }
 
     /**
@@ -84,14 +156,15 @@ class JM extends ComicSource {
     }
 
     getHeaders(time) {
-        const jmVersion = "1.7.5"
+        const jmVersion = "1.7.6"
         const jmAuthKey = "18comicAPPContent"
         let token = Convert.md5(Convert.encodeUtf8(`${time}${jmAuthKey}`))
 
         return {
             "token": Convert.hexEncode(token),
             "tokenparam": `${time},${jmVersion}`,
-            "accept-encoding": "gzip",
+            "Accept-Encoding": "gzip",
+            "User-Agent": this.apiUa,
         }
     }
 
@@ -101,9 +174,8 @@ class JM extends ComicSource {
      * @param time {number}
      * @returns {string}
      */
-    convertData(input, time) {
-        let secret = '185Hcomic3PAPP7R'
-        let key = Convert.encodeUtf8(Convert.hexEncode(Convert.md5(Convert.encodeUtf8(`${time}${secret}`))))
+    convertData(input, secret) {  
+        let key = Convert.encodeUtf8(Convert.hexEncode(Convert.md5(Convert.encodeUtf8(secret))))
         let data = Convert.decodeBase64(input)
         let decrypted = Convert.decryptAesEcb(data, key)
         let res = Convert.decodeUtf8(decrypted)
@@ -121,6 +193,7 @@ class JM extends ComicSource {
      */
     async get(url) {
         let time = Math.floor(Date.now() / 1000)
+        let kJmSecret = "185Hcomic3PAPP7R"
         let res = await Network.get(url, this.getHeaders(time))
         if(res.status !== 200) {
             if(res.status === 401) {
@@ -138,7 +211,7 @@ class JM extends ComicSource {
         if(typeof data !== 'string') {
             throw 'Invalid Data'
         }
-        return this.convertData(data, time)
+        return this.convertData(data, `${time}${kJmSecret}`)
     }
 
     // explore page list
@@ -169,6 +242,9 @@ class JM extends ComicSource {
                     let id = e.id.toString()
                     if (type === 'category_id') {
                         id = e.slug
+                    }
+                    if (type === 'library') {
+                        continue
                     }
                     let comics = e.content.map((e) => this.parseComic(e))
                     result.push({
@@ -500,6 +576,10 @@ class JM extends ComicSource {
                 return {}
             }
             return {
+                headers: {
+                    "Accept-Encoding": "gzip",
+                    "User-Agent": this.imgUa,
+                },
                 modifyImage: `
                     let modifyImage = (image) => {
                         const num = ${num}
@@ -525,6 +605,19 @@ class JM extends ComicSource {
                         return res
                     }
                 `,
+            }
+        },
+        /**
+         * [Optional] provide configs for a thumbnail loading
+         * @param url {string}
+         * @returns {{}}
+         */
+        onThumbnailLoad: (url) => {
+            return {
+                headers: {
+                    "Accept-Encoding": "gzip",
+                    "User-Agent": this.imgUa,
+                }
             }
         },
         /**
@@ -574,6 +667,17 @@ class JM extends ComicSource {
     ```
      */
     settings = {
+        refreshDomains: {
+            title: "Refresh Domain List",
+            type: "callback",
+            buttonText: "Refresh",
+            callback: () => this.refreshApiDomains(true)
+        },
+        refreshDomainsOnStart: {
+            title: "Refresh Domain List on Startup",
+            type: "switch",
+            default: true,
+        },
         apiDomain: {
             title: "Api Domain",
             type: "select",
@@ -617,10 +721,16 @@ class JM extends ComicSource {
     // [Optional] translations for the strings in this config
     translation = {
         'zh_CN': {
+            'Refresh Domain List': '刷新域名列表',
+            'Refresh': '刷新',
+            'Refresh Domain List on Startup': '启动时刷新域名列表',
             'Api Domain': 'Api域名',
             'Image Stream': '图片分流',
         },
         'zh_TW': {
+            'Refresh Domain List': '刷新域名列表',
+            'Refresh': '刷新',
+            'Refresh Domain List on Startup': '啟動時刷新域名列表',
             'Api Domain': 'Api域名',
             'Image Stream': '圖片分流',
         },
