@@ -224,8 +224,8 @@ class CopyManga extends ComicSource {
                 category_url = `https://api.copymanga.tv/api/v3/ranks?limit=21&offset=${(page - 1) * 21}&_update=true&type=1&audience_type=${options[0]}&date_type=${options[1]}`
             }else{
             // 分类-主题
-                if (category && !param) {
-                    // 若仅传入category，则转化为对应param
+                if (category !== undefined && category !== null) {
+                    // 若传入category，则转化为对应param
                     param = CopyManga.category_param_dict[category] || "";
                 }
                 options = options.map(e => e.replace("*", "-"))
