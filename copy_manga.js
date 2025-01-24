@@ -32,7 +32,8 @@ class CopyManga extends ComicSource {
             "authorization": `Token${token}`,
             "platform": "3",
         }
-        this.author_path_word_dict = {}
+        // 用于储存 { 作者名 : 英文参数 }
+        this.author_path_word_dict = {}    
     }
 
     /// account
@@ -131,7 +132,7 @@ class CopyManga extends ComicSource {
         }
     ]
 
-    category_param_dict = {
+    static category_param_dict = {
         "全部": "",
         "愛情": "aiqing",
         "歡樂向": "huanlexiang",
@@ -208,8 +209,8 @@ class CopyManga extends ComicSource {
             {
                 name: "主题",
                 type: "fixed",
-                categories: Object.keys(this.category_param_dict),
-                categoryParams: Object.values(this.category_param_dict),
+                categories: Object.keys(CopyManga.category_param_dict),
+                categoryParams: Object.values(CopyManga.category_param_dict),
                 itemType: "category"
             }
         ]
@@ -217,18 +218,23 @@ class CopyManga extends ComicSource {
 
     categoryComics = {
         load: async (category, param, options, page) => {
-            // 如果传入了category，则匹配其对应的param
-            if (category && !param) {
-                if (category === "排行"){
-                    param = ""
-                }else{
-                    param = category_param_dict[category] || "";
+            let category_url;
+            // 分类-排行
+            if (category === "排行" || param === "ranking"){
+                category_url = `https://api.copymanga.tv/api/v3/ranks?limit=21&offset=${(page - 1) * 21}&_update=true&type=1&audience_type=${options[0]}&date_type=${options[1]}`
+            }else{
+            // 分类-主题
+                if (category && !param) {
+                    // 若仅传入category，则转化为对应param
+                    param = CopyManga.category_param_dict[category] || "";
                 }
-
+                options = options.map(e => e.replace("*", "-"))
+                category_url = `https://api.copymanga.tv/api/v3/comics?limit=21&offset=${(page - 1) * 21}&ordering=${options[1]}&theme=${param}&top=${options[0]}&platform=3`
             }
-            options = options.map(e => e.replace("*", "-"))
+
+
             let res = await Network.get(
-                `https://api.copymanga.tv/api/v3/comics?limit=21&offset=${(page - 1) * 21}&ordering=${options[1]}&theme=${param}&top=${options[0]}&platform=3`,
+                category_url,
                 this.headers
             )
             if (res.status !== 200) {
@@ -238,6 +244,16 @@ class CopyManga extends ComicSource {
             let data = JSON.parse(res.body)
 
             function parseComic(comic) {
+                //判断是否是漫画排名格式
+                let sort = null
+                let popular = 0
+                let rise_sort = 0;
+                if (comic["sort"] !== null && comic["sort"] !== undefined){
+                    sort = comic["sort"]
+                    rise_sort = comic["rise_sort"]
+                    popular = comic["popular"]
+                }
+
                 if (comic["comic"] !== null && comic["comic"] !== undefined) {
                     comic = comic["comic"]
                 }
@@ -246,18 +262,34 @@ class CopyManga extends ComicSource {
                     tags = comic["theme"].map(t => t["name"])
                 }
                 let author = null
-
+                let author_num = 0
                 if (Array.isArray(comic["author"]) && comic["author"].length > 0) {
                     author = comic["author"][0]["name"]
+                    author_num = comic["author"].length
                 }
 
-                return {
-                    id: comic["path_word"],
-                    title: comic["name"],
-                    subTitle: author,
-                    cover: comic["cover"],
-                    tags: tags,
-                    description: comic["datetime_updated"]
+                //如果是漫画排名，则描述为 排名(+升降箭头)+作者+人气
+                if(sort !== null){
+                    return {
+                        id: comic["path_word"],
+                        title: comic["name"],
+                        subTitle: author,
+                        cover: comic["cover"],
+                        tags: tags,
+                        description:`${sort} ${rise_sort > 0 ? '▲' : rise_sort < 0 ? '▽' : '-'}\n` +
+                                    `${author_num > 1 ? `${author} 等${author_num}位` : author}\n` +
+                                    `🔥${(comic.popular / 10000).toFixed(1)}W`
+                    }
+                //正常情况的描述为更新时间
+                }else{
+                    return {
+                        id: comic["path_word"],
+                        title: comic["name"],
+                        subTitle: author,
+                        cover: comic["cover"],
+                        tags: tags,
+                        description: comic["datetime_updated"]
+                    }
                 }
             }
 
@@ -276,7 +308,7 @@ class CopyManga extends ComicSource {
                     "finish-已完结"
                 ],
                 notShowWhen: null,
-                showWhen: Object.keys(this.category_param_dict)
+                showWhen: Object.keys(CopyManga.category_param_dict)
             },
             {
                 options: [
@@ -286,26 +318,22 @@ class CopyManga extends ComicSource {
                     "popular-热度正序",
                 ],
                 notShowWhen: null,
-                showWhen: Object.keys(this.category_param_dict)
+                showWhen: Object.keys(CopyManga.category_param_dict)
             },
             {
                 options: [
-                    "-全部",
-                    "japan-日漫",
-                    "korea-韩漫",
-                    "west-美漫",
-                    "finish-已完结"
+                    "male-男频",
+                    "female-女频"
                 ],
                 notShowWhen: null,
                 showWhen: ["排行"]
             },
             {
                 options: [
-                    "-全部",
-                    "japan-日漫",
-                    "korea-韩漫",
-                    "west-美漫",
-                    "finish-已完结"
+                    "day-上升最快",
+                    "week-最近7天",
+                    "month-最近30天",
+                    "total-總榜單"
                 ],
                 notShowWhen: null,
                 showWhen: ["排行"]
