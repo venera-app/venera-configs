@@ -278,7 +278,7 @@ class CopyManga extends ComicSource {
                         tags: tags,
                         description:`${sort} ${rise_sort > 0 ? '▲' : rise_sort < 0 ? '▽' : '-'}\n` +
                                     `${author_num > 1 ? `${author} 等${author_num}位` : author}\n` +
-                                    `🔥${(comic.popular / 10000).toFixed(1)}W`
+                                    `🔥${(popular / 10000).toFixed(1)}W`
                     }
                 //正常情况的描述为更新时间
                 }else{
