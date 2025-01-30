@@ -4,7 +4,7 @@ class CopyManga extends ComicSource {
 
     key = "copy_manga"
 
-    version = "1.0.4"
+    version = "1.0.5"
 
     minAppVersion = "1.0.0"
 
@@ -584,32 +584,86 @@ class CopyManga extends ComicSource {
                 subId: comicData.uuid
             }
         },
-        loadEp: async (comicId, epId) => {
-            let res = await Network.get(
-                `https://api.copymanga.tv/api/v3/comic/${comicId}/chapter2/${epId}?platform=3`,
-                this.headers
+    loadEp: async (comicId, epId) => {
+      let attempt = 0;
+      const maxAttempts = 5;
+      let res;
+      let data;
+
+      while (attempt < maxAttempts) {
+        try {
+          res = await Network.get(
+            `https://api.copymanga.tv/api/v3/comic/${comicId}/chapter2/${epId}?platform=3`,
+            this.headers
+          );
+
+          if (res.status === 210) {
+            // 210 indicates too frequent access, extract wait time
+            let waitTime = 40000; // Default wait time 40s
+            try {
+              let responseBody = JSON.parse(res.body);
+              if (
+                responseBody.message &&
+                responseBody.message.includes("Expected available in")
+              ) {
+                let match = responseBody.message.match(/(\d+)\s*seconds/);
+                if (match && match[1]) {
+                  waitTime = parseInt(match[1]) * 1000;
+                }
+              }
+            } catch (e) {
+              console.log(
+                "Unable to parse wait time, using default wait time 40s"
+              );
+            }
+            console.log(
+              `Chapter ` +
+                epId +
+                ` access too frequent, waiting ` +
+                waitTime / 1000 +
+                `s`
             );
+            await new Promise((resolve) => setTimeout(resolve, waitTime));
+            throw (
+              `Chapter ` +
+              epId +
+              ` access too frequent, waiting ` +
+              waitTime / 1000 +
+              `s`
+            );
+          }
 
-            if (res.status !== 200){
-                throw `Invalid status code: ${res.status}`;
-            }
+          if (res.status !== 200) {
+            throw `Invalid status code: ${res.status}`;
+          }
 
-            let data = JSON.parse(res.body);
+          data = JSON.parse(res.body);
+          //console.log(data.results.chapter);
+          // Handle image link sorting
+          let imagesUrls = data.results.chapter.contents.map((e) => e.url);
+          let orders = data.results.chapter.words;
 
-            let imagesUrls = data.results.chapter.contents.map(e => e.url)
+          let images = new Array(imagesUrls.length).fill(""); // Initialize an array with the same length as imagesUrls
 
-            let orders = data.results.chapter.words
+          // Arrange images according to orders
+          for (let i = 0; i < imagesUrls.length; i++) {
+            images[orders[i]] = imagesUrls[i];
+          }
 
-            let images = imagesUrls.map(e => "")
-
-            for(let i=0; i < imagesUrls.length; i++){
-                images[orders[i]] = imagesUrls[i]
-            }
-
-            return {
-                images: images
-            }
-        },
+          return {
+            images: images,
+          };
+        } catch (error) {
+          attempt++;
+          console.log(`Attempt ${attempt} failed: ${error}`);
+          if (attempt >= maxAttempts) {
+            throw (
+              "Reached maximum retry attempts, unable to load chapter." + epId
+            );
+          }
+        }
+      }
+    },
         loadComments: async (comicId, subId, page, replyTo) => {
             let url = `https://api.copymanga.tv/api/v3/comments?comic_id=${subId}&limit=20&offset=${(page-1)*20}`;
             if(replyTo){
