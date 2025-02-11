@@ -7,9 +7,9 @@ class JM extends ComicSource {
     // unique id of the source
     key = "jm"
 
-    version = "1.0.3"
+    version = "1.1.0"
 
-    minAppVersion = "1.2.1"
+    minAppVersion = "1.2.5"
 
     // update url
     url = "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@latest/jm.js"
@@ -38,7 +38,7 @@ class JM extends ComicSource {
     }
 
     overwriteApiUrls(domains) {
-        if (domains.length != 0) JM.apiDomains = domains
+        if (domains.length !== 0) JM.apiDomains = domains
     }
 
     isNum(str) {
@@ -90,7 +90,7 @@ class JM extends ComicSource {
             `${url}?time=${today.getFullYear()}${today.getMonth() + 1}${today.getDate()}`,
             {headers: {"User-Agent": this.imgUa}}
         )
-        if (res.status == 200) {
+        if (res.status === 200) {
             let data = this.convertData(await res.text(), domainSecret)
             let json = JSON.parse(data)
             if (json["Server"]) {
@@ -99,7 +99,7 @@ class JM extends ComicSource {
                 domains = json["Server"]
             }
         }
-        if (domains.length == 0) {
+        if (domains.length === 0) {
             title = "Update Failed"
             message = `Using built-in domains:\n\n`
             domains = JM.apiDomains
@@ -113,7 +113,7 @@ class JM extends ComicSource {
                 message,
                 [
                     {
-                        text: "Cancle",
+                        text: "Cancel",
                         callback: () => {}
                     },
                     {
@@ -171,7 +171,7 @@ class JM extends ComicSource {
     /**
      *
      * @param input {string}
-     * @param time {number}
+     * @param secret {string}
      * @returns {string}
      */
     convertData(input, secret) {  
@@ -212,6 +212,62 @@ class JM extends ComicSource {
             throw 'Invalid Data'
         }
         return this.convertData(data, `${time}${kJmSecret}`)
+    }
+
+    async post(url, body) {
+        let time = Math.floor(Date.now() / 1000)
+        let kJmSecret = "185Hcomic3PAPP7R"
+        let res = await Network.post(url, {
+            ...this.getHeaders(time),
+            "Content-Type": "application/x-www-form-urlencoded"
+        }, body)
+        if(res.status !== 200) {
+            if(res.status === 401) {
+                let json = JSON.parse(res.body)
+                let message = json.errorMsg
+                if(message === "請先登入會員" && this.isLogged) {
+                    throw 'Login expired'
+                }
+                throw message ?? 'Invalid Status Code: ' + res.status
+            }
+            throw 'Invalid Status Code: ' + res.status
+        }
+        let json = JSON.parse(res.body)
+        let data = json.data
+        if(typeof data !== 'string') {
+            throw 'Invalid Data'
+        }
+        return this.convertData(data, `${time}${kJmSecret}`)
+    }
+
+    // [Optional] account related
+    account = {
+        /**
+         * [Optional] login with account and password, return any value to indicate success
+         * @param account {string}
+         * @param pwd {string}
+         * @returns {Promise<any>}
+         */
+        login: async (account, pwd) => {
+            let time = Math.floor(Date.now() / 1000)
+            await this.post(
+                `${this.baseUrl}/login`,
+                `username=${encodeURIComponent(account)}&password=${encodeURIComponent(pwd)}`
+            )
+            return "ok"
+        },
+
+        /**
+         * logout function, clear account related data
+         */
+        logout: () => {
+            for (let url of JM.apiDomains) {
+                Network.deleteCookies(url)
+            }
+        },
+
+        // {string?} - register url
+        registerWebsite: null
     }
 
     // explore page list
@@ -469,6 +525,85 @@ class JM extends ComicSource {
         ],
     }
 
+    // favorite related
+    favorites = {
+        multiFolder: true,
+        /**
+         * add or delete favorite.
+         * throw `Login expired` to indicate login expired, App will automatically re-login and re-add/delete favorite
+         * @param comicId {string}
+         * @param folderId {string}
+         * @param isAdding {boolean} - true for add, false for delete
+         * @param favoriteId {string?} - [Comic.favoriteId]
+         * @returns {Promise<any>} - return any value to indicate success
+         */
+        addOrDelFavorite: async (comicId, folderId, isAdding, favoriteId) => {
+            if (isAdding) {
+                await this.post(`${this.baseUrl}/favorite`, `aid=${comicId}`)
+                await this.post(`${this.baseUrl}/favorite_folder`, `type=move&folder_id=${folderId}&aid=${comicId}`)
+            } else {
+                await this.post(`${this.baseUrl}/favorite`, `aid=${comicId}`)
+            }
+        },
+        /**
+         * load favorite folders.
+         * throw `Login expired` to indicate login expired, App will automatically re-login retry.
+         * if comicId is not null, return favorite folders which contains the comic.
+         * @param comicId {string?}
+         * @returns {Promise<{folders: {[p: string]: string}, favorited: string[]}>} - `folders` is a map of folder id to folder name, `favorited` is a list of folder id which contains the comic
+         */
+        loadFolders: async (comicId) => {
+            let res = await this.get(`${this.baseUrl}/favorite`)
+            let folders = {
+                "0": this.translate("All")
+            }
+            let json = JSON.parse(res)
+            for (let e of json.folder_list) {
+                folders[e.FID.toString()] = e.name
+            }
+            return {
+                folders: folders,
+                favorited: []
+            }
+        },
+        /**
+         * add a folder
+         * @param name {string}
+         * @returns {Promise<any>} - return any value to indicate success
+         */
+        addFolder: async (name) => {
+            await this.post(`${this.baseUrl}/favorite_folder`, `type=add&folder_name=${name}`)
+        },
+        /**
+         * delete a folder
+         * @param folderId {string}
+         * @returns {Promise<void>} - return any value to indicate success
+         */
+        deleteFolder: async (folderId) => {
+            await this.post(`${this.baseUrl}/favorite_folder`, `type=del&folder_id=${folderId}`)
+        },
+        /**
+         * load comics in a folder
+         * throw `Login expired` to indicate login expired, App will automatically re-login retry.
+         * @param page {number}
+         * @param folder {string?} - folder id, null for non-multi-folder
+         * @returns {Promise<{comics: Comic[], maxPage: number}>}
+         */
+        loadComics: async (page, folder) => {
+            let order = this.loadSetting('favoriteOrder')
+            let res = await this.get(`${this.baseUrl}/favorite?folder_id=${folder}&page=${page}&o=${order}`)
+            let json = JSON.parse(res)
+            let total = json.total
+            let maxPage = Math.ceil(total / 80)
+            let comics = json.list.map((e) => this.parseComic(e))
+            return {
+                comics: comics,
+                maxPage: maxPage
+            }
+        },
+        singleFolderForSingleComic: true,
+    }
+
     /// single comic related
     comic = {
         /**
@@ -517,6 +652,7 @@ class JM extends ComicSource {
                     "標籤": tags,
                 },
                 related: related,
+                isFavorite: data.is_favorite ?? false,
             })
         },
         /**
@@ -641,6 +777,22 @@ class JM extends ComicSource {
                 maxPage: Number(json.total.toString())
             }
         },
+        /**
+         * [Optional] send a comment, return any value to indicate success
+         * @param comicId {string}
+         * @param subId {string?} - ComicDetails.subId
+         * @param content {string}
+         * @param replyTo {string?} - commentId to reply, not null when reply to a comment
+         * @returns {Promise<any>}
+         */
+        sendComment: async (comicId, subId, content, replyTo) => {
+            let res = await this.post(`${this.baseUrl}/comment`, `aid=${comicId}&comment=${encodeURIComponent(content)}&status=undefined`)
+            let json = JSON.parse(res)
+            if (json.status === "fail") {
+                throw json.msg ?? 'Failed to send comment'
+            }
+            return "ok"
+        },
         // {string?} - regex string, used to identify comic id from user input
         idMatch: "^(\\d+|jm\\d+)$",
         /**
@@ -715,6 +867,21 @@ class JM extends ComicSource {
                 },
             ],
             default: "1",
+        },
+        favoriteOrder: {
+            title: "Favorite Order",
+            type: "select",
+            options: [
+                {
+                    value: 'mr',
+                    text: 'Add Time',
+                },
+                {
+                    value: 'mp',
+                    text: 'Update Time',
+                }
+            ],
+            default: '0'
         }
     }
 
@@ -726,6 +893,10 @@ class JM extends ComicSource {
             'Refresh Domain List on Startup': '启动时刷新域名列表',
             'Api Domain': 'Api域名',
             'Image Stream': '图片分流',
+            'Favorite Order': '收藏夹排序',
+            'Add Time': '添加时间',
+            'Update Time': '更新时间',
+            'All': '全部',
         },
         'zh_TW': {
             'Refresh Domain List': '刷新域名列表',
@@ -733,6 +904,10 @@ class JM extends ComicSource {
             'Refresh Domain List on Startup': '啟動時刷新域名列表',
             'Api Domain': 'Api域名',
             'Image Stream': '圖片分流',
+            'Favorite Order': '收藏夾排序',
+            'Add Time': '添加時間',
+            'Update Time': '更新時間',
+            'All': '全部',
         },
     }
 }
