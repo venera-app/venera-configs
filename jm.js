@@ -7,7 +7,7 @@ class JM extends ComicSource {
     // unique id of the source
     key = "jm"
 
-    version = "1.0.3"
+    version = "1.0.4"
 
     minAppVersion = "1.2.1"
 
@@ -21,12 +21,7 @@ class JM extends ComicSource {
         "www.cdnmhwscc.org"
     ];
 
-    static imageDomains = [
-        "cdn-msp.jmapiproxy3.cc",
-        "cdn-msp3.jmapiproxy3.cc",
-        "cdn-msp2.jmapiproxy1.cc",
-        "cdn-msp3.jmapiproxy3.cc",
-    ];
+    static imageUrl = "https://cdn-msp.jmapinodeudzn.net"
 
     static apiUa = "Mozilla/5.0 (Linux; Android 10; K; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/130.0.0.0 Mobile Safari/537.36"
 
@@ -37,18 +32,20 @@ class JM extends ComicSource {
         return `https://${JM.apiDomains[index]}`
     }
 
-    overwriteApiUrls(domains) {
+    get imageUrl() {
+        return JM.imageUrl
+    }
+
+    overwriteApiDomains(domains) {
         if (domains.length != 0) JM.apiDomains = domains
+    }
+
+    overwriteImgUrl(url) {
+        if (url.length != 0) JM.imageUrl = url
     }
 
     isNum(str) {
         return /^\d+$/.test(str)
-    }
-
-    get imageUrl() {
-        let stream = this.loadSetting('imageStream')
-        let index = parseInt(stream) - 1
-        return `https://${JM.imageDomains[index]}`
     }
 
     get apiUa() {
@@ -73,6 +70,7 @@ class JM extends ComicSource {
 
     async init() {
         if (this.loadSetting('refreshDomainsOnStart')) await this.refreshApiDomains(false)
+        this.refreshImgUrl(false)
     }
 
     /**
@@ -117,13 +115,34 @@ class JM extends ComicSource {
                         callback: () => {}
                     },
                     {
-                        text: "Save",
-                        callback: () => this.overwriteApiUrls(domains)
+                        text: "Apply",
+                        callback: () => {
+                            this.overwriteApiDomains(domains)
+                            this.refreshImgUrl(true)
+                        }
                     }
                 ]
             )
         } else {
-            this.overwriteApiUrls(domains)
+            this.overwriteApiDomains(domains)
+        }
+    }
+
+    /**
+     *
+     * @param showMessage {boolean}
+     */
+    async refreshImgUrl(showMessage) {
+        let index = this.loadSetting('imageStream')
+        let res = await this.get(
+            `${this.baseUrl}/setting?app_img_shunt=${index}`
+        )
+        let setting = JSON.parse(res)
+        if (setting["img_host"]) {
+            if (showMessage) {
+                UI.showMessage(`Image Stream ${index}:\n${setting["img_host"]}`)
+            }
+            this.overwriteImgUrl(setting["img_host"])
         }
     }
 
