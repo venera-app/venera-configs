@@ -7,7 +7,7 @@ class JM extends ComicSource {
     // unique id of the source
     key = "jm"
 
-    version = "1.1.0"
+    version = "1.1.1"
 
     minAppVersion = "1.2.5"
 
@@ -900,7 +900,7 @@ class JM extends ComicSource {
                     text: 'Update Time',
                 }
             ],
-            default: '0'
+            default: 'mr'
         }
     }
 
