@@ -10,7 +10,7 @@ class Baozi extends ComicSource {
     minAppVersion = "1.0.0"
 
     // 更新链接
-    url = "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@latest/baozi.js"
+    url = "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/baozi.js"
 
     /// APP启动时或者添加/更新漫画源时执行此函数
     init() {}
