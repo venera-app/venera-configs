@@ -690,10 +690,13 @@ class CopyManga extends ComicSource {
             }
             let res = await Network.get(
                 url,
-                this.headers,
+                // this.headers, // 在发送评论后，使用这个header获得的评论列表没有刚发的评论（而不使用header时可以获取完整的评论列表）。所以先注释掉。TODO: FIX THIS ISSUE
             );
 
             if (res.status !== 200) {
+                if(res.status === 210){
+                    throw "210：注冊用戶一天可以發5條評論"
+                }
                 throw `Invalid status code: ${res.status}`;
             }
 
