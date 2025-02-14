@@ -494,6 +494,10 @@ class NewComicSource extends ComicSource {
         loadNext: async (next, folder) => {
 
         },
+        /**
+         * If the comic source only allows one comic in one folder, set this to true.
+         */
+        singleFolderForSingleComic: false,
     }
 
     /// single comic related

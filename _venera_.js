@@ -496,7 +496,7 @@ let Network = {
 /**
  * [fetch] function for sending HTTP requests. Same api as the browser fetch.
  * @param url {string}
- * @param options {{method: string, headers: Object, body: any}}
+ * @param [options] {{method?: string, headers?: Object, body?: any}}
  * @returns {Promise<{ok: boolean, status: number, statusText: string, headers: {}, arrayBuffer: (function(): Promise<ArrayBuffer>), text: (function(): Promise<string>), json: (function(): Promise<any>)}>}
  * @since 1.2.0
  */
@@ -921,7 +921,7 @@ function Comic({id, title, subtitle, subTitle, cover, tags, description, maxPage
  * @param description {string?}
  * @param tags {Map<string, string[]> | {} | null | undefined}
  * @param chapters {Map<string, string> | {} | null | undefined} - key: chapter id, value: chapter title
- * @param isFavorite {boolean | null | undefined} - favorite status. If the comic source supports multiple folders, this field should be null
+ * @param isFavorite {boolean | null | undefined} - favorite status.
  * @param subId {string?} - a param which is passed to comments api
  * @param thumbnails {string[]?} - for multiple page thumbnails, set this to null, and use `loadThumbnails` api to load thumbnails
  * @param recommend {Comic[]?} - related comics
@@ -1086,6 +1086,19 @@ class ComicSource {
         });
     }
 
+    translation = {}
+
+    /**
+     * Translate given string with the current locale using the translation object.
+     * @param key {string}
+     * @returns {string}
+     * @since 1.2.5
+     */
+    translate(key) {
+        let locale = APP.locale;
+        return this.translation[locale]?.[key] ?? key;
+    }
+
     init() { }
 
     static sources = {}
@@ -1227,6 +1240,7 @@ let UI = {
      * @param title {string}
      * @param content {string}
      * @param actions {{text:string, callback: () => void | Promise<void>, style: "text"|"filled"|"danger"}[]} - If callback returns a promise, the button will show a loading indicator until the promise is resolved.
+     * @returns {Promise<void>} - Resolved when the dialog is closed.
      * @since 1.2.1
      */
     showDialog: (title, content, actions) => {
@@ -1282,7 +1296,7 @@ let UI = {
      * Show an input dialog
      * @param title {string}
      * @param validator {(string) => string | null | undefined} - A function that validates the input. If the function returns a string, the dialog will show the error message.
-     * @returns {string | null} - The input value. If the dialog is canceled, return null.
+     * @returns {Promise<string | null>} - The input value. If the dialog is canceled, return null.
      */
     showInputDialog: (title, validator) => {
         return sendMessage({
@@ -1298,7 +1312,7 @@ let UI = {
      * @param title {string}
      * @param options {string[]}
      * @param initialIndex {number?}
-     * @returns {number | null} - The selected index. If the dialog is canceled, return null.
+     * @returns {Promise<number | null>} - The selected index. If the dialog is canceled, return null.
      */
     showSelectDialog: (title, options, initialIndex) => {
         return sendMessage({
