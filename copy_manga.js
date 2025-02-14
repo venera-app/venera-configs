@@ -4,9 +4,9 @@ class CopyManga extends ComicSource {
 
     key = "copy_manga"
 
-    version = "1.0.5"
+    version = "1.1.0"
 
-    minAppVersion = "1.0.0"
+    minAppVersion = "1.2.1"
 
     url = "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/copy_manga.js"
 
@@ -496,42 +496,72 @@ class CopyManga extends ComicSource {
 
     comic = {
         loadInfo: async (id) => {
-            let getChapters = async (id) => {
-                let res = await Network.get(
-                    `https://api.copymanga.tv/api/v3/comic/${id}/group/default/chapters?limit=500&offset=0&platform=3`,
-                    this.headers
-                );
-                if (res.status !== 200) {
-                    throw `Invalid status code: ${res.status}`;
-                }
-                let data = JSON.parse(res.body);
-                let eps = new Map();
-                data.results.list.forEach((e) => {
-                    let title = e.name;
-                    let id = e.uuid;
-                    eps.set(id, title);
-                });
-                let maxChapter = data.results.total;
-                if (maxChapter > 500) {
-                    let offset = 500;
-                    while (offset < maxChapter) {
-                        res = await Network.get(
-                            `https://api.copymanga.tv/api/v3/comic/chongjingchengweimofashaonv/group/default/chapters?limit=500&offset=${offset}&platform=3`,
-                            this.headers
-                        );
-                        if (res.status !== 200) {
-                            throw `Invalid status code: ${res.status}`;
-                        }
-                        data = JSON.parse(res.body);
-                        data.results.list.forEach((e) => {
-                            let title = e.name;
-                            let id = e.uuid;
-                            eps.set(id, title)
-                        });
-                        offset += 500;
+            let getChapters = async (id, groups) => {
+                let fetchSingle = async (id, path) => {
+                    let res = await Network.get(
+                        `https://api.copymanga.tv/api/v3/comic/${id}/group/${path}/chapters?limit=500&offset=0&platform=3`,
+                        this.headers
+                    );
+                    if (res.status !== 200) {
+                        throw `Invalid status code: ${res.status}`;
                     }
+                    let data = JSON.parse(res.body);
+                    let eps = new Map();
+                    data.results.list.forEach((e) => {
+                        let title = e.name;
+                        let id = e.uuid;
+                        eps.set(id, title);
+                    });
+                    let maxChapter = data.results.total;
+                    if (maxChapter > 500) {
+                        let offset = 500;
+                        while (offset < maxChapter) {
+                            res = await Network.get(
+                                `https://api.copymanga.tv/api/v3/comic/chongjingchengweimofashaonv/group/${path}/chapters?limit=500&offset=${offset}&platform=3`,
+                                this.headers
+                            );
+                            if (res.status !== 200) {
+                                throw `Invalid status code: ${res.status}`;
+                            }
+                            data = JSON.parse(res.body);
+                            data.results.list.forEach((e) => {
+                                let title = e.name;
+                                let id = e.uuid;
+                                eps.set(id, title)
+                            });
+                            offset += 500;
+                        }
+                    }
+                    return eps;
+                };
+                let keys = Object.keys(groups);
+                let result = {};
+                let futures = [];
+                for (let group of keys) {
+                    let path = groups[group]["path_word"];
+                    futures.push((async () => {
+                        result[group] = await fetchSingle(id, path);
+                    })());
                 }
-                return eps;
+                await Promise.all(futures);
+                if (this.isAppVersionAfter("1.3.0")) {
+                    // 支持多分组
+                    let sortedResult = new Map();
+                    for (let key of keys) {
+                        let name = groups[key]["name"];
+                        sortedResult.set(name, result[key]);
+                    }
+                    return sortedResult;
+                } else {
+                    // 合并所有分组
+                    let merged = new Map();
+                    for (let key of keys) {
+                        for (let [k, v] of result[key]) {
+                            merged.set(k, v);
+                        }
+                    }
+                    return merged;
+                }
             }
 
             let getFavoriteStatus = async (id) => {
@@ -547,7 +577,6 @@ class CopyManga extends ComicSource {
                     `https://api.copymanga.tv/api/v3/comic2/${id}?platform=3`,
                     this.headers
                 ),
-                getChapters.bind(this)(id),
                 getFavoriteStatus.bind(this)(id)
             ])
 
@@ -555,7 +584,8 @@ class CopyManga extends ComicSource {
                 throw `Invalid status code: ${res.status}`;
             }
 
-            let comicData = JSON.parse(results[0].body).results.comic;
+            let data = JSON.parse(results[0].body).results;
+            let comicData = data.comic;
 
             let title = comicData.name;
             let cover = comicData.cover;
@@ -569,7 +599,7 @@ class CopyManga extends ComicSource {
             let tags = comicData.theme.map(e => e?.name).filter(name => name !== undefined && name !== null);
             let updateTime = comicData.datetime_updated ? comicData.datetime_updated : "";
             let description = comicData.brief;
-
+            let chapters = await getChapters(id, data.groups);
 
             return {
                 title: title,
@@ -580,8 +610,8 @@ class CopyManga extends ComicSource {
                     "更新": [updateTime],
                     "标签": tags
                 },
-                chapters: results[1],
-                isFavorite: results[2],
+                chapters: chapters,
+                isFavorite: results[1],
                 subId: comicData.uuid
             }
         },
@@ -755,5 +785,22 @@ class CopyManga extends ComicSource {
             ],
             default: 'baseAPI'
         }
+    }
+
+    /**
+     * Check if the current app version is after the target version
+     * @param target {string} target version
+     * @returns {boolean} true if the current app version is after the target version
+     */
+    isAppVersionAfter(target) {
+        let current = APP.version
+        let targetArr = target.split('.')
+        let currentArr = current.split('.')
+        for (let i = 0; i < 3; i++) {
+            if (parseInt(currentArr[i]) < parseInt(targetArr[i])) {
+                return false
+            }
+        }
+        return true
     }
 }
