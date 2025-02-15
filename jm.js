@@ -7,7 +7,7 @@ class JM extends ComicSource {
     // unique id of the source
     key = "jm"
 
-    version = "1.1.1"
+    version = "1.1.2"
 
     minAppVersion = "1.2.5"
 
@@ -659,6 +659,9 @@ class JM extends ComicSource {
                 cover: this.getCoverUrl(e.id),
                 description: e.description ?? ""
             }))
+            let updateTimeStamp = data["addtime"];
+            let date = new Date(updateTimeStamp * 1000)
+            let updateDate = `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
 
             return new ComicDetails({
                 title: data.name,
@@ -672,6 +675,7 @@ class JM extends ComicSource {
                 },
                 related: related,
                 isFavorite: data.is_favorite ?? false,
+                updateTime: updateDate,
             })
         },
         /**
