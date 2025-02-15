@@ -6,7 +6,7 @@ class Komiic extends ComicSource {
     // 唯一标识符
     key = "Komiic"
 
-    version = "1.0.0"
+    version = "1.0.1"
 
     minAppVersion = "1.0.0"
 
@@ -85,6 +85,7 @@ class Komiic extends ComicSource {
 
             let updateTime = new Date(comic.dateUpdated)
             let description = getTimeDifference(updateTime)
+            let formatedTime = `${updateTime.getFullYear()}-${updateTime.getMonth() + 1}-${updateTime.getDate()}`
 
             return {
                 id: comic.id,
@@ -92,7 +93,8 @@ class Komiic extends ComicSource {
                 subTitle: author,
                 cover: comic.imageUrl,
                 tags: tags,
-                description: description
+                description: description,
+                updateTime: formatedTime
             }
         }
 
@@ -342,7 +344,7 @@ class Komiic extends ComicSource {
                 let all = json.data.chaptersByComicId
                 let books = [], chapters = []
                 all.forEach((c) => {
-                    if(c.type == 'book') {
+                    if(c.type === 'book') {
                         books.push(c)
                     } else {
                         chapters.push(c)
@@ -375,12 +377,12 @@ class Komiic extends ComicSource {
                 // map<string, string[]> 标签
                 tags: {
                     "作者": [info.subTitle],
-                    "更新": [info.description],
                     "标签": info.tags
                 },
                 // map<string, string>?, key为章节id, value为章节名称
                 chapters: results[1],
-                recommend: results[0].comics
+                recommend: results[0].comics,
+                updateTime: info.updateTime,
             }
         },
         // 获取章节图片
