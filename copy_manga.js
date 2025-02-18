@@ -694,6 +694,9 @@ class CopyManga extends ComicSource {
             );
 
             if (res.status !== 200) {
+                if(res.status === 210){
+                    throw "210：注冊用戶一天可以發5條評論"
+                }
                 throw `Invalid status code: ${res.status}`;
             }
 
@@ -704,7 +707,7 @@ class CopyManga extends ComicSource {
             return {
                 comments: data.results.list.map(e => {
                     return {
-                        userName: e.user_name,
+                        userName: replyTo ? `${e.user_name}  👉  ${e.parent_user_name}` : e.user_name, // 拷贝的回复页并没有楼中楼（所有回复都在一个response中），但会显示谁回复了谁。所以加上👉显示。
                         avatar: e.user_avatar,
                         content: e.comment,
                         time: e.create_at,
