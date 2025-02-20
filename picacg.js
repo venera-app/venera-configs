@@ -3,7 +3,7 @@ class Picacg extends ComicSource {
 
     key = "picacg"
 
-    version = "1.0.1"
+    version = "1.0.2"
 
     minAppVersion = "1.0.0"
 
@@ -463,6 +463,8 @@ class Picacg extends ComicSource {
             if(info.chineseTeam) {
                 tags['Chinese Team'] = [info.chineseTeam];
             }
+            let updateTime = new Date(info.updated_at)
+            let formattedDate = updateTime.getFullYear() + '-' + (updateTime.getMonth() + 1) + '-' + updateTime.getDate()
             return new ComicDetails({
                 title: info.title,
                 cover: info.thumb.fileServer + '/static/' + info.thumb.path,
@@ -479,7 +481,7 @@ class Picacg extends ComicSource {
                 commentCount: info.commentsCount,
                 likesCount: info.likesCount,
                 uploader: info._creator.name,
-                updateTime: info.updated_at,
+                updateTime: formattedDate,
             })
         },
         // 获取章节图片
@@ -696,6 +698,7 @@ class Picacg extends ComicSource {
             'Image quality': "图片质量",
             'App channel': "分流",
             'Favorite sort': "收藏排序",
+            'Sort': "排序",
         },
         'zh_TW': {
             'Picacg Random': "哔咔隨機",
@@ -714,6 +717,7 @@ class Picacg extends ComicSource {
             'Image quality': "圖片質量",
             'App channel': "分流",
             'Favorite sort': "收藏排序",
+            'Sort': "排序",
         },
     }
 }
