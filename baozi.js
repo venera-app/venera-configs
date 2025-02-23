@@ -5,7 +5,7 @@ class Baozi extends ComicSource {
     // 唯一标识符
     key = "baozi"
 
-    version = "1.0.2"
+    version = "1.0.3"
 
     minAppVersion = "1.0.0"
 
@@ -21,7 +21,7 @@ class Baozi extends ComicSource {
         /// 登录
         /// 返回任意值表示登录成功
         login: async (account, pwd) => {
-            let res = await Network.post("https://cn.baozimh.com/api/bui/signin", {
+            let res = await Network.post(`${this.baseUrl}/api/bui/signin`, {
                 'content-type': 'multipart/form-data; boundary=----WebKitFormBoundaryFUNUxpOwyUaDop8s'
             }, "------WebKitFormBoundaryFUNUxpOwyUaDop8s\r\nContent-Disposition: form-data; name=\"username\"\r\n\r\n" + account + "\r\n------WebKitFormBoundaryFUNUxpOwyUaDop8s\r\nContent-Disposition: form-data; name=\"password\"\r\n\r\n" + pwd + "\r\n------WebKitFormBoundaryFUNUxpOwyUaDop8s--\r\n")
             if(res.status !== 200) {
@@ -258,7 +258,8 @@ class Baozi extends ComicSource {
             let cover = document.querySelector("div.l-content > div > div > amp-img").attributes['src']
             let author = document.querySelector("h2.comics-detail__author").text.trim()
             let tags = document.querySelectorAll("div.tag-list > span").map(e => e.text.trim())
-            let updateTime = document.querySelector("div.supporting-text > div > span > em").text.trim().replace('(', '').replace(')', '')
+            tags = [...tags.filter(e => e !== "")]
+            let updateTime = document.querySelector("div.supporting-text > div > span > em")?.text.trim().replace('(', '').replace(')', '')
             let description = document.querySelector("p.comics-detail__desc").text.trim()
             let chapters = new Map()
             let i = 0
@@ -269,6 +270,12 @@ class Baozi extends ComicSource {
             for(let c of document.querySelectorAll("div#chapters_other_list > div.comics-chapters > a > div > span")) {
                 chapters.set(i.toString(), c.text.trim())
                 i++
+            }
+            if (i === 0) {
+                for(let c of document.querySelectorAll("div.comics-chapters > a > div > span")) {
+                    chapters.set(i.toString(), c.text.trim())
+                    i++
+                }
             }
             let recommend = []
             for(let c of document.querySelectorAll("div.recommend--item")) {
