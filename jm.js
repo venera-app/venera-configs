@@ -7,7 +7,7 @@ class JM extends ComicSource {
     // unique id of the source
     key = "jm"
 
-    version = "1.1.2"
+    version = "1.1.3"
 
     minAppVersion = "1.2.5"
 
@@ -613,7 +613,7 @@ class JM extends ComicSource {
             let res = await this.get(`${this.baseUrl}/favorite?folder_id=${folder}&page=${page}&o=${order}`)
             let json = JSON.parse(res)
             let total = json.total
-            let maxPage = Math.ceil(total / 80)
+            let maxPage = Math.ceil(total / 20)
             let comics = json.list.map((e) => this.parseComic(e))
             return {
                 comics: comics,
