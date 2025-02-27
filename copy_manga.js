@@ -4,7 +4,7 @@ class CopyManga extends ComicSource {
 
     key = "copy_manga"
 
-    version = "1.1.0"
+    version = "1.1.1"
 
     minAppVersion = "1.2.1"
 
@@ -12,7 +12,9 @@ class CopyManga extends ComicSource {
 
     headers = {}
 
-    static copyVersion = "2.2.0"
+    static copyVersion = "2.2.5"
+
+    static apiUrl = "https://api.mangacopy.com"
 
     init() {
         let token = this.loadData("token");
@@ -44,7 +46,7 @@ class CopyManga extends ComicSource {
             let salt = randomInt(1000, 9999)
             let base64 = Convert.encodeBase64(Convert.encodeUtf8(`${pwd}-${salt}`))
             let res = await Network.post(
-                "https://api.copymanga.tv/api/v3/login?platform=3",
+                `${CopyManga.apiUrl}/api/v3/login?platform=3`,
                 {
                     ...this.headers,
                     "Content-Type": "application/x-www-form-urlencoded;charset=utf-8"
@@ -85,7 +87,7 @@ class CopyManga extends ComicSource {
             type: "singlePageWithMultiPart",
             load: async () => {
                 let dataStr = await Network.get(
-                    "https://api.copymanga.tv/api/v3/h5/homeIndex?platform=3",
+                    `${CopyManga.apiUrl}/api/v3/h5/homeIndex?platform=3`,
                     this.headers
                 )
 
@@ -221,7 +223,7 @@ class CopyManga extends ComicSource {
             let category_url;
             // 分类-排行
             if (category === "排行" || param === "ranking") {
-                category_url = `https://api.copymanga.tv/api/v3/ranks?limit=21&offset=${(page - 1) * 21}&_update=true&type=1&audience_type=${options[0]}&date_type=${options[1]}`
+                category_url = `${CopyManga.apiUrl}/api/v3/ranks?limit=21&offset=${(page - 1) * 21}&_update=true&type=1&audience_type=${options[0]}&date_type=${options[1]}`
             } else {
                 // 分类-主题
                 if (category !== undefined && category !== null) {
@@ -229,7 +231,7 @@ class CopyManga extends ComicSource {
                     param = CopyManga.category_param_dict[category] || "";
                 }
                 options = options.map(e => e.replace("*", "-"))
-                category_url = `https://api.copymanga.tv/api/v3/comics?limit=21&offset=${(page - 1) * 21}&ordering=${options[1]}&theme=${param}&top=${options[0]}&platform=3`
+                category_url = `${CopyManga.apiUrl}/api/v3/comics?limit=21&offset=${(page - 1) * 21}&ordering=${options[1]}&theme=${param}&top=${options[0]}&platform=3`
             }
 
 
@@ -352,7 +354,7 @@ class CopyManga extends ComicSource {
             if (author && author in this.author_path_word_dict) {
                 let path_word = encodeURIComponent(this.author_path_word_dict[author]);
                 res = await Network.get(
-                    `https://api.copymanga.tv/api/v3/comics?limit=21&offset=${(page - 1) * 21}&ordering=-datetime_updated&author=${path_word}&platform=3`,
+                    `${CopyManga.apiUrl}/api/v3/comics?limit=21&offset=${(page - 1) * 21}&ordering=-datetime_updated&author=${path_word}&platform=3`,
                     this.headers
                 )
             }
@@ -363,7 +365,7 @@ class CopyManga extends ComicSource {
                     q_type = options[0];
                 }
                 keyword = encodeURIComponent(keyword)
-                let search_url = this.loadSetting('search_api') === "webAPI" ? "https://www.copymanga.tv/api/kb/web/searchbc/comics" : "https://api.copymanga.tv/api/v3/search/comic"
+                let search_url = this.loadSetting('search_api') === "webAPI" ? "https://www.copymanga.tv/api/kb/web/searchbc/comics" : `${CopyManga.apiUrl}/api/v3/search/comic`
                 res = await Network.get(
                     `${search_url}?limit=21&offset=${(page - 1) * 21}&q=${keyword}&q_type=${q_type}&platform=3`,
                     this.headers
@@ -424,7 +426,7 @@ class CopyManga extends ComicSource {
             let is_collect = isAdding ? 1 : 0
             let token = this.loadData("token");
             let comicData = await Network.get(
-                `https://api.copymanga.tv/api/v3/comic2/${comicId}?platform=3`,
+                `${CopyManga.apiUrl}/api/v3/comic2/${comicId}?platform=3`,
                 this.headers
             )
             if (comicData.status !== 200) {
@@ -432,7 +434,7 @@ class CopyManga extends ComicSource {
             }
             let comic_id = JSON.parse(comicData.body).results.comic.uuid
             let res = await Network.post(
-                "https://api.copymanga.tv/api/v3/member/collect/comic?platform=3",
+                `${CopyManga.apiUrl}/api/v3/member/collect/comic?platform=3`,
                 {
                     ...this.headers,
                     "Content-Type": "application/x-www-form-urlencoded;charset=utf-8",
@@ -449,7 +451,7 @@ class CopyManga extends ComicSource {
         },
         loadComics: async (page, folder) => {
             var res = await Network.get(
-                `https://api.copymanga.tv/api/v3/member/collect/comics?limit=21&offset=${(page - 1) * 21}&free_type=1&ordering=-datetime_updated&platform=3`,
+                `${CopyManga.apiUrl}/api/v3/member/collect/comics?limit=21&offset=${(page - 1) * 21}&free_type=1&ordering=-datetime_updated&platform=3`,
                 this.headers
             )
 
@@ -499,7 +501,7 @@ class CopyManga extends ComicSource {
             let getChapters = async (id, groups) => {
                 let fetchSingle = async (id, path) => {
                     let res = await Network.get(
-                        `https://api.copymanga.tv/api/v3/comic/${id}/group/${path}/chapters?limit=500&offset=0&platform=3`,
+                        `${CopyManga.apiUrl}/api/v3/comic/${id}/group/${path}/chapters?limit=500&offset=0&platform=3`,
                         this.headers
                     );
                     if (res.status !== 200) {
@@ -517,7 +519,7 @@ class CopyManga extends ComicSource {
                         let offset = 500;
                         while (offset < maxChapter) {
                             res = await Network.get(
-                                `https://api.copymanga.tv/api/v3/comic/chongjingchengweimofashaonv/group/${path}/chapters?limit=500&offset=${offset}&platform=3`,
+                                `${CopyManga.apiUrl}/api/v3/comic/chongjingchengweimofashaonv/group/${path}/chapters?limit=500&offset=${offset}&platform=3`,
                                 this.headers
                             );
                             if (res.status !== 200) {
@@ -565,7 +567,7 @@ class CopyManga extends ComicSource {
             }
 
             let getFavoriteStatus = async (id) => {
-                let res = await Network.get(`https://api.copymanga.tv/api/v3/comic2/${id}/query?platform=3`, this.headers);
+                let res = await Network.get(`${CopyManga.apiUrl}/api/v3/comic2/${id}/query?platform=3`, this.headers);
                 if (res.status !== 200) {
                     throw `Invalid status code: ${res.status}`;
                 }
@@ -574,7 +576,7 @@ class CopyManga extends ComicSource {
 
             let results = await Promise.all([
                 Network.get(
-                    `https://api.copymanga.tv/api/v3/comic2/${id}?platform=3`,
+                    `${CopyManga.apiUrl}/api/v3/comic2/${id}?platform=3`,
                     this.headers
                 ),
                 getFavoriteStatus.bind(this)(id)
@@ -624,7 +626,7 @@ class CopyManga extends ComicSource {
             while (attempt < maxAttempts) {
                 try {
                     res = await Network.get(
-                        `https://api.copymanga.tv/api/v3/comic/${comicId}/chapter2/${epId}?platform=3`,
+                        `${CopyManga.apiUrl}/api/v3/comic/${comicId}/chapter2/${epId}?platform=3`,
                         this.headers
                     );
 
@@ -684,7 +686,7 @@ class CopyManga extends ComicSource {
             }
         },
         loadComments: async (comicId, subId, page, replyTo) => {
-            let url = `https://api.copymanga.tv/api/v3/comments?comic_id=${subId}&limit=20&offset=${(page - 1) * 20}`;
+            let url = `${CopyManga.apiUrl}/api/v3/comments?comic_id=${subId}&limit=20&offset=${(page - 1) * 20}`;
             if (replyTo) {
                 url = url + `&reply_id=${replyTo}&_update=true`;
             }
@@ -727,7 +729,7 @@ class CopyManga extends ComicSource {
                 replyTo = '';
             }
             let res = await Network.post(
-                `https://api.copymanga.tv/api/v3/member/comment`,
+                `${CopyManga.apiUrl}/api/v3/member/comment`,
                 {
                     ...this.headers,
                     "Content-Type": "application/x-www-form-urlencoded;charset=utf-8",
