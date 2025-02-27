@@ -4,7 +4,7 @@ class CopyManga extends ComicSource {
 
     key = "copy_manga"
 
-    version = "1.1.1"
+    version = "1.1.2"
 
     minAppVersion = "1.2.1"
 
@@ -77,7 +77,7 @@ class CopyManga extends ComicSource {
         logout: () => {
             this.deleteData('token')
         },
-        registerWebsite: "https://www.copymanga.site/web/login/loginByAccount"
+        registerWebsite: "https://www.mangacopy.com/web/login/loginByAccount"
     }
 
     /// explore pages
