@@ -6,7 +6,7 @@ class Komiic extends ComicSource {
     // 唯一标识符
     key = "Komiic"
 
-    version = "1.0.1"
+    version = "1.0.2"
 
     minAppVersion = "1.0.0"
 
@@ -175,7 +175,44 @@ class Komiic extends ComicSource {
     /// 分类漫画页面, 即点击分类标签后进入的页面
     categoryComics = {
         load: async (category, param, options, page) => {
-            return await this.queryComics({ "operationName": "comicByCategory", "variables": { "categoryId": param, "pagination": { "limit": 30, "offset": (page - 1) * 30, "orderBy": options[0], "asc": false, "status": options[1] } }, "query": "query comicByCategory($categoryId: ID!, $pagination: Pagination!) {\n  comicByCategory(categoryId: $categoryId, pagination: $pagination) {\n    id\n    title\n    status\n    year\n    imageUrl\n    authors {\n      id\n      name\n      __typename\n    }\n    categories {\n      id\n      name\n      __typename\n    }\n    dateUpdated\n    monthViews\n    views\n    favoriteCount\n    lastBookUpdate\n    lastChapterUpdate\n    __typename\n  }\n}" })
+          let variables = {
+              pagination: {
+                  limit: 30,
+                  offset: (page - 1) * 30,
+                  orderBy: options[0],
+                  asc: false,
+                  status: options[1]
+              }
+          };
+          
+          if (param !== '0') {
+              variables.categoryId = [param];
+          } else {
+              variables.categoryId = [];
+          }
+
+          return await this.queryComics({ 
+              "operationName": "comicByCategories",
+              "variables": variables,
+              "query": `query comicByCategories($categoryId: [ID!]!, $pagination: Pagination!) {
+                  comicByCategories(categoryId: $categoryId, pagination: $pagination) {
+                      id
+                      title
+                      status
+                      year
+                      imageUrl
+                      authors { id name __typename }
+                      categories { id name __typename }
+                      dateUpdated
+                      monthViews
+                      views
+                      favoriteCount
+                      lastBookUpdate
+                      lastChapterUpdate
+                      __typename
+                  }
+              }`
+          })
         },
         // 提供选项
         optionList: [
