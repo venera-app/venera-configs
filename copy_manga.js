@@ -4,7 +4,7 @@ class CopyManga extends ComicSource {
 
     key = "copy_manga"
 
-    version = "1.1.2"
+    version = "1.1.3"
 
     minAppVersion = "1.2.1"
 
@@ -12,7 +12,7 @@ class CopyManga extends ComicSource {
 
     headers = {}
 
-    static copyVersion = "2.2.5"
+    static copyVersion = "2.2.6"
 
     static apiUrl = "https://api.mangacopy.com"
 
@@ -365,7 +365,7 @@ class CopyManga extends ComicSource {
                     q_type = options[0];
                 }
                 keyword = encodeURIComponent(keyword)
-                let search_url = this.loadSetting('search_api') === "webAPI" ? "https://www.copymanga.tv/api/kb/web/searchbc/comics" : `${CopyManga.apiUrl}/api/v3/search/comic`
+                let search_url = this.loadSetting('search_api') === "webAPI" ? "https://www.mangacopy.com/api/kb/web/searchbd/comics" : `${CopyManga.apiUrl}/api/v3/search/comic`
                 res = await Network.get(
                     `${search_url}?limit=21&offset=${(page - 1) * 21}&q=${keyword}&q_type=${q_type}&platform=3`,
                     this.headers
