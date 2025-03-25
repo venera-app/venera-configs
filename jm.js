@@ -7,7 +7,7 @@ class JM extends ComicSource {
     // unique id of the source
     key = "jm"
 
-    version = "1.1.3"
+    version = "1.1.4"
 
     minAppVersion = "1.2.5"
 
@@ -790,6 +790,7 @@ class JM extends ComicSource {
         loadComments: async (comicId, subId, page, replyTo) => {
             let res = await this.get(`${this.baseUrl}/forum?mode=manhua&aid=${comicId}&page=${page}`)
             let json = JSON.parse(res)
+            const pageSize = 6
             return {
                 comments: json.list.map((e) => new Comment({
                     avatar: this.getAvatarUrl(e.photo),
@@ -797,7 +798,7 @@ class JM extends ComicSource {
                     time: e.addtime,
                     content: e.content.substring(e.content.indexOf('>') + 1, e.content.lastIndexOf('<')),
                 })),
-                maxPage: Number(json.total.toString())
+                maxPage: Math.floor(json.total / pageSize) + 1
             }
         },
         /**
