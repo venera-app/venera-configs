@@ -6,7 +6,7 @@ class NewComicSource extends ComicSource {  // 首行必须为class...
     // 唯一标识符
     key = "ikmmh"
 
-    version = "1.0.0"
+    version = "1.0.1"
 
     minAppVersion = "1.0.0"
 
@@ -26,7 +26,7 @@ class NewComicSource extends ComicSource {  // 首行必须为class...
         login: async (account, pwd) => {
             let res = await Network.post("https://ymcdnyfqdapp.ikmmh.com/api/user/userarr/login", {
                 "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
+                "User-Agent": "Mozilla/5.0 (Linux; Android) Mobile"
             }, `user=${account}&pass=${pwd}`)
 
             let data = JSON.parse(res.body)
@@ -95,15 +95,16 @@ class NewComicSource extends ComicSource {  // 首行必须为class...
             */
             load: async () => {
                 let res = await Network.get("https://ymcdnyfqdapp.ikmmh.com/", {
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
+                    "User-Agent": "Mozilla/5.0 (Linux; Android) Mobile"
                 })
                 if (res.status !== 200) {
                     throw "Invalid status code: " + res.status
                 }
                 let document = new HtmlDocument(res.body)
                 function parseComicDom(comicDom) {
-                    let title = comicDom.querySelector("h4").text
+                    let title = comicDom.querySelector("div.title").text.split("~")[0]
                     let cover = comicDom.querySelector("img").attributes["data-src"]
+                   /*
                     let tags = []
                     let tagDoms = comicDom.querySelectorAll("div.tag-wrap > p")
                     for (let j = 0; j < tagDoms.length; j++) {
@@ -113,6 +114,7 @@ class NewComicSource extends ComicSource {  // 首行必须为class...
                     for (let j = 0; j < tagDoms.length; j++) {
                         tags.push(tagDoms[j].text.trim())
                     }
+                    */
                     let link = comicDom.querySelector("a").attributes["href"]
                     link = "https://ymcdnyfqdapp.ikmmh.com" + link
                     return {
@@ -124,8 +126,8 @@ class NewComicSource extends ComicSource {  // 首行必须为class...
                 }
 
                 let data = {
-                    "海量精品漫画": document.querySelectorAll("ul.panel-comic-r > li").map(parseComicDom),
-                    "热门人气新番": document.querySelectorAll("ul.list-anime > li").map(parseComicDom),
+                    "本周推荐": document.querySelectorAll("div.module-good-fir > div.item").map(parseComicDom),
+                    "今日更新": document.querySelectorAll("div.module-day-fir > div.item").map(parseComicDom),
                 }
                 
                 return data
@@ -178,7 +180,7 @@ class NewComicSource extends ComicSource {  // 首行必须为class...
                 url = `https://ymcdnyfqdapp.ikmmh.com/booklists/${options[1]}/${category}/${options[0]}/${page}.html`
             }
             let res = await Network.get(url, {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
+                "User-Agent": "Mozilla/5.0 (Linux; Android) Mobile"
             })
             if (res.status !== 200) {
                 throw "Invalid status code: " + res.status
@@ -186,16 +188,18 @@ class NewComicSource extends ComicSource {  // 首行必须为class...
             let document = new HtmlDocument(res.body)
 
             function parseComic(element) {
-                let title = element.querySelector("h2").text
-                let cover = element.querySelector("img").attributes["data-src"]
+                let title = element.querySelector("p.title").text.split("~")[0]
+                let cover = element.querySelector("img").attributes["src"]
+                /*
                 let tags = []
-                let tagDoms = element.querySelectorAll("div.tag-list > p")
+                let tagDoms = element.querySelectorAll("div.tags > a")
                 for (let j = 0; j < tagDoms.length; j++) {
                     tags.push(tagDoms[j].text.trim())
                 }
+                */
                 let link = element.querySelector("a").attributes["href"]
                 link = "https://ymcdnyfqdapp.ikmmh.com" + link
-                let updateInfo = element.querySelector("p.process").text
+                let updateInfo = element.querySelector("span.chapter").text
                 return {
                     title: title,
                     cover: cover,
@@ -211,7 +215,7 @@ class NewComicSource extends ComicSource {  // 首行必须为class...
                 maxPage = parseInt(maxPage)
             }
             return {
-                comics: document.querySelectorAll("ul.list-comic-book > li").map(parseComic),
+                comics: document.querySelectorAll("ul.comic-sort > li").map(parseComic),
                 maxPage: maxPage
             }
         },
@@ -252,7 +256,7 @@ class NewComicSource extends ComicSource {  // 首行必须为class...
     search = {
         load: async (keyword, options, page) => {
             let res = await Network.get(`https://ymcdnyfqdapp.ikmmh.com/search?searchkey=${encodeURIComponent(keyword)}`, {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
+                "User-Agent": "Mozilla/5.0 (Linux; Android) Mobile"
             })
             if (res.status !== 200) {
                 throw "Invalid status code: " + res.status
@@ -260,11 +264,11 @@ class NewComicSource extends ComicSource {  // 首行必须为class...
             let document = new HtmlDocument(res.body)
 
             function parseComic(element) {
-                let title = element.querySelector("a").text
-                let cover = element.querySelector("img").attributes["data-src"]
+                let title = element.querySelector("p.title").text.split("~")[0]
+                let cover = element.querySelector("img").attributes["src"]
                 let link = element.querySelector("a").attributes["href"]
                 link = "https://ymcdnyfqdapp.ikmmh.com" + link
-                let updateInfo = element.querySelector("p.describe > a").text
+                let updateInfo = element.querySelector("span.chapter").text
                 return {
                     title: title,
                     cover: cover,
@@ -274,7 +278,7 @@ class NewComicSource extends ComicSource {  // 首行必须为class...
             }
 
             return {
-                comics: document.querySelectorAll("div.classification").map(parseComic),
+                comics: document.querySelectorAll("div.comic-item").map(parseComic),
                 maxPage: 1
             }
         },
@@ -292,7 +296,7 @@ class NewComicSource extends ComicSource {  // 首行必须为class...
             let id = comicId.split("/")[4]
             if (isAdding) {
                 let comicInfoRes = await Network.get(comicId, {
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
+                    "User-Agent": "Mozilla/5.0 (Linux; Android) Mobile"
                 });
                 if (comicInfoRes.status !== 200) {
                     throw "Invalid status code: " + res.status
@@ -316,7 +320,7 @@ class NewComicSource extends ComicSource {  // 首行必须为class...
             } else {
                 let res = await Network.post("https://ymcdnyfqdapp.ikmmh.com/api/user/bookcase/del", {
                     "Content-Type": "application/x-www-form-urlencoded",
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
+                    "User-Agent": "Mozilla/5.0 (Linux; Android) Mobile"
                 }, `articleid=${id}`)
                 if (res.status !== 200) {
                     error("Invalid status code: " + res.status)
@@ -336,7 +340,7 @@ class NewComicSource extends ComicSource {  // 首行必须为class...
         loadComics: async (page, folder) => {
             let res = await Network.post("https://ymcdnyfqdapp.ikmmh.com/api/user/bookcase/ajax", {
                 "Content-Type": "application/x-www-form-urlencoded",
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
+                "User-Agent": "Mozilla/5.0 (Linux; Android) Mobile"
             }, `page=${page}`)
             if (res.status !== 200) {
                 throw "Invalid status code: " + res.status
@@ -369,27 +373,27 @@ class NewComicSource extends ComicSource {  // 首行必须为class...
         // 加载漫画信息
         loadInfo: async (id) => {
             let res = await Network.get(id, {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
+                "User-Agent": "Mozilla/5.0 (Linux; Android) Mobile"
             })
             if (res.status !== 200) {
                 throw "Invalid status code: " + res.status
             }
             let document = new HtmlDocument(res.body)
-            let title = document.querySelector("h1.detail-title").text
-            let cover = document.querySelector("div.banner-img > img").attributes["data-src"]
-            let author = document.querySelector("p.author").text
-            let tags = document.querySelectorAll("p.ui-tag > a").map(e => e.text.trim())
-            let description = document.querySelector("div.detail-desc").text
-            let updateTime = document.querySelector("div.detail-info > div > span > b").text
+            let title = document.querySelector("div.book-hero__detail > div.title").text.split("~")[0]
+            let cover = document.querySelector("div.coverimg > img").attributes["style"]
+            let author = document.querySelector("div.book-container__author").text
+            let tags = document.querySelectorAll("div.tags > a").map(e => e.text.trim())
+            let description = document.querySelector("div.book-container__detail").text
+            let updateTime = document.querySelector("div.update > a > em").text
             let eps = {}
             document.querySelectorAll("ol.chapter-list > li").forEach(element => {
                 let title = element.querySelector("a").attributes["title"]
                 let id = element.attributes["data-chapter"]
                 eps[id] = title
             })
-            let comics = document.querySelectorAll("div.mod-vitem-comic").map(element => {
-                let title = element.querySelector("h4").text
-                let cover = element.querySelector("img").attributes["data-src"]
+            let comics = document.querySelectorAll("div.comic-item").map(element => {
+                let title = element.querySelector("p.title").text.split("~")[0]
+                let cover = element.querySelector("img").attributes["src"]
                 let link = element.querySelector("a").attributes["href"]
                 link = "https://ymcdnyfqdapp.ikmmh.com" + link
                 return {
@@ -420,7 +424,7 @@ class NewComicSource extends ComicSource {  // 首行必须为class...
                 `https://ymcdnyfqdapp.ikmmh.com/chapter/${comicId}/${epId}.html`,
                 {
                     "Referer": `https://ymcdnyfqdapp.ikmmh.com/book/${comicId}.html`,
-                    "User-Agent": "Mozilla/5.0 (Linux; Android 10; SM-G9600) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.181 Mobile Safari/537.36"
+                    "User-Agent": "Mozilla/5.0 (Linux; Android) Mobile"
                 }
             )
             if (res.status !== 200) {
