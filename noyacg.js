@@ -332,4 +332,3 @@ class NoyAcgSource extends ComicSource {
         }
     }
 }
-Bottom
