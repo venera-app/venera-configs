@@ -191,7 +191,9 @@ class NewComicSource extends ComicSource {  // 首行必须为class...
             return {
                 comics: data["data"].map(parseComic),
                 maxPage: (data["end"])
-            }            
+            } 
+           }
+          }     
         },
         // 提供选项
         optionList: [
