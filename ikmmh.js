@@ -95,7 +95,8 @@ class NewComicSource extends ComicSource {  // 首行必须为class...
             */
             load: async () => {
                 let res = await Network.get("https://ymcdnyfqdapp.ikmmh.com/", {
-                    "User-Agent": "Mozilla/5.0 (Linux; Android) Mobile"
+                    "User-Agent": "Mozilla/5.0 (Linux; Android) Mobile",
+                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
                 })
                 if (res.status !== 200) {
                     throw "Invalid status code: " + res.status
@@ -180,7 +181,8 @@ class NewComicSource extends ComicSource {  // 首行必须为class...
                 url = `https://ymcdnyfqdapp.ikmmh.com/booklists/${options[1]}/${category}/${options[0]}/${page}.html`
             }
             let res = await Network.get(url, {
-                "User-Agent": "Mozilla/5.0 (Linux; Android) Mobile"
+                "User-Agent": "Mozilla/5.0 (Linux; Android) Mobile",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
             })
             if (res.status !== 200) {
                 throw "Invalid status code: " + res.status
@@ -256,7 +258,8 @@ class NewComicSource extends ComicSource {  // 首行必须为class...
     search = {
         load: async (keyword, options, page) => {
             let res = await Network.get(`https://ymcdnyfqdapp.ikmmh.com/search?searchkey=${encodeURIComponent(keyword)}`, {
-                "User-Agent": "Mozilla/5.0 (Linux; Android) Mobile"
+                "User-Agent": "Mozilla/5.0 (Linux; Android) Mobile",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
             })
             if (res.status !== 200) {
                 throw "Invalid status code: " + res.status
@@ -373,7 +376,8 @@ class NewComicSource extends ComicSource {  // 首行必须为class...
         // 加载漫画信息
         loadInfo: async (id) => {
             let res = await Network.get(id, {
-                "User-Agent": "Mozilla/5.0 (Linux; Android) Mobile"
+                "User-Agent": "Mozilla/5.0 (Linux; Android) Mobile",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
             })
             if (res.status !== 200) {
                 throw "Invalid status code: " + res.status
