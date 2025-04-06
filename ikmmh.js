@@ -178,22 +178,12 @@ class NewComicSource extends ComicSource {  // 首行必须为class...
             let data = JSON.parse(res.body)
 
             function parseComic(comic) {
-                if (comic["data"] !== null && comic["data"] !== undefined) {
-                    comic = comic["data"]
-                }
-                let tags = []
-                if (comic["tags"] !== null && comic["tags"] !== undefined) {
-                    tags = comic["tags"].map(t => t.text)
-                }
-                
-                }
-
                 return {
                     id: comic["info_url"],
                     title: comic["name"],
-                    subTitle: author,
+                    subTitle: comic["author"],
                     cover: comic["cover"],
-                    tags: tags,
+                    tags: comic["tags"][0],
                     description: comic["lastchapter"]
                 }
             }
