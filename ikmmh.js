@@ -419,8 +419,7 @@ class NewComicSource extends ComicSource {  // 首行必须为class...
             return {
                 images: document.querySelectorAll("img.lazy").map(e => e.attributes["data-src"])
             }
-        },
+        }
+	}
         /// 警告: 这是历史遗留问题, 对于新的漫画源, 不应当使用此字段, 在选取漫画id时, 不应当出现特殊字符
         matchBriefIdRegex: "https://ymcdnyfqdapp.ikmmh.com/book/(\\d+)/"
-    }
-}
