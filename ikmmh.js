@@ -11,7 +11,7 @@ class NewComicSource extends ComicSource {  // 首行必须为class...
     minAppVersion = "1.0.0"
 
     // 更新链接
-    url = "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/ikmmh.js"
+    url = "https://cdn.jsdelivr.net/gh/falling7down/venera-configs@main/ikmmh.js"
 
     /// APP启动时或者添加/更新漫画源时执行此函数
     init() {
@@ -104,24 +104,12 @@ class NewComicSource extends ComicSource {  // 首行必须为class...
                 let document = new HtmlDocument(res.body)
                 function parseComicDom(comicDom) {
                     let title = comicDom.querySelector("div.title").text.split("~")[0]
-                    let cover = comicDom.querySelector("img").attributes["data-src"]
-                   /*
-                    let tags = []
-                    let tagDoms = comicDom.querySelectorAll("div.tag-wrap > p")
-                    for (let j = 0; j < tagDoms.length; j++) {
-                        tags.push(tagDoms[j].text.trim())
-                    }
-                    tagDoms = comicDom.querySelectorAll("div.anime-mask > p")
-                    for (let j = 0; j < tagDoms.length; j++) {
-                        tags.push(tagDoms[j].text.trim())
-                    }
-                    */
+                    let cover = comicDom.querySelector("div.thumb_img").attributes["data-src"]
                     let link = comicDom.querySelector("a").attributes["href"]
                     link = "https://ymcdnyfqdapp.ikmmh.com" + link
                     return {
                         title: title,
                         cover: cover,
-                        tags: tags,
                         id: link
                     };
                 }
@@ -192,30 +180,24 @@ class NewComicSource extends ComicSource {  // 首行必须为class...
             function parseComic(element) {
                 let title = element.querySelector("p.title").text.split("~")[0]
                 let cover = element.querySelector("img").attributes["src"]
-                /*
-                let tags = []
-                let tagDoms = element.querySelectorAll("div.tags > a")
-                for (let j = 0; j < tagDoms.length; j++) {
-                    tags.push(tagDoms[j].text.trim())
-                }
-                */
                 let link = element.querySelector("a").attributes["href"]
                 link = "https://ymcdnyfqdapp.ikmmh.com" + link
                 let updateInfo = element.querySelector("span.chapter").text
                 return {
                     title: title,
                     cover: cover,
-                    tags: tags,
                     id: link,
                     subTitle: updateInfo
                 };
             }
 
             let maxPage = 1
+            /*
             if (param === undefined || param === null) {
                 maxPage = document.querySelectorAll("ul.list-page > li > a").pop().text
                 maxPage = parseInt(maxPage)
             }
+            */
             return {
                 comics: document.querySelectorAll("ul.comic-sort > li").map(parseComic),
                 maxPage: maxPage
