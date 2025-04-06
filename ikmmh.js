@@ -63,36 +63,8 @@ class NewComicSource extends ComicSource {  // 首行必须为class...
             /*
             加载漫画
             如果类型为multiPageComicList, load方法应当接收一个page参数, 并且返回漫画列表
-            ```
-            load: async (page) => {
-                let res = await Network.get("https://example.com")
-
-                if (res.status !== 200) {
-                    throw `Invalid status code: ${res.status}`
-                }
-
-                let data = JSON.parse(res.body)
-
-                function parseComic(comic) {
-                    // ...
-
-                    return {
-                        id: id,
-                        title: title,
-                        subTitle: author,
-                        cover: cover,
-                        tags: tags,
-                        description: description
-                    }
-                }
-
-                return {
-                    comics: data.list.map(parseComic),
-                    maxPage: data.maxPage
-                }
-            }
-            ```
             */
+
             load: async () => {
                 let res = await Network.get("https://ymcdnyfqdapp.ikmmh.com/", {
                     "User-Agent": "Mozilla/5.0 (Linux; Android) Mobile",
@@ -162,13 +134,9 @@ class NewComicSource extends ComicSource {  // 首行必须为class...
     categoryComics = {
         load: async (category, param, options, page) => {
             category = encodeURIComponent(category)
-            let url = ""
+            let res = ""
             if (param !== undefined && param !== null) {
-                url = `https://ymcdnyfqdapp.ikmmh.com/update/${param}.html`
-            } else {
-                url = `https://ymcdnyfqdapp.ikmmh.com/booklists/${options[1]}/${category}/${options[0]}/${page}.html`
-            }
-            let res = await Network.get(url, {
+                res = await Network.get(`https://ymcdnyfqdapp.ikmmh.com/update/${param}.html`, {
                 "User-Agent": "Mozilla/5.0 (Linux; Android) Mobile",
                 "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
             })
@@ -192,16 +160,51 @@ class NewComicSource extends ComicSource {  // 首行必须为class...
             }
 
             let maxPage = 1
-            /*
-            if (param === undefined || param === null) {
-                maxPage = document.querySelectorAll("ul.list-page > li > a").pop().text
-                maxPage = parseInt(maxPage)
-            }
-            */
             return {
                 comics: document.querySelectorAll("ul.comic-sort > li").map(parseComic),
                 maxPage: maxPage
+            }    
+            } else {
+                res = await Network.post(`https://ymcdnyfqdapp.ikmmh.com/api/comic/index/lists`, {
+                "User-Agent": "Mozilla/5.0 (Linux; Android) Mobile",
+                "Content-Type": "application/x-www-form-urlencoded;charset=utf-8"
+            },
+                `area=${options[1]}&tags=${category}&full=${options[0]}&page=${page}`
+             )
+                if (res.status !== 200) {
+                throw "Invalid status code: " + res.status
             }
+
+            let data = JSON.parse(res.body)
+
+            function parseComic(comic) {
+                if (comic["data"] !== null && comic["data"] !== undefined) {
+                    comic = comic["data"]
+                }
+                let tags = []
+                if (comic["tags"] !== null && comic["tags"] !== undefined) {
+                    tags = comic["tags"].map(t => t.text)
+                }
+                
+                }
+
+                return {
+                    id: comic["info_url"],
+                    title: comic["name"],
+                    subTitle: author,
+                    cover: comic["cover"],
+                    tags: tags,
+                    description: comic["lastchapter"]
+                }
+            }
+
+            return {
+                comics: data["data"].map(parseComic),
+                maxPage: (data["end"]
+            }
+            }
+            
+            
         },
         // 提供选项
         optionList: [
@@ -364,6 +367,7 @@ class NewComicSource extends ComicSource {  // 首行必须为class...
             if (res.status !== 200) {
                 throw "Invalid status code: " + res.status
             }
+
             let document = new HtmlDocument(res.body)
             let title = document.querySelector("div.book-hero__detail > div.title").text.split("~")[0]
             let cover = document.querySelector("div.coverimg > img").attributes["style"].match(/\((.*?)\)/)[1]
@@ -371,15 +375,21 @@ class NewComicSource extends ComicSource {  // 首行必须为class...
             let tags = document.querySelectorAll("div.tags > a").map(e => e.text.trim())
             let description = document.querySelector("div.book-container__detail").text
             let updateTime = document.querySelector("div.update > a > em").text
-            let eps = {}
-            document.querySelectorAll("ol.chapter-list > li").forEach(element => {
-                let title = element.querySelector("a").attributes["title"]
-                let id = element.attributes["data-chapter"]
-                eps[id] = title
+            let comicId = id.match(/\d+/)
+            let epStr = await Network.get("https://ymcdnyfqdapp.ikmmh.com//api/comic/zyz/chapters?ph=1&tempid=3&zpid=" + ${comicId} + "&page=0&line=48&orderby=asc", {
+                "User-Agent": "Mozilla/5.0 (Linux; Android) Mobile",
+                "Content-Type": "application/x-www-form-urlencoded"
             })
-            let comics = document.querySelectorAll("div.comic-item").map(element => {
-                let title = element.querySelector("p.title").text.split("~")[0]
-                let cover = element.querySelector("img").attributes["src"]
+            let data = JSON.parse(epStr.body);
+            let eps = new Map();
+                    data..forEach((e) => {
+                        let title = e.name;
+                        let id = e.url;
+                        eps.set(id, title);
+                    });
+            let comics = document.querySelectorAll("div.module-guessu > div.item").map(element => {
+                let title = element.querySelector("div.title").text.split("~")[0]
+                let cover = element.querySelector("div.thumb_img").attributes["data-src"]
                 let link = element.querySelector("a").attributes["href"]
                 link = "https://ymcdnyfqdapp.ikmmh.com" + link
                 return {
