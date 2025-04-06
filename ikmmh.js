@@ -366,7 +366,7 @@ class NewComicSource extends ComicSource {  // 首行必须为class...
             }
             let document = new HtmlDocument(res.body)
             let title = document.querySelector("div.book-hero__detail > div.title").text.split("~")[0]
-            let cover = document.querySelector("div.coverimg > img").attributes["style"]
+            let cover = document.querySelector("div.coverimg > img").attributes["style"].match(/\((.*?)\)/)[1]
             let author = document.querySelector("div.book-container__author").text
             let tags = document.querySelectorAll("div.tags > a").map(e => e.text.trim())
             let description = document.querySelector("div.book-container__detail").text
