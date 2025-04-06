@@ -363,17 +363,17 @@ class NewComicSource extends ComicSource {  // 首行必须为class...
             let description = document.querySelector("div.book-container__detail").text
             let updateTime = document.querySelector("div.update > a > em").text
             let comicId = id.match(/\d+/)
-            let epStr = await Network.get("https://ymcdnyfqdapp.ikmmh.com//api/comic/zyz/chapters?ph=1&tempid=3&zpid=" + ${comicId} + "&page=0&line=48&orderby=asc", {
-                "User-Agent": "Mozilla/5.0 (Linux; Android) Mobile",
-                "Content-Type": "application/x-www-form-urlencoded"
-            })
+            let epStr = await Network.get(`https://ymcdnyfqdapp.ikmmh.com//api/comic/zyz/chapters?ph=1&tempid=3&zpid=${comicId}&page=0&line=48&orderby=asc`, {
+                      "User-Agent": "Mozilla/5.0 (Linux; Android) Mobile",
+                      "Content-Type": "application/x-www-form-urlencoded"
+                                        });
             let data = JSON.parse(epStr.body);
             let eps = new Map();
-                    data..forEach((e) => {
-                        let title = e.name;
-                        let id = e.url;
-                        eps.set(id, title);
-                    });
+                data.forEach((e) => {
+                let title = e.name;
+                let id = e.url;
+                eps.set(id, title);
+                });
             let comics = document.querySelectorAll("div.module-guessu > div.item").map(element => {
                 let title = element.querySelector("div.title").text.split("~")[0]
                 let cover = element.querySelector("div.thumb_img").attributes["data-src"]
