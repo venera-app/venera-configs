@@ -4,7 +4,7 @@ class CopyManga extends ComicSource {
 
     key = "copy_manga"
 
-    version = "1.1.3"
+    version = "1.1.4"
 
     minAppVersion = "1.2.1"
 
@@ -602,6 +602,7 @@ class CopyManga extends ComicSource {
             let updateTime = comicData.datetime_updated ? comicData.datetime_updated : "";
             let description = comicData.brief;
             let chapters = await getChapters(id, data.groups);
+            let status = comicData.status.display;
 
             return {
                 title: title,
@@ -610,7 +611,8 @@ class CopyManga extends ComicSource {
                 tags: {
                     "作者": authors,
                     "更新": [updateTime],
-                    "标签": tags
+                    "标签": tags,
+                    "状态": [status],
                 },
                 chapters: chapters,
                 isFavorite: results[1],
