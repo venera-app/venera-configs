@@ -30,21 +30,21 @@ class Baozi extends ComicSource {
             let json = JSON.parse(res.body)
             let token = json.data
             Network.setCookies(this.baseUrl, [
-                new Cookie({name: 'TSID', value: token, domain: '.baozimh.com'}),
+                new Cookie({name: 'TSID', value: token, domain: '.baozimhcn.com'}),
             ])
             return 'ok'
         },
 
         // 退出登录时将会调用此函数
         logout: () => {
-            Network.deleteCookies('.baozimh.com')
+            Network.deleteCookies('.baozimhcn.com')
         },
 
-        registerWebsite: `https://cn.baozimh.com/user/signup`
+        registerWebsite: `https://cn.baozimhcn.com/user/signup`
     }
 
     get baseUrl(){
-        return `https://www.baozimh.com`
+        return `https://cn.baozimhcn.com`
     }
 
     parseComic(e) {
@@ -68,7 +68,7 @@ class Baozi extends ComicSource {
             id: e.comic_id,
             title: e.name,
             subTitle: e.author,
-            cover: `https://static-tw.baozimh.com/cover/${e.topic_img}?w=285&h=375&q=100`,
+            cover: `https://static-tw.baozimhcn.com/cover/${e.topic_img}?w=285&h=375&q=100`,
             tags: e.type_names,
         }
     }
@@ -137,7 +137,7 @@ class Baozi extends ComicSource {
     /// 分类漫画页面, 即点击分类标签后进入的页面
     categoryComics = {
         load: async (category, param, options, page) => {
-            let res = await Network.get(`${this.baseUrl}/api/bzmhq/amp_comic_list?type=${param}&region=${options[0]}&state=${options[1]}&filter=%2a&page=${page}&limit=36&language=${this.lang}&__amp_source_origin=https%3A%2F%2F${this.lang}.baozimh.com`)
+            let res = await Network.get(`${this.baseUrl}/api/bzmhq/amp_comic_list?type=${param}&region=${options[0]}&state=${options[1]}&filter=%2a&page=${page}&limit=36&language=${this.lang}&__amp_source_origin=https%3A%2F%2F${this.lang}.baozimhcn.com`)
             if (res.status !== 200) {
                 throw "Invalid status code: " + res.status
             }
