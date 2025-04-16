@@ -1,2 +1,10 @@
 .idea
 .vscode
+index.json
+/venera-configs/copy_manga.js
+/venera-configs/ehentai.js
+/venera-configs/jm.js
+/venera-configs/komiic.js
+/venera-configs/picacg.js
+/venera-configs/wnacg.js
+.gitignore

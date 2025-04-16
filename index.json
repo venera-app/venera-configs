@@ -1,5 +1,11 @@
 [
+    
     {
+        "name": "爱看漫",
+        "fileName": "ikmmh.js",
+        "key": "ikmmh",
+        "version": "1.0.2"
+    },{
         "name": "拷贝漫画",
         "fileName": "copy_manga.js",
         "key": "copy_manga",
@@ -27,7 +33,7 @@
         "name": "Picacg",
         "fileName": "picacg.js",
         "key": "picacg",
-        "version": "1.0.2"
+        "version": "1.0.3"
     },
     {
         "name": "nhentai",
@@ -39,7 +45,8 @@
         "name": "紳士漫畫",
         "fileName": "wnacg.js",
         "key": "wnacg",
-        "version": "1.0.2"
+        "version": "1.0.2",
+        "description": "紳士漫畫漫畫源, 不能使用時請嘗試更換URL"
     },
     {
         "name": "ehentai",
@@ -51,6 +58,14 @@
         "name": "禁漫天堂",
         "fileName": "jm.js",
         "key": "jm",
-        "version": "1.1.4"
+        "version": "1.1.4",
+        "description": "禁漫天堂漫畫源, 不能使用時請嘗試切換分流"
+    },
+    {
+     "name": "MangaDex",
+        "fileName": "manga_dex.js",
+        "key": "manga_dex",
+        "version": "1.0.0",
+        "description": "Account feature is not supported yet."
     }
 ]
