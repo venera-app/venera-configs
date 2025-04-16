@@ -1,119 +1,95 @@
-class NewComicSource extends ComicSource {  // 首行必须为class...
-
-    // 此漫画源的名称
-    name = "爱看漫"
-
-    // 唯一标识符
-    key = "ikmmh"
-
-    version = "1.0.1"
-
-    minAppVersion = "1.0.0"
-
-    // 更新链接
-    url = "https://cdn.jsdelivr.net/gh/falling7down/venera-configs@main/ikmmh.js"
-
-    /// APP启动时或者添加/更新漫画源时执行此函数
-    init() {
-
-    }
-
-    /// 账号
-    /// 设置为null禁用账号功能
+class Ikm extends ComicSource {
+    // 基础配置
+    name = "爱看漫";
+    key = "ikmmh";
+    version = "1.0.2";
+    minAppVersion = "1.0.0";
+    url = "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/ikmmh.js";
+    // 常量定义
+    static baseUrl = "https://ymcdnyfqdapp.ikmmh.com";
+    static Mobile_UA = "Mozilla/5.0 (Linux; Android) Mobile";
+    static webHeaders = {
+			"User-Agent": Ikm.Mobile_UA,
+			"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
+		};
+	static jsonHead = {
+		   "User-Agent": Ikm.Mobile_UA,
+		   "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+		   "Accept": "application/json, text/javascript, */*; q=0.01",
+		   "Accept-Encoding": "gzip",
+           "X-Requested-With": "XMLHttpRequest"
+	};
+    // 统一缩略图加载配置
+    static thumbConfig = (url) => ({
+        headers: {
+            ...Ikm.webHeaders,
+            "Referer": Ikm.baseUrl,
+        }
+    });
+    // 账号系统
     account = {
-        /// 登录
-        /// 返回任意值表示登录成功
-        login: async (account, pwd) => {
-            let res = await Network.post("https://ymcdnyfqdapp.ikmmh.com/api/user/userarr/login", {
-                "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-                "User-Agent": "Mozilla/5.0 (Linux; Android) Mobile"
-            }, `user=${account}&pass=${pwd}`)
-
-            let data = JSON.parse(res.body)
-
-            if (res.status !== 200) {
-                throw "Invalid status code: " + res.status
-            } else if (data["code"] !== 0) {
-                throw "Invalid response: " + data["msg"]
-            } else {
-                return 'ok'
+        login: async(account, pwd) => {
+            try {
+                let res = await Network.post(
+				`${Ikm.baseUrl}/api/user/userarr/login`, 
+				Ikm.jsonHead,
+				`user=${account}&pass=${pwd}`);
+                if (res.status !== 200)
+                    throw new Error(`登录失败，状态码：${res.status}`);
+                let data = JSON.parse(res.body);
+                if (data.code !== 0)
+                    throw new Error(data.msg || "登录异常");
+                return 'ok';
+            } catch (err) {
+                throw new Error(`登录失败：${err.message}`);
             }
-
         },
-
-        // 退出登录时将会调用此函数
-        logout: () => {
-            Network.deleteCookies("ymcdnyfqdapp.ikmmh.com")
-        },
-
-        registerWebsite: "https://ymcdnyfqdapp.ikmmh.com/user/register/"
+        logout: () => Network.deleteCookies("ymcdnyfqdapp.ikmmh.com"),
+        registerWebsite: `${Ikm.baseUrl}/user/register/`
     }
-
-    /// 探索页面
-    /// 一个漫画源可以有多个探索页面
-    explore = [
-        {
-            /// 标题
-            /// 标题同时用作标识符, 不能重复
+    // 探索页面
+    explore = [{
             title: this.name,
-
-            /// singlePageWithMultiPart 或者 multiPageComicList
             type: "singlePageWithMultiPart",
-
-            /*
-            加载漫画
-            如果类型为multiPageComicList, load方法应当接收一个page参数, 并且返回漫画列表
-            */
-
-            load: async () => {
-                let res = await Network.get("https://ymcdnyfqdapp.ikmmh.com/", {
-                    "User-Agent": "Mozilla/5.0 (Linux; Android) Mobile",
-                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
-                })
-                if (res.status !== 200) {
-                    throw "Invalid status code: " + res.status
-                }
-                let document = new HtmlDocument(res.body)
-                function parseComicDom(comicDom) {
-                    let title = comicDom.querySelector("div.title").text.split("~")[0]
-                    let cover = comicDom.querySelector("div.thumb_img").attributes["data-src"]
-                    let link = comicDom.querySelector("a").attributes["href"]
-                    link = "https://ymcdnyfqdapp.ikmmh.com" + link
-                    return {
-                        title: title,
-                        cover: cover,
-                        id: link
+            load: async() => {
+                try {
+                    let res = await Network.get(`${Ikm.baseUrl}/`, Ikm.webHeaders);
+                    if (res.status !== 200)
+                        throw new Error(`加载探索页面失败，状态码：${res.status}`);
+                    let document = new HtmlDocument(res.body);
+                    let parseComic = e => {
+                        let title = e.querySelector("div.title").text.split("~")[0];
+                        let cover = e.querySelector("div.thumb_img").attributes["data-src"];
+                        let link = `${Ikm.baseUrl}${e.querySelector("a").attributes["href"]}`;
+                        return {
+                            title,
+                            cover,
+                            id: link
+                        };
                     };
+                    return {
+                        "本周推荐": document.querySelectorAll("div.module-good-fir > div.item").map(parseComic),
+                        "今日更新": document.querySelectorAll("div.module-day-fir > div.item").map(parseComic)
+                    };
+                } catch (err) {
+                    throw new Error(`探索页面加载失败：${err.message}`);
                 }
-
-                let data = {
-                    "本周推荐": document.querySelectorAll("div.module-good-fir > div.item").map(parseComicDom),
-                    "今日更新": document.querySelectorAll("div.module-day-fir > div.item").map(parseComicDom),
-                }
-                
-                return data
-            }
+            },
+			onThumbnailLoad: Ikm.thumbConfig 
         }
     ]
-
-    /// 分类页面
-    /// 一个漫画源只能有一个分类页面, 也可以没有, 设置为null禁用分类页面
+    // 分类页面
     category = {
-        /// 标题, 同时为标识符, 不能与其他漫画源的分类页面重复
         title: "爱看漫",
         parts: [
             {
                 name: "分类",
-
                 // fixed 或者 random
                 // random用于分类数量相当多时, 随机显示其中一部分
                 type: "fixed",
-
                 // 如果类型为random, 需要提供此字段, 表示同时显示的数量
                 // randomNumber: 5,
-
-                categories: ["全部", "长条", "大女主", "百合", "耽美", "纯爱", "後宫", "韩漫", "奇幻", "轻小说", "生活", "悬疑", "格斗", "搞笑", "伪娘", "竞技", "职场", "萌系", "冒险", "治愈", "都市", "霸总", "神鬼", "侦探", "爱情", "古风", "欢乐向", "科幻", "穿越", "性转换", "校园", "美食", "悬疑", "剧情", "热血", "节操", "励志", "异世界", "历史", "战争", "恐怖", "霸总", "全部", "连载中", "已完结", "全部", "日漫", "港台", "美漫", "国漫", "韩漫", "未分类",],
-
+                categories: ["全部", "长条", "大女主", "百合", "耽美", "纯爱", "後宫", "韩漫", "奇幻", "轻小说", "生活", "悬疑", "格斗", "搞笑", "伪娘", "竞技", "职场", "萌系", "冒险", "治愈", "都市", "霸总", "神鬼", "侦探", "爱情", "古风", "欢乐向", "科幻", "穿越", "性转换", "校园", "美食", "悬疑", "剧情", "热血", "节操", "励志", "异世界", "历史", "战争", "恐怖", "霸总", "全部", "连载中", "已完结", "全部", "日漫", "港台", "美漫", "国漫", "韩漫", "未分类", ],
                 // category或者search
                 // 如果为category, 点击后将进入分类漫画页面, 使用下方的`categoryComics`加载漫画
                 // 如果为search, 将进入搜索页面
@@ -127,299 +103,208 @@ class NewComicSource extends ComicSource {  // 首行必须为class...
                 categoryParams: ['1', '2', '3', '4', '5', '6', '7']
             }
         ],
-        enableRankingPage: false,
+        enableRankingPage: false
     }
-
-    /// 分类漫画页面, 即点击分类标签后进入的页面
+    // 分类漫画加载
     categoryComics = {
-        load: async (category, param, options, page) => {
-            category = encodeURIComponent(category)
-            let res = ""
-            if (param !== undefined && param !== null) {
-                res = await Network.get(`https://ymcdnyfqdapp.ikmmh.com/update/${param}.html`, {
-                "User-Agent": "Mozilla/5.0 (Linux; Android) Mobile",
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
-            })
-            if (res.status !== 200) {
-                throw "Invalid status code: " + res.status
-            }
-            let document = new HtmlDocument(res.body)
-
-            function parseComic(element) {
-                let title = element.querySelector("p.title").text.split("~")[0]
-                let cover = element.querySelector("img").attributes["src"]
-                let link = element.querySelector("a").attributes["href"]
-                link = "https://ymcdnyfqdapp.ikmmh.com" + link
-                let updateInfo = element.querySelector("span.chapter").text
-                return {
-                    title: title,
-                    cover: cover,
-                    id: link,
-                    subTitle: updateInfo
-                };
-            }
-
-            let maxPage = 1
-            return {
-                comics: document.querySelectorAll("ul.comic-sort > li").map(parseComic),
-                maxPage: maxPage
-            }    
-            } else {
-                res = await Network.post(`https://ymcdnyfqdapp.ikmmh.com/api/comic/index/lists`, {
-                "User-Agent": "Mozilla/5.0 (Linux; Android) Mobile",
-                "Content-Type": "application/x-www-form-urlencoded;charset=utf-8"
-            },
-                `area=${options[1]}&tags=${category}&full=${options[0]}&page=${page}`
-             )
-                if (res.status !== 200) {
-                throw "Invalid status code: " + res.status
-            }
-
-            let data = JSON.parse(res.body)
-
-            function parseComic(comic) {
-                return {
-                    id: comic["info_url"],
-                    title: comic["name"],
-                    subTitle: comic["author"],
-                    cover: comic["cover"],
-                    tags: comic["tags"][0],
-                    description: comic["lastchapter"]
+        load: async(category, param, options, page) => {
+            try {
+                let res;
+                if (param) {
+                    res = await Network.get(`${Ikm.baseUrl}/update/${param}.html`,Ikm.webHeaders);
+                    if (res.status !== 200)
+                        throw new Error(`分类请求失败，状态码：${res.status}`);
+                    let document = new HtmlDocument(res.body);
+                    let comics = document.querySelectorAll("li.comic-item").map(e => ({
+                                title: e.querySelector("p.title").text.split("~")[0],
+                                cover: e.querySelector("img").attributes["src"],
+                                id: `${Ikm.baseUrl}${e.querySelector("a").attributes["href"]}`,
+                                subTitle: e.querySelector("span.chapter").text
+                            }));
+                    return {
+                        comics,
+                        maxPage: 1
+                    };
+                } else {
+                    res = await Network.post(`${Ikm.baseUrl}/api/comic/index/lists`,
+                        Ikm.jsonHead,
+						`area=${options[1]}&tags=${encodeURIComponent(category)}&full=${options[0]}&page=${page}`);
+                    let resData = JSON.parse(res.body);
+                    return {
+                        comics: resData.data.map(e => ({
+							
+                                id: `${Ikm.baseUrl}${e.info_url}`,
+                                title: e.name.split('~')[0],
+                                subTitle: e.author,
+                                cover: e.cover,
+                                tags: e.tags,
+                                description: e.lastchapter
+								
+                            })),
+                        maxPage: resData.end || 1
+                    };
                 }
+            } catch (err) {
+                throw new Error(`分类加载失败：${err.message}`);
             }
-
-            return {
-                comics: data["data"].map(parseComic),
-                maxPage: (data["end"])
-            } 
-           }
-          }     
         },
-        // 提供选项
+        onThumbnailLoad: Ikm.thumbConfig,
         optionList: [
             {
                 // 对于单个选项, 使用-分割, 左侧为用于数据加载的值, 即传给load函数的options参数; 右侧为显示给用户的文本
-                options: [
-                    "3-全部",
-                    "4-连载中",
-                    "1-已完结",
-                ],
-                // 提供[]string, 当分类名称位于此数组中时, 禁用此选项
+				
+                options: ["3-全部","4-连载中","1-已完结",],
                 notShowWhen: ["星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日"],
-                // 提供[]string, 当分类名称没有位于此数组中时, 禁用此选项
                 showWhen: null
             },
             {
-                // 对于单个选项, 使用-分割, 左侧为用于数据加载的值, 即传给load函数的options参数; 右侧为显示给用户的文本
-                options: [
-                    "9-全部",
-                    "1-日漫",
-                    "2-港台",
-                    "3-美漫",
-                    "4-国漫",
-                    "5-韩漫",
-                    "6-未分类"
-                ],
-                // 提供[]string, 当分类名称位于此数组中时, 禁用此选项
+                options: ["9-全部","1-日漫","2-港台","3-美漫","4-国漫","5-韩漫","6-未分类"],
                 notShowWhen: ["星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日"],
-                // 提供[]string, 当分类名称没有位于此数组中时, 禁用此选项
                 showWhen: null
-            },
-        ],
+            }
+        ]
     }
-
-    /// 搜索
+    // 搜索功能
     search = {
-        load: async (keyword, options, page) => {
-            let res = await Network.get(`https://ymcdnyfqdapp.ikmmh.com/search?searchkey=${encodeURIComponent(keyword)}`, {
-                "User-Agent": "Mozilla/5.0 (Linux; Android) Mobile",
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
-            })
-            if (res.status !== 200) {
-                throw "Invalid status code: " + res.status
-            }
-            let document = new HtmlDocument(res.body)
-
-            function parseComic(element) {
-                let title = element.querySelector("p.title").text.split("~")[0]
-                let cover = element.querySelector("img").attributes["src"]
-                let link = element.querySelector("a").attributes["href"]
-                link = "https://ymcdnyfqdapp.ikmmh.com" + link
-                let updateInfo = element.querySelector("span.chapter").text
+        load: async(keyword, options, page) => {
+            try {
+                let res = await Network.get(`${Ikm.baseUrl}/search?searchkey=${encodeURIComponent(keyword)}`,
+                        Ikm.webHeaders);
+                let document = new HtmlDocument(res.body);
                 return {
-                    title: title,
-                    cover: cover,
-                    id: link,
-                    subTitle: updateInfo
+                    comics: document.querySelectorAll("li.comic-item").map(e => ({
+                            title: e.querySelector("p.title").text.split("~")[0],
+                            cover: e.querySelector("img").attributes["src"],
+                            id: `${Ikm.baseUrl}${e.querySelector("a").attributes["href"]}`,
+                            subTitle: e.querySelector("span.chapter").text
+                        })),
+                    maxPage: 1
                 };
-            }
-
-            return {
-                comics: document.querySelectorAll("div.comic-item").map(parseComic),
-                maxPage: 1
+            } catch (err) {
+                throw new Error(`搜索失败：${err.message}`);
             }
         },
-
-        // 提供选项
+        onThumbnailLoad: Ikm.thumbConfig,
         optionList: []
     }
-
-    /// 收藏
+    // 收藏功能
     favorites = {
-        /// 是否为多收藏夹
         multiFolder: false,
-        /// 添加或者删除收藏
-        addOrDelFavorite: async (comicId, folderId, isAdding) => {
-            let id = comicId.split("/")[4]
-            if (isAdding) {
-                let comicInfoRes = await Network.get(comicId, {
-                    "User-Agent": "Mozilla/5.0 (Linux; Android) Mobile"
-                });
-                if (comicInfoRes.status !== 200) {
-                    throw "Invalid status code: " + res.status
-                }
-                let document = new HtmlDocument(comicInfoRes.body)
-                let name = document.querySelector("h1").text;
-                let res = await Network.post("https://ymcdnyfqdapp.ikmmh.com/api/user/bookcase/add", {
-                    "Content-Type": "application/x-www-form-urlencoded",
-                }, `articleid=${id}&articlename=${name}`)
-                if (res.status !== 200) {
-                    throw "Invalid status code: " + res.status
-                }
-                let json = JSON.parse(res.body)
-                if (json["code"] === "0" || json["code"] === 0) {
-                    return 'ok'
-                } else if (json["code"] === 1) {
-                    throw "Login expired"
+        addOrDelFavorite: async(comicId, folderId, isAdding) => {
+            try {
+                let id = comicId.match(/\d+/)[0];
+                if (isAdding) {
+                    // 获取漫画信息
+                    let infoRes = await Network.get(comicId, Ikm.webHeaders);
+                    let name = new HtmlDocument(infoRes.body).querySelector("meta[property='og:title']").attributes["content"];
+                    // 添加收藏
+                    let res = await Network.post(`${Ikm.baseUrl}/api/user/bookcase/add`,
+                        Ikm.jsonHead,
+						`articleid=${id}&articlename=${encodeURIComponent(name)}`);
+                    let data = JSON.parse(res.body);
+                    if (data.code !== "0")
+                        throw new Error(data.msg || "收藏失败");
+                    return 'ok';
                 } else {
-                    throw json["msg"].toString()
+                    // 删除收藏
+                    let res = await Network.post(`${Ikm.baseUrl}/api/user/bookcase/del`,
+                        Ikm.jsonHead,
+						`articleid=${id}`);
+                    let data = JSON.parse(res.body);
+                    if (data.code !== "0")
+                        throw new Error(data.msg || "取消收藏失败");
+                    return 'ok';
                 }
-            } else {
-                let res = await Network.post("https://ymcdnyfqdapp.ikmmh.com/api/user/bookcase/del", {
-                    "Content-Type": "application/x-www-form-urlencoded",
-                    "User-Agent": "Mozilla/5.0 (Linux; Android) Mobile"
-                }, `articleid=${id}`)
-                if (res.status !== 200) {
-                    error("Invalid status code: " + res.status)
-                    return;
-                }
-                let json = JSON.parse(res.body)
-                if (json["code"] === "0" || json["code"] === 0) {
-                    success("ok")
-                } else if (json["code"] === 1) {
-                    error("Login expired")
-                } else {
-                    error(json["msg"].toString())
-                }
+            } catch (err) {
+                throw new Error(`收藏操作失败：${err.message}`);
             }
         },
-        /// 加载漫画
-        loadComics: async (page, folder) => {
-            let res = await Network.post("https://ymcdnyfqdapp.ikmmh.com/api/user/bookcase/ajax", {
-                "Content-Type": "application/x-www-form-urlencoded",
-                "User-Agent": "Mozilla/5.0 (Linux; Android) Mobile"
-            }, `page=${page}`)
-            if (res.status !== 200) {
-                throw "Invalid status code: " + res.status
-            }
-            let json = JSON.parse(res.body)
-            if (json["code"] === 1) {
-                throw "Login expired"
-            }
-            if (json["code"] !== "0" && json["code"] !== 0) {
-                throw "Invalid response: " + json["code"]
-            }
-            let comics = json["data"].map(e => {
+		//加载收藏
+        loadComics: async(page, folder) => {
+                let res = await Network.get(`${Ikm.baseUrl}/user/bookcase`,Ikm.webHeaders);
+                if (res.status !== 200) {
+                    throw "加载收藏失败：" + res.status
+                };
+                let document = new HtmlDocument(res.body);
                 return {
-                    title: e["name"],
-                    subTitle: e["author"],
-                    cover: e["cover"],
-                    id: "https://ymcdnyfqdapp.ikmmh.com" + e["info_url"]
+                    comics: document.querySelectorAll("div.bookrack-item").map(e => ({
+                            title: e.querySelector("h3").text.split("~")[0],
+                            subTitle: e.querySelector("p.desc").text,
+                            cover: e.querySelector("img").attributes["src"],
+                            id: `${Ikm.baseUrl}/book/${e.attributes["data-id"]}/`
+                        })),
+                    maxPage: 1
                 }
-            })
-            let maxPage = json["end"]
+        },
+		onThumbnailLoad: Ikm.thumbConfig
+    }
+    // 漫画详情
+    comic = {
+        loadInfo: async(id) => {
+            let res = await Network.get(id, Ikm.webHeaders);
+            let document = new HtmlDocument(res.body);
+            let comicId = id.match(/\d+/)[0];
+            // 获取章节数据		
+			let epRes = await Network.get(
+			`${Ikm.baseUrl}/api/comic/zyz/chapterlink?id=${comicId}`, {
+                    ...Ikm.jsonHead,
+                    "Referer": id,
+                });
+			let epData = JSON.parse(epRes.body);
+			let eps = new Map();
+			if (epData.data && epData.data.length > 0 && epData.data[0].list) {
+                epData.data[0].list.forEach((e) => {
+                        let title = e.name;
+                        let id = `${Ikm.baseUrl}${e.url}`;
+                        eps.set(id, title);
+                    }); 
+			} else {
+				    throw new Error(`章节数据格式异常`);
+			};
+					
+			let title = document.querySelector("div.book-hero__detail > div.title").text;
+			let escapedTitle = title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+			let thumb = document.querySelector("div.coverimg").attributes["style"].match(/\((.*?)\)/)?.[1] || '';
+			let desc = document.querySelector("article.book-container__detail").text.match(new RegExp(`漫画名：${escapedTitle}(?:(?:[^。]*?(?:简介|漫画简介)\\s*[:：]?\\s*)|(?:[^。]*?))([\\s\\S]+?)\\.\\.\\.。`));
+			let intro = desc?.[1]?.trim().replace(/\s+/g, ' ') || '';
+			
             return {
-                comics: comics,
-                maxPage: maxPage
+                title: title.split("~")[0],
+                cover: thumb,
+                description: intro,
+                tags: {
+                    "作者": [document.querySelector("div.book-container__author").text.split("作者：")[1]],
+                    "更新": [document.querySelector("div.update > a > em").text],
+                    "标签": document.querySelectorAll("div.book-hero__detail > div.tags > a").map(e => e.text.trim())
+                },
+                chapters: eps,
+                recommend: document.querySelectorAll("div.module-guessu > div.item").map(e => ({
+                    title: e.querySelector("div.title").text.split("~")[0],
+                    cover: e.querySelector("div.thumb_img").attributes["data-src"],
+                    id: `${Ikm.baseUrl}${e.querySelector("a").attributes["href"]}`
+                }))
+            };
+        },
+        onThumbnailLoad: Ikm.thumbConfig,
+        loadEp: async(comicId, epId) => {
+            try {
+                let res = await Network.get(epId, Ikm.webHeaders);
+                let document = new HtmlDocument(res.body);
+                return {
+                    images: document.querySelectorAll("img.lazy").map(e => e.attributes["data-src"])
+                };
+            } catch (err) {
+                throw new Error(`加载章节失败：${err.message}`);
+            }
+        },
+        onImageLoad: (url, comicId, epId) => {
+            return {
+                url,
+                headers: {
+                    ...Ikm.webHeaders,
+                    "Referer": epId
+                }
             }
         }
     }
-
-    /// 单个漫画相关
-    comic = {
-        // 加载漫画信息
-        loadInfo: async (id) => {
-            let res = await Network.get(id, {
-                "User-Agent": "Mozilla/5.0 (Linux; Android) Mobile",
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
-            })
-            if (res.status !== 200) {
-                throw "Invalid status code: " + res.status
-            }
-
-            let document = new HtmlDocument(res.body)
-            let title = document.querySelector("div.book-hero__detail > div.title").text.split("~")[0]
-            let cover = document.querySelector("div.coverimg > img").attributes["style"].match(/\((.*?)\)/)[1]
-            let author = document.querySelector("div.book-container__author").text
-            let tags = document.querySelectorAll("div.tags > a").map(e => e.text.trim())
-            let description = document.querySelector("div.book-container__detail").text
-            let updateTime = document.querySelector("div.update > a > em").text
-            let comicId = id.match(/\d+/)
-            let epStr = await Network.get(`https://ymcdnyfqdapp.ikmmh.com//api/comic/zyz/chapters?ph=1&tempid=3&zpid=${comicId}&page=0&line=48&orderby=asc`, {
-                      "User-Agent": "Mozilla/5.0 (Linux; Android) Mobile",
-                      "Content-Type": "application/x-www-form-urlencoded"
-                                        });
-            let data = JSON.parse(epStr.body);
-            let eps = new Map();
-                data.forEach((e) => {
-                let title = e.name;
-                let id = e.url;
-                eps.set(id, title);
-                });
-            let comics = document.querySelectorAll("div.module-guessu > div.item").map(element => {
-                let title = element.querySelector("div.title").text.split("~")[0]
-                let cover = element.querySelector("div.thumb_img").attributes["data-src"]
-                let link = element.querySelector("a").attributes["href"]
-                link = "https://ymcdnyfqdapp.ikmmh.com" + link
-                return {
-                    title: title,
-                    cover: cover,
-                    id: link
-                }
-            })
-            return {
-                title: title,
-                cover: cover,
-                description: description,
-                tags: {
-                    "作者": [author],
-                    "更新": [updateTime],
-                    "标签": tags
-                },
-                chapters: eps,
-                suggestions: comics
-            }
-        },
-        // 获取章节图片
-        loadEp: async (comicId, epId) => {
-            if (comicId.includes("https://")) {
-                comicId = comicId.split("/")[4]
-            }
-            let res = await Network.get(
-                `https://ymcdnyfqdapp.ikmmh.com/chapter/${comicId}/${epId}.html`,
-                {
-                    "Referer": `https://ymcdnyfqdapp.ikmmh.com/book/${comicId}.html`,
-                    "User-Agent": "Mozilla/5.0 (Linux; Android) Mobile"
-                }
-            )
-            if (res.status !== 200) {
-                throw "Invalid status code: " + res.status
-            }
-            let document = new HtmlDocument(res.body)
-            return {
-                images: document.querySelectorAll("img.lazy").map(e => e.attributes["data-src"])
-            }
-        }
-	}
-        /// 警告: 这是历史遗留问题, 对于新的漫画源, 不应当使用此字段, 在选取漫画id时, 不应当出现特殊字符
-        matchBriefIdRegex: "https://ymcdnyfqdapp.ikmmh.com/book/(\\d+)/"
+}
