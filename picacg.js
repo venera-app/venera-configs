@@ -3,7 +3,7 @@ class Picacg extends ComicSource {
 
     key = "picacg"
 
-    version = "1.0.2"
+    version = "1.0.3"
 
     minAppVersion = "1.0.0"
 
@@ -482,6 +482,7 @@ class Picacg extends ComicSource {
                 likesCount: info.likesCount,
                 uploader: info._creator.name,
                 updateTime: formattedDate,
+                maxPage: info.pagesCount,
             })
         },
         // 获取章节图片
