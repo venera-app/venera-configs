@@ -5,15 +5,45 @@ class Baozi extends ComicSource {
     // 唯一标识符
     key = "baozi"
 
-    version = "1.0.3"
+    version = "1.0.4"
 
     minAppVersion = "1.0.0"
 
     // 更新链接
     url = "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/baozi.js"
 
-    /// APP启动时或者添加/更新漫画源时执行此函数
-    init() {}
+    settings = {
+        language: {
+            title: "简繁切换",
+            type: "select",
+            options: [
+                { value: "cn", text: "简体" },
+                { value: "tw", text: "繁體" }
+            ],
+            default: "cn"
+        },
+        domains: {
+            title: "主域名",
+            type: "select",
+            options: [
+                { value: "baozimhcn.com" },
+                { value: "webmota.com" },
+                { value: "kukuc.co" },
+                { value: "twmanga.com" },
+                { value: "dinnerku.com" }
+            ],
+            default: "baozimhcn.com"
+        }
+    }
+    
+    // 动态生成完整域名
+    get lang() {
+        return this.loadSetting('language') || this.settings.language.default;
+    }
+    get baseUrl() {
+        let domain = this.loadSetting('domains') || this.settings.domains.default;
+        return `https://${this.lang}.${domain}`;
+    }
 
     /// 账号
     /// 设置为null禁用账号功能
@@ -24,29 +54,32 @@ class Baozi extends ComicSource {
             let res = await Network.post(`${this.baseUrl}/api/bui/signin`, {
                 'content-type': 'multipart/form-data; boundary=----WebKitFormBoundaryFUNUxpOwyUaDop8s'
             }, "------WebKitFormBoundaryFUNUxpOwyUaDop8s\r\nContent-Disposition: form-data; name=\"username\"\r\n\r\n" + account + "\r\n------WebKitFormBoundaryFUNUxpOwyUaDop8s\r\nContent-Disposition: form-data; name=\"password\"\r\n\r\n" + pwd + "\r\n------WebKitFormBoundaryFUNUxpOwyUaDop8s--\r\n")
-            if(res.status !== 200) {
+            if (res.status !== 200) {
                 throw "Invalid status code: " + res.status
             }
             let json = JSON.parse(res.body)
             let token = json.data
             Network.setCookies(this.baseUrl, [
-                new Cookie({name: 'TSID', value: token, domain: '.baozimh.com'}),
+                new Cookie({
+                    name: 'TSID',
+                    value: token,
+                    domain: this.loadSetting('domains') || this.settings.domains.default
+                }),
             ])
             return 'ok'
         },
 
         // 退出登录时将会调用此函数
-        logout: () => {
-            Network.deleteCookies('.baozimh.com')
+        logout: function() {
+            Network.deleteCookies(this.loadSetting('domains') || this.settings.domains.default)
         },
 
-        registerWebsite: `https://cn.baozimh.com/user/signup`
+        get registerWebsite() {
+            return `${this.baseUrl}/user/signup`
+        }
     }
 
-    get baseUrl(){
-        return `https://www.baozimh.com`
-    }
-
+    /// 解析漫画列表
     parseComic(e) {
         let url = e.querySelector("a").attributes['href']
         let id = url.split("/").pop()
@@ -75,33 +108,32 @@ class Baozi extends ComicSource {
 
     /// 探索页面
     /// 一个漫画源可以有多个探索页面
-    explore = [
-        {
-            /// 标题
-            /// 标题同时用作标识符, 不能重复
-            title: "包子漫画",
+    explore = [{
+        /// 标题
+        /// 标题同时用作标识符, 不能重复
+        title: "包子漫画",
 
-            /// singlePageWithMultiPart 或者 multiPageComicList
-            type: "singlePageWithMultiPart",
+        /// singlePageWithMultiPart 或者 multiPageComicList
+        type: "singlePageWithMultiPart",
 
-            load: async () => {
-                var res = await Network.get(this.baseUrl)
-                if (res.status !== 200) {
-                    throw "Invalid status code: " + res.status
-                }
-                let document = new HtmlDocument(res.body)
-                let parts = document.querySelectorAll("div.index-recommend-items")
-                let result = {}
-                for (let part of parts) {
-                    let title = part.querySelector("div.catalog-title").text.trim()
-                    let comics = part.querySelectorAll("div.comics-card").map(e => this.parseComic(e))
-                    if(comics.length > 0) {
-                        result[title] = comics
-                    }
-                }
-                return result
+        load: async () => {
+            var res = await Network.get(this.baseUrl)
+            if (res.status !== 200) {
+                throw "Invalid status code: " + res.status
             }
+            let document = new HtmlDocument(res.body)
+            let parts = document.querySelectorAll("div.index-recommend-items")
+            let result = {}
+            for (let part of parts) {
+                let title = part.querySelector("div.catalog-title").text.trim()
+                let comics = part.querySelectorAll("div.comics-card").map(e => this.parseComic(e))
+                if (comics.length > 0) {
+                    result[title] = comics
+                }
+            }
+            return result
         }
+    }
     ]
 
     /// 分类页面
@@ -109,27 +141,26 @@ class Baozi extends ComicSource {
     category = {
         /// 标题, 同时为标识符, 不能与其他漫画源的分类页面重复
         title: "包子漫画",
-        parts: [
-            {
-                name: "类型",
+        parts: [{
+            name: "类型",
 
-                // fixed 或者 random
-                // random用于分类数量相当多时, 随机显示其中一部分
-                type: "fixed",
+            // fixed 或者 random
+            // random用于分类数量相当多时, 随机显示其中一部分
+            type: "fixed",
 
-                // 如果类型为random, 需要提供此字段, 表示同时显示的数量
-                // randomNumber: 5,
+            // 如果类型为random, 需要提供此字段, 表示同时显示的数量
+            // randomNumber: 5,
 
-                categories: ['全部', '恋爱', '纯爱', '古风', '异能', '悬疑', '剧情', '科幻', '奇幻', '玄幻', '穿越', '冒险', '推理', '武侠', '格斗', '战争', '热血', '搞笑', '大女主', '都市', '总裁', '后宫', '日常', '韩漫', '少年', '其它'],
+            categories: ['全部', '恋爱', '纯爱', '古风', '异能', '悬疑', '剧情', '科幻', '奇幻', '玄幻', '穿越', '冒险', '推理', '武侠', '格斗', '战争', '热血', '搞笑', '大女主', '都市', '总裁', '后宫', '日常', '韩漫', '少年', '其它'],
 
-                // category或者search
-                // 如果为category, 点击后将进入分类漫画页面, 使用下方的`categoryComics`加载漫画
-                // 如果为search, 将进入搜索页面
-                itemType: "category",
+            // category或者search
+            // 如果为category, 点击后将进入分类漫画页面, 使用下方的`categoryComics`加载漫画
+            // 如果为search, 将进入搜索页面
+            itemType: "category",
 
-                // 若提供, 数量需要和`categories`一致, `categoryComics.load`方法将会收到此参数
-                categoryParams: ['all', 'lianai', 'chunai', 'gufeng', 'yineng', 'xuanyi', 'juqing', 'kehuan', 'qihuan', 'xuanhuan', 'chuanyue', 'mouxian', 'tuili', 'wuxia', 'gedou', 'zhanzheng', 'rexie', 'gaoxiao', 'danuzhu', 'dushi', 'zongcai', 'hougong', 'richang', 'hanman', 'shaonian', 'qita']
-            }
+            // 若提供, 数量需要和`categories`一致, `categoryComics.load`方法将会收到此参数
+            categoryParams: ['all', 'lianai', 'chunai', 'gufeng', 'yineng', 'xuanyi', 'juqing', 'kehuan', 'qihuan', 'xuanhuan', 'chuanyue', 'mouxian', 'tuili', 'wuxia', 'gedou', 'zhanzheng', 'rexie', 'gaoxiao', 'danuzhu', 'dushi', 'zongcai', 'hougong', 'richang', 'hanman', 'shaonian', 'qita']
+        }
         ],
         enableRankingPage: false,
     }
@@ -137,13 +168,13 @@ class Baozi extends ComicSource {
     /// 分类漫画页面, 即点击分类标签后进入的页面
     categoryComics = {
         load: async (category, param, options, page) => {
-            let res = await Network.get(`${this.baseUrl}/api/bzmhq/amp_comic_list?type=${param}&region=${options[0]}&state=${options[1]}&filter=%2a&page=${page}&limit=36&language=${this.lang}&__amp_source_origin=https%3A%2F%2F${this.lang}.baozimh.com`)
+            let res = await Network.get(`${this.baseUrl}/api/bzmhq/amp_comic_list?type=${param}&region=${options[0]}&state=${options[1]}&filter=%2a&page=${page}&limit=36&language=${this.lang}&__amp_source_origin=${this.baseUrl}`)
             if (res.status !== 200) {
                 throw "Invalid status code: " + res.status
             }
             let maxPage = null
             let json = JSON.parse(res.body)
-            if(!json.next) {
+            if (!json.next) {
                 maxPage = page
             }
             return {
@@ -152,23 +183,21 @@ class Baozi extends ComicSource {
             }
         },
         // 提供选项
-        optionList: [
-            {
-                options: [
-                    "all-全部",
-                    "cn-国漫",
-                    "jp-日本",
-                    "kr-韩国",
-                    "en-欧美",
-                ],
-            },
-            {
-                options: [
-                    "all-全部",
-                    "serial-连载中",
-                    "pub-已完结",
-                ],
-            },
+        optionList: [{
+            options: [
+                "all-全部",
+                "cn-国漫",
+                "jp-日本",
+                "kr-韩国",
+                "en-欧美",
+            ],
+        }, {
+            options: [
+                "all-全部",
+                "serial-连载中",
+                "pub-已完结",
+            ],
+        },
         ],
     }
 
@@ -197,7 +226,7 @@ class Baozi extends ComicSource {
         multiFolder: false,
         /// 添加或者删除收藏
         addOrDelFavorite: async (comicId, folderId, isAdding) => {
-            if(!isAdding) {
+            if (!isAdding) {
                 let res = await Network.post(`${this.baseUrl}/user/operation_v2?op=del_bookmark&comic_id=${comicId}`)
                 if (!res.status || res.status >= 400) {
                     throw "Invalid status code: " + res.status
@@ -260,26 +289,44 @@ class Baozi extends ComicSource {
             let tags = document.querySelectorAll("div.tag-list > span").map(e => e.text.trim())
             tags = [...tags.filter(e => e !== "")]
             let updateTime = document.querySelector("div.supporting-text > div > span > em")?.text.trim().replace('(', '').replace(')', '')
+            if (!updateTime) {
+            const getLastChapterText = () => {
+            // 合并所有章节容器（处理可能存在多个列表的情况）
+            const containers = [
+                ...document.querySelectorAll("#chapter-items, #chapters_other_list")
+            ];
+            let allChapters = [];
+            containers.forEach(container => {
+                const chapters = container.querySelectorAll(".comics-chapters > a");
+                allChapters.push(...Array.from(chapters));
+            });
+            const lastChapter = allChapters[allChapters.length - 1];
+            return lastChapter?.querySelector("div > span")?.text.trim() || "暂无更新信息";
+        };
+        updateTime = getLastChapterText();
+    }
             let description = document.querySelector("p.comics-detail__desc").text.trim()
             let chapters = new Map()
             let i = 0
-            for(let c of document.querySelectorAll("div#chapter-items > div.comics-chapters > a > div > span")) {
+            for (let c of document.querySelectorAll("div#chapter-items > div.comics-chapters > a > div > span")) {
                 chapters.set(i.toString(), c.text.trim())
                 i++
             }
-            for(let c of document.querySelectorAll("div#chapters_other_list > div.comics-chapters > a > div > span")) {
+            for (let c of document.querySelectorAll("div#chapters_other_list > div.comics-chapters > a > div > span")) {
                 chapters.set(i.toString(), c.text.trim())
                 i++
             }
             if (i === 0) {
-                for(let c of document.querySelectorAll("div.comics-chapters > a > div > span")) {
-                    chapters.set(i.toString(), c.text.trim())
-                    i++
+                // 将倒序的最新章节反转
+                const spans = Array.from(document.querySelectorAll("div.comics-chapters > a > div > span")).reverse();
+                for (let c of spans) {
+                    chapters.set(i.toString(), c.text.trim());
+                    i++;
                 }
             }
             let recommend = []
-            for(let c of document.querySelectorAll("div.recommend--item")) {
-                if(c.querySelectorAll("div.tag-comic").length > 0) {
+            for (let c of document.querySelectorAll("div.recommend--item")) {
+                if (c.querySelectorAll("div.tag-comic").length > 0) {
                     let title = c.querySelector("span").text.trim()
                     let cover = c.querySelector("amp-img").attributes['src']
                     let url = c.querySelector("a").attributes['href']
@@ -305,18 +352,33 @@ class Baozi extends ComicSource {
                 recommend: recommend
             }
         },
-        // 获取章节图片
         loadEp: async (comicId, epId) => {
-            let res = await Network.get(`https://www.czmanga.com/comic/chapter/${comicId}/0_${epId}.html`)
-            if (res.status !== 200) {
-                throw "Invalid status code: " + res.status
+            const images = [];
+            let currentPageUrl = `${this.baseUrl}/comic/chapter/${comicId}/0_${epId}.html`;
+            let maxAttempts = 100;
+        
+            while (maxAttempts > 0) {
+                const res = await Network.get(currentPageUrl);
+                if (res.status !== 200) break;
+        
+                // 解析当前页图片
+                const doc = new HtmlDocument(res.body);
+                doc.querySelectorAll("ul.comic-contain > div > amp-img").forEach(img => {
+                    const src = img?.attributes?.['src'];
+                    if (typeof src === 'string') images.push(src);
+                });
+        
+                // 查找下一页链接
+                const nextLink = doc.querySelector("a#next-chapter");
+                if (nextLink?.text?.match(/下一页|下一頁/)) {
+                    currentPageUrl = nextLink.attributes['href'];
+                } else {
+                    break;
+                }
+                maxAttempts--;
             }
-            let document = new HtmlDocument(res.body)
-            let images = document.querySelectorAll("ul.comic-contain > div > amp-img").map(e => e.attributes['src'])
-            console.log(images)
-            return {
-                images: images
-            }
-        },
+        // 代理后图片水印更少
+            return { images };
+        }
     }
 }
