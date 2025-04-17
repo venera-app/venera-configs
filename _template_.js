@@ -1,3 +1,4 @@
+/** @type {import('./_venera_.js')} */
 class NewComicSource extends ComicSource {
     // Note: The fields which are marked as [Optional] should be removed if not used
 
@@ -9,7 +10,7 @@ class NewComicSource extends ComicSource {
 
     version = "1.0.0"
 
-    minAppVersion = "1.0.0"
+    minAppVersion = "1.4.0"
 
     // update url
     url = ""
@@ -126,7 +127,7 @@ class NewComicSource extends ComicSource {
              * load function
              * @param page {number | null} - page number, null for `singlePageWithMultiPart` type
              * @returns {{}}
-             * - for `multiPartPage` type, return [{title: string, comics: Comic[], viewMore: string?}]
+             * - for `multiPartPage` type, return [{title: string, comics: Comic[], viewMore: PageJumpTarget}]
              * - for `multiPageComicList` type, for each page(1-based), return {comics: Comic[], maxPage: number}
              * - for `mixed` type, use param `page` as index. for each index(0-based), return {data: [], maxPage: number?}, data is an array contains Comic[] or {title: string, comics: Comic[], viewMore: string?}
              */
@@ -182,25 +183,37 @@ class NewComicSource extends ComicSource {
                 // title of the part
                 name: "Theme",
 
-                // fixed or random
+                // fixed or random or dynamic
                 // if random, need to provide `randomNumber` field, which indicates the number of comics to display at the same time
+                // if dynamic, need to provide `loader` field, which indicates the function to load comics
                 type: "fixed",
+
+                // Remove this if type is dynamic
+                categories: [
+                    {
+                        label: "Category1",
+                        /**
+                         * @type {PageJumpTarget}
+                         */
+                        target: {
+                            page: "category",
+                            attributes: {
+                                category: "category1",
+                                param: null,
+                            },
+                        },
+                    },
+                ]
 
                 // number of comics to display at the same time
                 // randomNumber: 5,
 
-                categories: ["All", "Adventure", "School"],
-
-                // category or search
-                // if `category`, use categoryComics.load to load comics
-                // if `search`, use search.load to load comics
-                itemType: "category",
-
-                // [Optional] {string[]?} must have same length as categories, used to provide loading param for each category
-                categoryParams: ["all", "adventure", "school"],
-
-                // [Optional] {string} cannot be used with `categoryParams`, set all category params to this value
-                groupParam: null,
+                // load function for dynamic type
+                // loader: async () => {
+                //     return [
+                //          // ...
+                //     ]
+                // }
             }
         ],
         // enable ranking page
@@ -303,7 +316,7 @@ class NewComicSource extends ComicSource {
         /**
          * load search result
          * @param keyword {string}
-         * @param options {(string | null)[]} - options from optionList
+         * @param options {string[]} - options from optionList
          * @param page {number}
          * @returns {Promise<{comics: Comic[], maxPage: number}>}
          */
@@ -362,7 +375,7 @@ class NewComicSource extends ComicSource {
                 ],
                 // option label
                 label: "sort",
-                // default selected options
+                // default selected options. If not set, use the first option as default
                 default: null,
             }
         ],
@@ -671,18 +684,16 @@ class NewComicSource extends ComicSource {
          * [Optional] Handle tag click event
          * @param namespace {string}
          * @param tag {string}
-         * @returns {{action: string, keyword: string, param: string?}}
+         * @returns {PageJumpTarget}
          */
         onClickTag: (namespace, tag) => {
             /*
             ```
-            return {
-                // 'search' or 'category'
-                action: 'search',
+            return new PageJumpTarget({
+                page: 'search',
                 keyword: tag,
-                // {string?} only for category action
-                param: null,
-            }
+            })
+            ```
              */
         },
         /**

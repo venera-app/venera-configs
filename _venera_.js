@@ -1012,6 +1012,20 @@ function ImageLoadingConfig({url, method, data, headers, onResponse, modifyImage
     this.onLoadFailed = onLoadFailed;
 }
 
+/**
+ * @typedef {Object} PageJumpTarget
+ * @Property {string} page - The page name (search, category)
+ * @Property {Object} attributes - The attributes of the page
+ *
+ * @example
+ * {
+ *     page: "search",
+ *     attributes: {
+ *         keyword: "example",
+ *     },
+ * }
+ */
+
 class ComicSource {
     name = ""
 
