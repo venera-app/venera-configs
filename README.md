@@ -1,11 +1,11 @@
 # venera-configs
 
-Configuration file repository for venera
+venera 的配置文件存储库
 
-## Create a new configuration
+## 创建新配置
 
-1. Download `_template_.js`, `_venera_.js`, put them in the same directory
-2. Rename `_template_.js` to `your_config_name.js`
-3. Edit `your_config_name.js` to your needs. 
-   - The `_template_.js` file contains comments to help you with that. 
-   - The `_venera_.js` is used for code completion in your IDE.
+1. 下载 '_template_.js'， '_venera_.js'，将它们放在同一个目录下
+2. 将 '_template_.js' 重命名为 'your_config_name.js'
+3. 根据您的需要编辑“your_config_name.js”。
+   - '_template_.js' 文件包含可帮助您的注释。
+   - “_venera_.js”用于 IDE 中的代码补全。
