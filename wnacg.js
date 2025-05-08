@@ -498,9 +498,10 @@ class Wnacg extends ComicSource {
             cover = cover.substring(0, 6) + cover.substring(8)
             let labels = document.querySelectorAll("div.asTBcell.uwconn > label")
             let category = labels[0].text.split("：")[1]
-            let pages = Number(RegExp("\\d+").exec(labels[1].text.split("：")[1])[0]);
+            let pages = labels[1].text.split("：")[1];
             let tagsDom = document.querySelectorAll("a.tagshow");
             let tags = new Map()
+            tags.set("頁數", [pages])
             tags.set("分類", [category])
             if(tagsDom.length > 0) {
                 tags.set("標籤", tagsDom.map((e) => e.text))
