@@ -4,7 +4,7 @@ class CopyManga extends ComicSource {
 
     key = "copy_manga"
 
-    version = "1.1.5"
+    version = "1.1.6"
 
     minAppVersion = "1.2.1"
 
@@ -12,7 +12,7 @@ class CopyManga extends ComicSource {
 
     headers = {}
 
-    static copyVersion = "2.2.9"
+    static copyVersion = "2.3.0"
 
     get apiUrl() {
         return `https://${this.loadSetting('base_url')}`
