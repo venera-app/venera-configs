@@ -4,7 +4,7 @@ class CopyManga extends ComicSource {
 
     key = "copy_manga"
 
-    version = "1.1.6"
+    version = "1.1.7"
 
     minAppVersion = "1.2.1"
 
@@ -12,7 +12,11 @@ class CopyManga extends ComicSource {
 
     headers = {}
 
-    static copyVersion = "2.3.0"
+    static defaultCopyVersion = "2.2.9"
+
+    get copyVersion() {
+        return this.loadSetting('version')
+    }
 
     get apiUrl() {
         return `https://${this.loadSetting('base_url')}`
@@ -26,13 +30,13 @@ class CopyManga extends ComicSource {
             token = " " + token;
         }
         this.headers = {
-            "User-Agent": "COPY/" + CopyManga.copyVersion,
+            "User-Agent": "COPY/" + this.copyVersion,
             "Accept": "*/*",
             "Accept-Encoding": "gzip",
             "source": "copyApp",
             "webp": "1",
             "region": "1",
-            "version": CopyManga.copyVersion,
+            "version": this.copyVersion,
             "authorization": `Token${token}`,
             "platform": "1",
             "umstring": "b4c89ca4104ea9a97750314d791520ac",
@@ -61,13 +65,13 @@ class CopyManga extends ComicSource {
                 let token = data.results.token
                 this.saveData('token', token)
                 this.headers = {
-                    "User-Agent": "COPY/" + CopyManga.copyVersion,
+                    "User-Agent": "COPY/" + this.copyVersion,
                     "Accept": "*/*",
                     "Accept-Encoding": "gzip",
                     "source": "copyApp",
                     "webp": "1",
                     "region": "1",
-                    "version": CopyManga.copyVersion,
+                    "version": this.copyVersion,
                     "authorization": `Token ${token}`,
                     "platform": "1",
                     "umstring": "b4c89ca4104ea9a97750314d791520ac",
@@ -801,6 +805,12 @@ class CopyManga extends ComicSource {
             type: "input",
             validator: '^(?!:\\/\\/)(?=.{1,253})([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\\.)+[a-zA-Z]{2,}$',
             default: 'www.copy20.com',
+        },
+        version: {
+            title: "拷贝版本（重启APP生效）",
+            type: "input",
+            validator: '^\\d+(?:\\.\\d+)*$',
+            default: CopyManga.defaultCopyVersion,
         },
     }
 
