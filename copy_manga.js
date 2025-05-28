@@ -4,7 +4,7 @@ class CopyManga extends ComicSource {
 
     key = "copy_manga"
 
-    version = "1.1.7"
+    version = "1.2.0"
 
     minAppVersion = "1.2.1"
 
@@ -14,12 +14,18 @@ class CopyManga extends ComicSource {
 
     static defaultCopyVersion = "2.2.9"
 
+    static defaultCopyPlatform = "2"
+
     get copyVersion() {
         return this.loadSetting('version')
     }
 
     get apiUrl() {
         return `https://${this.loadSetting('base_url')}`
+    }
+
+    get copyPlatform() {
+        return this.loadSetting('platform')
     }
 
     init() {
@@ -38,7 +44,7 @@ class CopyManga extends ComicSource {
             "region": "1",
             "version": this.copyVersion,
             "authorization": `Token${token}`,
-            "platform": "1",
+            "platform": this.copyPlatform,
             "umstring": "b4c89ca4104ea9a97750314d791520ac",
         }
         // 用于储存 { 作者名 : 英文参数 }
@@ -73,7 +79,7 @@ class CopyManga extends ComicSource {
                     "region": "1",
                     "version": this.copyVersion,
                     "authorization": `Token ${token}`,
-                    "platform": "1",
+                    "platform": this.copyPlatform,
                     "umstring": "b4c89ca4104ea9a97750314d791520ac",
                 }
                 return "ok"
@@ -812,6 +818,12 @@ class CopyManga extends ComicSource {
             validator: '^\\d+(?:\\.\\d+)*$',
             default: CopyManga.defaultCopyVersion,
         },
+        platform: {
+            title: "平台代号（重启APP生效）",
+            type: "input",
+            validator: '^\\d+(?:\\.\\d+)*$',
+            default: CopyManga.defaultCopyPlatform,
+        }
     }
 
     /**
