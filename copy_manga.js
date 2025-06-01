@@ -16,6 +16,8 @@ class CopyManga extends ComicSource {
 
     static defaultCopyPlatform = "2"
 
+    static defaultCopyRegion = "1"
+
     get copyVersion() {
         return this.loadSetting('version')
     }
@@ -26,6 +28,10 @@ class CopyManga extends ComicSource {
 
     get copyPlatform() {
         return this.loadSetting('platform')
+    }
+
+    get copyRegion() {
+        return this.loadSetting('region') || this.defaultCopyRegion
     }
 
     init() {
@@ -41,7 +47,7 @@ class CopyManga extends ComicSource {
             "Accept-Encoding": "gzip",
             "source": "copyApp",
             "webp": "1",
-            "region": "1",
+            "region": this.copyRegion,
             "version": this.copyVersion,
             "authorization": `Token${token}`,
             "platform": this.copyPlatform,
@@ -64,7 +70,7 @@ class CopyManga extends ComicSource {
                     ...this.headers,
                     "Content-Type": "application/x-www-form-urlencoded;charset=utf-8"
                 },
-                `username=${account}&password=${base64}\n&salt=${salt}&platform=3&authorization=Token+&version=1.4.4&source=copyApp&region=1&webp=1`
+                `username=${account}&password=${base64}\n&salt=${salt}&platform=3&authorization=Token+&version=1.4.4&source=copyApp&region=${this.copyRegion}&webp=1`
             );
             if (res.status === 200) {
                 let data = JSON.parse(res.body)
@@ -76,7 +82,7 @@ class CopyManga extends ComicSource {
                     "Accept-Encoding": "gzip",
                     "source": "copyApp",
                     "webp": "1",
-                    "region": "1",
+                    "region": this.copyRegion,
                     "version": this.copyVersion,
                     "authorization": `Token ${token}`,
                     "platform": this.copyPlatform,
@@ -643,7 +649,10 @@ class CopyManga extends ComicSource {
                 try {
                     res = await Network.get(
                         `${this.apiUrl}/api/v3/comic/${comicId}/chapter2/${epId}?platform=3`,
-                        this.headers
+                        {
+                            ...this.headers,
+                            "Region": this.copyRegion
+                        }
                     );
 
                     if (res.status === 210) {
@@ -829,6 +838,21 @@ class CopyManga extends ComicSource {
             type: "input",
             validator: '^\\d+(?:\\.\\d+)*$',
             default: CopyManga.defaultCopyPlatform,
+        },
+        region: {
+            title: "CDN线路",
+            type: "select",
+            options: [
+                {
+                    value: "0",
+                    text: '海外线路'
+                },
+                {
+                    value: "1",
+                    text: '大陆线路'
+                }
+            ],
+            default: CopyManga.defaultCopyRegion,
         }
     }
 
