@@ -4,7 +4,7 @@ class CopyManga extends ComicSource {
 
     key = "copy_manga"
 
-    version = "1.2.0"
+    version = "1.3.0"
 
     minAppVersion = "1.2.1"
 
@@ -16,6 +16,10 @@ class CopyManga extends ComicSource {
 
     static defaultCopyPlatform = "2"
 
+    static defaultCopyRegion = "1"
+
+    static defaultImageQuality = "1500"
+
     get copyVersion() {
         return this.loadSetting('version')
     }
@@ -26,6 +30,14 @@ class CopyManga extends ComicSource {
 
     get copyPlatform() {
         return this.loadSetting('platform')
+    }
+
+    get copyRegion() {
+        return this.loadSetting('region') || this.defaultCopyRegion
+    }
+
+    get imageQuality() {
+        return this.loadSetting('image_quality') || this.defaultImageQuality
     }
 
     init() {
@@ -41,7 +53,7 @@ class CopyManga extends ComicSource {
             "Accept-Encoding": "gzip",
             "source": "copyApp",
             "webp": "1",
-            "region": "1",
+            "region": this.copyRegion,
             "version": this.copyVersion,
             "authorization": `Token${token}`,
             "platform": this.copyPlatform,
@@ -64,7 +76,7 @@ class CopyManga extends ComicSource {
                     ...this.headers,
                     "Content-Type": "application/x-www-form-urlencoded;charset=utf-8"
                 },
-                `username=${account}&password=${base64}\n&salt=${salt}&platform=3&authorization=Token+&version=1.4.4&source=copyApp&region=1&webp=1`
+                `username=${account}&password=${base64}\n&salt=${salt}&platform=3&authorization=Token+&version=1.4.4&source=copyApp&region=${this.copyRegion}&webp=1`
             );
             if (res.status === 200) {
                 let data = JSON.parse(res.body)
@@ -76,7 +88,7 @@ class CopyManga extends ComicSource {
                     "Accept-Encoding": "gzip",
                     "source": "copyApp",
                     "webp": "1",
-                    "region": "1",
+                    "region": this.copyRegion,
                     "version": this.copyVersion,
                     "authorization": `Token ${token}`,
                     "platform": this.copyPlatform,
@@ -643,7 +655,10 @@ class CopyManga extends ComicSource {
                 try {
                     res = await Network.get(
                         `${this.apiUrl}/api/v3/comic/${comicId}/chapter2/${epId}?platform=3`,
-                        this.headers
+                        {
+                            ...this.headers,
+                            "Region": this.copyRegion
+                        }
                     );
 
                     if (res.status === 210) {
@@ -680,11 +695,16 @@ class CopyManga extends ComicSource {
                     let imagesUrls = data.results.chapter.contents.map((e) => e.url);
                     let orders = data.results.chapter.words;
 
-                    let images = new Array(imagesUrls.length).fill(""); // Initialize an array with the same length as imagesUrls
+                    // Replace origin images urls to selected quality images urls
+                    let hdImagesUrls = imagesUrls.map((url) =>
+                        url.replace(/([./])c\d+x\.[a-zA-Z]+$/, `$1c${this.imageQuality}x.webp`)
+                    )
+
+                    let images = new Array(hdImagesUrls.length).fill(""); // Initialize an array with the same length as imagesUrls
 
                     // Arrange images according to orders
-                    for (let i = 0; i < imagesUrls.length; i++) {
-                        images[orders[i]] = imagesUrls[i];
+                    for (let i = 0; i < hdImagesUrls.length; i++) {
+                        images[orders[i]] = hdImagesUrls[i];
                     }
 
                     return {
@@ -812,6 +832,25 @@ class CopyManga extends ComicSource {
             validator: '^(?!:\\/\\/)(?=.{1,253})([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\\.)+[a-zA-Z]{2,}$',
             default: 'www.copy20.com',
         },
+        image_quality: {
+            title: "图片质量",
+            type: "select",
+            options: [
+                {
+                    value: '800',
+                    text: '低 (800)'
+                },
+                {
+                    value: '1200',
+                    text: '中 (1200)'
+                },
+                {
+                    value: '1500',
+                    text: '高 (1500)'
+                }
+            ],
+            default: CopyManga.defaultImageQuality,
+        },
         version: {
             title: "拷贝版本（重启APP生效）",
             type: "input",
@@ -823,6 +862,21 @@ class CopyManga extends ComicSource {
             type: "input",
             validator: '^\\d+(?:\\.\\d+)*$',
             default: CopyManga.defaultCopyPlatform,
+        },
+        region: {
+            title: "CDN线路",
+            type: "select",
+            options: [
+                {
+                    value: "0",
+                    text: '海外线路'
+                },
+                {
+                    value: "1",
+                    text: '大陆线路'
+                }
+            ],
+            default: CopyManga.defaultCopyRegion,
         }
     }
 
