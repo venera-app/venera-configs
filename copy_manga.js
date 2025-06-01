@@ -680,11 +680,17 @@ class CopyManga extends ComicSource {
                     let imagesUrls = data.results.chapter.contents.map((e) => e.url);
                     let orders = data.results.chapter.words;
 
-                    let images = new Array(imagesUrls.length).fill(""); // Initialize an array with the same length as imagesUrls
+                    // Replace origin images urls to high quality images urls
+                    let hdImagesUrls = imagesUrls.map((url) => 
+                        url.replace(/([./])c\d+x\.[a-zA-Z]+$/, '$1c1500x.webp')
+                    )
+
+
+                    let images = new Array(hdImagesUrls.length).fill(""); // Initialize an array with the same length as imagesUrls
 
                     // Arrange images according to orders
-                    for (let i = 0; i < imagesUrls.length; i++) {
-                        images[orders[i]] = imagesUrls[i];
+                    for (let i = 0; i < hdImagesUrls.length; i++) {
+                        images[orders[i]] = hdImagesUrls[i];
                     }
 
                     return {
