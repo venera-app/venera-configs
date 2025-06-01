@@ -18,6 +18,8 @@ class CopyManga extends ComicSource {
 
     static defaultCopyRegion = "1"
 
+    static defaultImageQuality = "1500"
+
     get copyVersion() {
         return this.loadSetting('version')
     }
@@ -32,6 +34,10 @@ class CopyManga extends ComicSource {
 
     get copyRegion() {
         return this.loadSetting('region') || this.defaultCopyRegion
+    }
+
+    get imageQuality() {
+        return this.loadSetting('image_quality') || this.defaultImageQuality
     }
 
     init() {
@@ -689,12 +695,11 @@ class CopyManga extends ComicSource {
                     let imagesUrls = data.results.chapter.contents.map((e) => e.url);
                     let orders = data.results.chapter.words;
 
-                    // Replace origin images urls to high quality images urls
-                    let hdImagesUrls = imagesUrls.map((url) => 
-                        url.replace(/([./])c\d+x\.[a-zA-Z]+$/, '$1c1500x.webp')
+                    // Replace origin images urls to selected quality images urls
+                    let hdImagesUrls = imagesUrls.map((url) =>
+                        url.replace(/([./])c\d+x\.[a-zA-Z]+$/, `$1c${this.imageQuality}x.webp`)
                     )
-
-
+                    
                     let images = new Array(hdImagesUrls.length).fill(""); // Initialize an array with the same length as imagesUrls
 
                     // Arrange images according to orders
@@ -826,6 +831,25 @@ class CopyManga extends ComicSource {
             type: "input",
             validator: '^(?!:\\/\\/)(?=.{1,253})([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\\.)+[a-zA-Z]{2,}$',
             default: 'www.copy20.com',
+        },
+        image_quality: {
+            title: "图片质量",
+            type: "select",
+            options: [
+                {
+                    value: '800',
+                    text: '低 (800)'
+                },
+                {
+                    value: '1200',
+                    text: '中 (1200)'
+                },
+                {
+                    value: '1500',
+                    text: '高 (1500)'
+                }
+            ],
+            default: CopyManga.defaultImageQuality,
         },
         version: {
             title: "拷贝版本（重启APP生效）",
