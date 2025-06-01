@@ -61,5 +61,11 @@
         "fileName": "ikmmh.js",
         "key": "ikmmh",
         "version": "1.0.2"
+    },
+    {
+        "name": "少年ジャンプ＋",
+        "fileName": "shonenjumpplus.js",
+        "key": "shonen_jump_plus",
+        "version": "1.0.0"
     }
 ]
