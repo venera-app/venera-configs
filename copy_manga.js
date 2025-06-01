@@ -4,7 +4,7 @@ class CopyManga extends ComicSource {
 
     key = "copy_manga"
 
-    version = "1.2.0"
+    version = "1.3.0"
 
     minAppVersion = "1.2.1"
 
@@ -699,7 +699,7 @@ class CopyManga extends ComicSource {
                     let hdImagesUrls = imagesUrls.map((url) =>
                         url.replace(/([./])c\d+x\.[a-zA-Z]+$/, `$1c${this.imageQuality}x.webp`)
                     )
-                    
+
                     let images = new Array(hdImagesUrls.length).fill(""); // Initialize an array with the same length as imagesUrls
 
                     // Arrange images according to orders
