@@ -4,7 +4,7 @@ class CopyManga extends ComicSource {
 
     key = "copy_manga"
 
-    version = "1.3.0"
+    version = "1.3.1"
 
     minAppVersion = "1.2.1"
 
@@ -12,7 +12,7 @@ class CopyManga extends ComicSource {
 
     headers = {}
 
-    static defaultCopyVersion = "2.2.9"
+    static defaultCopyVersion = "2.2.9-dev"
 
     static defaultCopyPlatform = "2"
 
@@ -51,7 +51,6 @@ class CopyManga extends ComicSource {
             "User-Agent": "COPY/" + this.copyVersion,
             "Accept": "*/*",
             "Accept-Encoding": "gzip",
-            "source": "copyApp",
             "webp": "1",
             "region": this.copyRegion,
             "version": this.copyVersion,
