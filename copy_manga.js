@@ -818,11 +818,11 @@ class CopyManga extends ComicSource {
             options: [
                 {
                     value: "0",
-                    text: '大陆线路'
+                    text: '海外线路(丢失登陆状态)'
                 },
                 {
                     value: "1",
-                    text: '海外线路(丢失登陆状态)'
+                    text: '大陆线路'
                 },
             ],
             default: CopyManga.defaultCopyRegion,
