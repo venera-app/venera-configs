@@ -4,7 +4,7 @@ class CopyManga extends ComicSource {
 
     key = "copy_manga"
 
-    version = "1.3.1"
+    version = "1.3.2"
 
     minAppVersion = "1.2.1"
 
@@ -853,7 +853,6 @@ class CopyManga extends ComicSource {
         version: {
             title: "拷贝版本（重启APP生效）",
             type: "input",
-            validator: '^\\d+(?:\\.\\d+)*$',
             default: CopyManga.defaultCopyVersion,
         },
         platform: {
