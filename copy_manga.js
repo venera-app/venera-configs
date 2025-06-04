@@ -10,7 +10,22 @@ class CopyManga extends ComicSource {
 
     url = "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/copy_manga.js"
 
-    headers = {}
+    get headers() {
+        let token = this.loadData("token");
+        if (!token) {
+            token = "";
+        } else {
+            token = " " + token;
+        }
+        return {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/114.0",
+            "Accept": "*/*",
+            "Accept-Encoding": "gzip",
+            "webp": "1",
+            "region": this.copyRegion,
+            "authorization": `Token${token}`,
+        }
+    }
 
     // static defaultCopyVersion = "2.2.9-dev"
 
@@ -43,20 +58,6 @@ class CopyManga extends ComicSource {
     }
 
     init() {
-        let token = this.loadData("token");
-        if (!token) {
-            token = "";
-        } else {
-            token = " " + token;
-        }
-        this.headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/114.0",
-            "Accept": "*/*",
-            "Accept-Encoding": "gzip",
-            "webp": "1",
-            "region": this.copyRegion,
-            "authorization": `Token${token}`,
-        }
         // 用于储存 { 作者名 : 英文参数 }
         this.author_path_word_dict = {}
     }
@@ -80,14 +81,6 @@ class CopyManga extends ComicSource {
                 let data = JSON.parse(res.body)
                 let token = data.results.token
                 this.saveData('token', token)
-                this.headers = {
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/114.0",
-                    "Accept": "*/*",
-                    "Accept-Encoding": "gzip",
-                    "webp": "1",
-                    "region": this.copyRegion,
-                    "authorization": `Token${token}`,
-                }
                 return "ok"
             } else {
                 throw `Invalid Status Code ${res.status}`
