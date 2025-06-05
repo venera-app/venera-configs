@@ -1,3 +1,5 @@
+/** @type {import('./_venera_.js')} */
+
 const domain2 = "gold-usergeneratedcontent.net";
 const domain = "ltn." + domain2;
 
@@ -984,7 +986,6 @@ function parseGalleryDetail(text) {
   };
 }
 
-/** @type {import('./_venera_.js')} */
 class Hitomi extends ComicSource {
   // Note: The fields which are marked as [Optional] should be removed if not used
 
@@ -1601,26 +1602,5 @@ class Hitomi extends ComicSource {
     },
     // enable tags translate
     enableTagsTranslate: true,
-  };
-
-  /*
-    [Optional] settings related
-    Use this.loadSetting to load setting
-    ```
-    let setting1Value = this.loadSetting('setting1')
-    console.log(setting1Value)
-    ```
-     */
-  settings = {};
-
-  // [Optional] translations for the strings in this config
-  translation = {
-    zh_CN: {
-      Setting1: "设置1",
-      Setting2: "设置2",
-      Setting3: "设置3",
-    },
-    zh_TW: {},
-    en: {},
   };
 }
