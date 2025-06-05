@@ -67,5 +67,11 @@
         "fileName": "shonenjumpplus.js",
         "key": "shonen_jump_plus",
         "version": "1.0.0"
+    },
+    {
+        "name": "hitomi.la",
+        "fileName": "hitomi.js",
+        "key": "hitomi",
+        "version": "1.0.0"
     }
 ]
