@@ -1496,7 +1496,6 @@ class Hitomi extends ComicSource {
 
       const tags = new Map();
       if ("type" in data) tags.set("type", [data.type]);
-      tags.set("pages", data.files.length);
       if (data.groups.length) tags.set("groups", data.groups);
       if (data.artists.length) tags.set("artists", data.artists);
       if ("language" in data) tags.set("language", [data.language]);
@@ -1519,6 +1518,7 @@ class Hitomi extends ComicSource {
         title: data.title,
         cover: get_thumbnail_url_from_hash(data.thumbnail_hash, true),
         tags,
+        maxPage: data.files.length,
         thumbnails: data.files.map((n) => get_thumbnail_url_from_hash(n.hash)),
         uploadTime: formatDate(data.posted_time),
         url: data.url,
@@ -1569,7 +1569,42 @@ class Hitomi extends ComicSource {
       };
     },
     onClickTag: (namespace, tag) => {
-      const keyword = namespace + ":" + tag.replaceAll(" ", "_");
+      let fixedNamespace = undefined;
+      switch (namespace) {
+        case "type":
+          fixedNamespace = "type";
+          break;
+        case "groups":
+          fixedNamespace = "group";
+          break;
+        case "artists":
+          fixedNamespace = "artist";
+          break;
+        case "language":
+          fixedNamespace = "language";
+          break;
+        case "series":
+          fixedNamespace = "series";
+          break;
+        case "characters":
+          fixedNamespace = "character";
+          break;
+        case "females":
+          fixedNamespace = "female";
+          break;
+        case "males":
+          fixedNamespace = "male";
+          break;
+        case "others":
+          fixedNamespace = "tag";
+          break;
+        default:
+          break;
+      }
+      if (!fixedNamespace) {
+        throw new Error("不支持的标签命名空间: " + namespace);
+      }
+      const keyword = fixedNamespace + ":" + tag.replaceAll(" ", "_");
       return {
         page: "search",
         attributes: {
