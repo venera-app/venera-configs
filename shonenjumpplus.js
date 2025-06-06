@@ -1,7 +1,7 @@
 class ShonenJumpPlus extends ComicSource {
   name = "少年ジャンプ＋";
   key = "shonen_jump_plus";
-  version = "1.0.0";
+  version = "1.0.1";
   minAppVersion = "1.2.1";
   url =
     "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/shonen_jump_plus.js";
@@ -16,7 +16,7 @@ class ShonenJumpPlus extends ComicSource {
       "Origin": "https://shonenjumpplus.com",
       "Referer": "https://shonenjumpplus.com/",
       "X-Giga-Device-Id": this.deviceId,
-      "User-Agent": "ShonenJumpPlus-Android/4.0.18",
+      "User-Agent": "ShonenJumpPlus-Android/4.0.19",
     };
   }
 
