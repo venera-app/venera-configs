@@ -4,32 +4,49 @@ class CopyManga extends ComicSource {
 
     key = "copy_manga"
 
-    version = "1.3.0"
+    version = "1.3.4"
 
     minAppVersion = "1.2.1"
 
     url = "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/copy_manga.js"
 
-    headers = {}
+    get headers() {
+        let token = this.loadData("token");
+        if (!token) {
+            token = "";
+        } else {
+            token = " " + token;
+        }
+        return {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/114.0",
+            "Accept": "*/*",
+            "Accept-Encoding": "gzip",
+            "webp": "1",
+            "region": this.copyRegion,
+            "authorization": `Token${token}`,
+        }
+    }
 
-    static defaultCopyVersion = "2.2.9"
+    // static defaultCopyVersion = "2.2.9-dev"
 
-    static defaultCopyPlatform = "2"
+    // static defaultCopyPlatform = "2"
 
     static defaultCopyRegion = "1"
 
     static defaultImageQuality = "1500"
 
-    get copyVersion() {
-        return this.loadSetting('version')
-    }
+    static defaultApiUrl = 'mapi.copy20.com'
+
+    // get copyVersion() {
+    // return this.loadSetting('version')
+    // }
+
+    // get copyPlatform()
+    // return this.loadSetting('platform')
+    // }
 
     get apiUrl() {
         return `https://${this.loadSetting('base_url')}`
-    }
-
-    get copyPlatform() {
-        return this.loadSetting('platform')
     }
 
     get copyRegion() {
@@ -41,24 +58,6 @@ class CopyManga extends ComicSource {
     }
 
     init() {
-        let token = this.loadData("token");
-        if (!token) {
-            token = "";
-        } else {
-            token = " " + token;
-        }
-        this.headers = {
-            "User-Agent": "COPY/" + this.copyVersion,
-            "Accept": "*/*",
-            "Accept-Encoding": "gzip",
-            "source": "copyApp",
-            "webp": "1",
-            "region": this.copyRegion,
-            "version": this.copyVersion,
-            "authorization": `Token${token}`,
-            "platform": this.copyPlatform,
-            "umstring": "b4c89ca4104ea9a97750314d791520ac",
-        }
         // 用于储存 { 作者名 : 英文参数 }
         this.author_path_word_dict = {}
     }
@@ -71,29 +70,17 @@ class CopyManga extends ComicSource {
             let salt = randomInt(1000, 9999)
             let base64 = Convert.encodeBase64(Convert.encodeUtf8(`${pwd}-${salt}`))
             let res = await Network.post(
-                `${this.apiUrl}/api/v3/login?platform=3`,
+                `${this.apiUrl}/api/v3/login`,
                 {
                     ...this.headers,
                     "Content-Type": "application/x-www-form-urlencoded;charset=utf-8"
                 },
-                `username=${account}&password=${base64}\n&salt=${salt}&platform=3&authorization=Token+&version=1.4.4&source=copyApp&region=${this.copyRegion}&webp=1`
+                `username=${account}&password=${base64}\n&salt=${salt}&authorization=Token+`
             );
             if (res.status === 200) {
                 let data = JSON.parse(res.body)
                 let token = data.results.token
                 this.saveData('token', token)
-                this.headers = {
-                    "User-Agent": "COPY/" + this.copyVersion,
-                    "Accept": "*/*",
-                    "Accept-Encoding": "gzip",
-                    "source": "copyApp",
-                    "webp": "1",
-                    "region": this.copyRegion,
-                    "version": this.copyVersion,
-                    "authorization": `Token ${token}`,
-                    "platform": this.copyPlatform,
-                    "umstring": "b4c89ca4104ea9a97750314d791520ac",
-                }
                 return "ok"
             } else {
                 throw `Invalid Status Code ${res.status}`
@@ -113,7 +100,7 @@ class CopyManga extends ComicSource {
             type: "singlePageWithMultiPart",
             load: async () => {
                 let dataStr = await Network.get(
-                    `${this.apiUrl}/api/v3/h5/homeIndex?platform=3`,
+                    `${this.apiUrl}/api/v3/h5/homeIndex`,
                     this.headers
                 )
 
@@ -257,7 +244,7 @@ class CopyManga extends ComicSource {
                     param = CopyManga.category_param_dict[category] || "";
                 }
                 options = options.map(e => e.replace("*", "-"))
-                category_url = `${this.apiUrl}/api/v3/comics?limit=30&offset=${(page - 1) * 30}&ordering=${options[1]}&theme=${param}&top=${options[0]}&platform=3`
+                category_url = `${this.apiUrl}/api/v3/comics?limit=30&offset=${(page - 1) * 30}&ordering=${options[1]}&theme=${param}&top=${options[0]}`
             }
 
 
@@ -380,7 +367,7 @@ class CopyManga extends ComicSource {
             if (author && author in this.author_path_word_dict) {
                 let path_word = encodeURIComponent(this.author_path_word_dict[author]);
                 res = await Network.get(
-                    `${this.apiUrl}/api/v3/comics?limit=30&offset=${(page - 1) * 30}&ordering=-datetime_updated&author=${path_word}&platform=3`,
+                    `${this.apiUrl}/api/v3/comics?limit=30&offset=${(page - 1) * 30}&ordering=-datetime_updated&author=${path_word}`,
                     this.headers
                 )
             }
@@ -391,9 +378,10 @@ class CopyManga extends ComicSource {
                     q_type = options[0];
                 }
                 keyword = encodeURIComponent(keyword)
-                let search_url = this.loadSetting('search_api') === "webAPI" ? `${this.apiUrl}/api/kb/web/searchbd/comics` : `${this.apiUrl}/api/v3/search/comic`
+                // let search_url = this.loadSetting('search_api') === "webAPI" ? `${this.apiUrl}/api/kb/web/searchbd/comics` : `${this.apiUrl}/api/v3/search/comic`
+                let search_url = `${this.apiUrl}/api/kb/web/searchc/comics`
                 res = await Network.get(
-                    `${search_url}?limit=30&offset=${(page - 1) * 30}&q=${keyword}&q_type=${q_type}&platform=1`,
+                    `${search_url}?limit=30&offset=${(page - 1) * 30}&q=${keyword}&q_type=${q_type}`,
                     this.headers
                 )
             }
@@ -452,7 +440,7 @@ class CopyManga extends ComicSource {
             let is_collect = isAdding ? 1 : 0
             let token = this.loadData("token");
             let comicData = await Network.get(
-                `${this.apiUrl}/api/v3/comic2/${comicId}?platform=3`,
+                `${this.apiUrl}/api/v3/comic2/${comicId}`,
                 this.headers
             )
             if (comicData.status !== 200) {
@@ -460,7 +448,7 @@ class CopyManga extends ComicSource {
             }
             let comic_id = JSON.parse(comicData.body).results.comic.uuid
             let res = await Network.post(
-                `${this.apiUrl}/api/v3/member/collect/comic?platform=3`,
+                `${this.apiUrl}/api/v3/member/collect/comic`,
                 {
                     ...this.headers,
                     "Content-Type": "application/x-www-form-urlencoded;charset=utf-8",
@@ -477,7 +465,7 @@ class CopyManga extends ComicSource {
         },
         loadComics: async (page, folder) => {
             var res = await Network.get(
-                `${this.apiUrl}/api/v3/member/collect/comics?limit=30&offset=${(page - 1) * 30}&free_type=1&ordering=-datetime_updated&platform=3`,
+                `${this.apiUrl}/api/v3/member/collect/comics?limit=30&offset=${(page - 1) * 30}&free_type=1&ordering=-datetime_updated`,
                 this.headers
             )
 
@@ -527,7 +515,7 @@ class CopyManga extends ComicSource {
             let getChapters = async (id, groups) => {
                 let fetchSingle = async (id, path) => {
                     let res = await Network.get(
-                        `${this.apiUrl}/api/v3/comic/${id}/group/${path}/chapters?limit=500&offset=0&platform=3`,
+                        `${this.apiUrl}/api/v3/comic/${id}/group/${path}/chapters?limit=500&offset=0`,
                         this.headers
                     );
                     if (res.status !== 200) {
@@ -545,7 +533,7 @@ class CopyManga extends ComicSource {
                         let offset = 500;
                         while (offset < maxChapter) {
                             res = await Network.get(
-                                `${this.apiUrl}/api/v3/comic/chongjingchengweimofashaonv/group/${path}/chapters?limit=500&offset=${offset}&platform=3`,
+                                `${this.apiUrl}/api/v3/comic/${id}/group/${path}/chapters?limit=500&offset=${offset}`,
                                 this.headers
                             );
                             if (res.status !== 200) {
@@ -593,7 +581,7 @@ class CopyManga extends ComicSource {
             }
 
             let getFavoriteStatus = async (id) => {
-                let res = await Network.get(`${this.apiUrl}/api/v3/comic2/${id}/query?platform=3`, this.headers);
+                let res = await Network.get(`${this.apiUrl}/api/v3/comic2/${id}/query`, this.headers);
                 if (res.status !== 200) {
                     throw `Invalid status code: ${res.status}`;
                 }
@@ -602,7 +590,7 @@ class CopyManga extends ComicSource {
 
             let results = await Promise.all([
                 Network.get(
-                    `${this.apiUrl}/api/v3/comic2/${id}?platform=3`,
+                    `${this.apiUrl}/api/v3/comic2/${id}`,
                     this.headers
                 ),
                 getFavoriteStatus.bind(this)(id)
@@ -654,10 +642,9 @@ class CopyManga extends ComicSource {
             while (attempt < maxAttempts) {
                 try {
                     res = await Network.get(
-                        `${this.apiUrl}/api/v3/comic/${comicId}/chapter2/${epId}?platform=3`,
+                        `${this.apiUrl}/api/v3/comic/${comicId}/chapter2/${epId}`,
                         {
-                            ...this.headers,
-                            "Region": this.copyRegion
+                            ...this.headers
                         }
                     );
 
@@ -808,29 +795,20 @@ class CopyManga extends ComicSource {
     }
 
     settings = {
-        search_api: {
-            // title
-            title: "搜索方式",
-            // type: input, select, switch
+        region: {
+            title: "CDN线路",
             type: "select",
-            // options
             options: [
                 {
-                    value: 'baseAPI',
-                    text: '基础API'
+                    value: "0",
+                    text: '海外线路(丢失登陆状态)'
                 },
                 {
-                    value: 'webAPI',
-                    text: '网页端API（可搜屏蔽作）'
-                }
+                    value: "1",
+                    text: '大陆线路'
+                },
             ],
-            default: 'baseAPI'
-        },
-        base_url: {
-            title: "API地址",
-            type: "input",
-            validator: '^(?!:\\/\\/)(?=.{1,253})([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\\.)+[a-zA-Z]{2,}$',
-            default: 'www.copy20.com',
+            default: CopyManga.defaultCopyRegion,
         },
         image_quality: {
             title: "图片质量",
@@ -851,33 +829,41 @@ class CopyManga extends ComicSource {
             ],
             default: CopyManga.defaultImageQuality,
         },
-        version: {
-            title: "拷贝版本（重启APP生效）",
+        base_url: {
+            title: "API地址",
             type: "input",
-            validator: '^\\d+(?:\\.\\d+)*$',
-            default: CopyManga.defaultCopyVersion,
-        },
-        platform: {
-            title: "平台代号（重启APP生效）",
-            type: "input",
-            validator: '^\\d+(?:\\.\\d+)*$',
-            default: CopyManga.defaultCopyPlatform,
-        },
-        region: {
-            title: "CDN线路",
-            type: "select",
-            options: [
-                {
-                    value: "0",
-                    text: '海外线路'
-                },
-                {
-                    value: "1",
-                    text: '大陆线路'
-                }
-            ],
-            default: CopyManga.defaultCopyRegion,
+            validator: '^(?!:\\/\\/)(?=.{1,253})([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\\.)+[a-zA-Z]{2,}$',
+            default: CopyManga.defaultApiUrl,
         }
+        // search_api: {
+        //     // title
+        //     title: "搜索方式",
+        //     // type: input, select, switch
+        //     type: "select",
+        //     // options
+        //     options: [
+        //         {
+        //             value: 'baseAPI',
+        //             text: '基础API'
+        //         },
+        //         {
+        //             value: 'webAPI',
+        //             text: '网页端API（可搜屏蔽作）'
+        //         }
+        //     ],
+        //     default: 'baseAPI'
+        // },
+        // version: {
+        //     title: "拷贝版本（重启APP生效）",
+        //     type: "input",
+        //     default: CopyManga.defaultCopyVersion,
+        // },
+        // platform: {
+        //     title: "平台代号（重启APP生效）",
+        //     type: "input",
+        //     validator: '^\\d+(?:\\.\\d+)*$',
+        //     default: CopyManga.defaultCopyPlatform,
+        // },
     }
 
     /**

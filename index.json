@@ -3,7 +3,7 @@
         "name": "拷贝漫画",
         "fileName": "copy_manga.js",
         "key": "copy_manga",
-        "version": "1.3.0"
+        "version": "1.3.4"
     },
     {
         "name": "Komiic",
@@ -67,5 +67,11 @@
         "fileName": "shonenjumpplus.js",
         "key": "shonen_jump_plus",
         "version": "1.0.1"
+    },
+    {
+        "name": "hitomi.la",
+        "fileName": "hitomi.js",
+        "key": "hitomi",
+        "version": "1.0.0"
     }
 ]
