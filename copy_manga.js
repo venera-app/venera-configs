@@ -4,7 +4,7 @@ class CopyManga extends ComicSource {
 
     key = "copy_manga"
 
-    version = "1.3.4"
+    version = "1.3.5"
 
     minAppVersion = "1.2.1"
 
@@ -379,7 +379,7 @@ class CopyManga extends ComicSource {
                 }
                 keyword = encodeURIComponent(keyword)
                 // let search_url = this.loadSetting('search_api') === "webAPI" ? `${this.apiUrl}/api/kb/web/searchbd/comics` : `${this.apiUrl}/api/v3/search/comic`
-                let search_url = `${this.apiUrl}/api/kb/web/searchc/comics`
+                let search_url = `${this.apiUrl}/api/kb/web/searchs/comics`
                 res = await Network.get(
                     `${search_url}?limit=30&offset=${(page - 1) * 30}&q=${keyword}&q_type=${q_type}`,
                     this.headers
