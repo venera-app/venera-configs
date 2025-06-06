@@ -4,7 +4,7 @@ class CopyManga extends ComicSource {
 
     key = "copy_manga"
 
-    version = "1.3.3"
+    version = "1.3.4"
 
     minAppVersion = "1.2.1"
 
@@ -31,7 +31,7 @@ class CopyManga extends ComicSource {
 
     // static defaultCopyPlatform = "2"
 
-    static defaultCopyRegion = "0"
+    static defaultCopyRegion = "1"
 
     static defaultImageQuality = "1500"
 
@@ -378,7 +378,8 @@ class CopyManga extends ComicSource {
                     q_type = options[0];
                 }
                 keyword = encodeURIComponent(keyword)
-                let search_url = this.loadSetting('search_api') === "webAPI" ? `${this.apiUrl}/api/kb/web/searchbd/comics` : `${this.apiUrl}/api/v3/search/comic`
+                // let search_url = this.loadSetting('search_api') === "webAPI" ? `${this.apiUrl}/api/kb/web/searchbd/comics` : `${this.apiUrl}/api/v3/search/comic`
+                let search_url = `${this.apiUrl}/api/kb/web/searchc/comics`
                 res = await Network.get(
                     `${search_url}?limit=30&offset=${(page - 1) * 30}&q=${keyword}&q_type=${q_type}`,
                     this.headers
@@ -794,24 +795,6 @@ class CopyManga extends ComicSource {
     }
 
     settings = {
-        search_api: {
-            // title
-            title: "搜索方式",
-            // type: input, select, switch
-            type: "select",
-            // options
-            options: [
-                {
-                    value: 'baseAPI',
-                    text: '基础API'
-                },
-                {
-                    value: 'webAPI',
-                    text: '网页端API（可搜屏蔽作）'
-                }
-            ],
-            default: 'baseAPI'
-        },
         region: {
             title: "CDN线路",
             type: "select",
@@ -852,6 +835,24 @@ class CopyManga extends ComicSource {
             validator: '^(?!:\\/\\/)(?=.{1,253})([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\\.)+[a-zA-Z]{2,}$',
             default: CopyManga.defaultApiUrl,
         }
+        // search_api: {
+        //     // title
+        //     title: "搜索方式",
+        //     // type: input, select, switch
+        //     type: "select",
+        //     // options
+        //     options: [
+        //         {
+        //             value: 'baseAPI',
+        //             text: '基础API'
+        //         },
+        //         {
+        //             value: 'webAPI',
+        //             text: '网页端API（可搜屏蔽作）'
+        //         }
+        //     ],
+        //     default: 'baseAPI'
+        // },
         // version: {
         //     title: "拷贝版本（重启APP生效）",
         //     type: "input",
