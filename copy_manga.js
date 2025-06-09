@@ -38,6 +38,8 @@ class CopyManga extends ComicSource {
 
     static defaultApiUrl = 'mapi.copy20.com'
 
+    static searchApi = "/api/kb/web/searchb/comics"
+
     // get copyVersion() {
     // return this.loadSetting('version')
     // }
@@ -61,6 +63,7 @@ class CopyManga extends ComicSource {
     init() {
         // 用于储存 { 作者名 : 英文参数 }
         this.author_path_word_dict = {}
+        this.refreshSearchApi()
     }
 
     /// account
@@ -380,7 +383,7 @@ class CopyManga extends ComicSource {
                 }
                 keyword = encodeURIComponent(keyword)
                 let search_url = this.loadSetting('search_api') === "webAPI"
-                    ? `${this.apiUrl}/api/kb/web/searcha/comics`
+                    ? `${this.apiUrl}${CopyManga.searchApi}`
                     : `${this.apiUrl}/api/v3/search/comic`
                 res = await Network.get(
                     `${search_url}?limit=30&offset=${(page - 1) * 30}&q=${keyword}&q_type=${q_type}`,
@@ -880,5 +883,18 @@ class CopyManga extends ComicSource {
             }
         }
         return true
+    }
+
+    async refreshSearchApi() {
+        let url = "https://www.copy20.com/search"
+        let res = await fetch(url)
+        let searchApi = ""
+        if (res.status === 200) {
+            let text = await res.text()
+            let match = text.match(/const countApi = "([^"]+)"/)
+            if (match && match[1]) {
+                CopyManga.searchApi = match[1]
+            }
+        }
     }
 }
