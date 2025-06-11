@@ -4,7 +4,7 @@ class CopyManga extends ComicSource {
 
     key = "copy_manga"
 
-    version = "1.3.4"
+    version = "1.3.5"
 
     minAppVersion = "1.2.1"
 
@@ -19,9 +19,10 @@ class CopyManga extends ComicSource {
         }
         return {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/114.0",
-            "Accept": "*/*",
-            "Accept-Encoding": "gzip",
-            "webp": "1",
+            "Origin": `https://${this.loadSetting('base_url')}`,
+            "Accept": "application/json",
+            "platform": "1",
+            "version": "2025.05.09",
             "region": this.copyRegion,
             "authorization": `Token${token}`,
         }
@@ -36,6 +37,8 @@ class CopyManga extends ComicSource {
     static defaultImageQuality = "1500"
 
     static defaultApiUrl = 'mapi.copy20.com'
+
+    static searchApi = "/api/kb/web/searchb/comics"
 
     // get copyVersion() {
     // return this.loadSetting('version')
@@ -60,6 +63,7 @@ class CopyManga extends ComicSource {
     init() {
         // 用于储存 { 作者名 : 英文参数 }
         this.author_path_word_dict = {}
+        this.refreshSearchApi()
     }
 
     /// account
@@ -378,8 +382,9 @@ class CopyManga extends ComicSource {
                     q_type = options[0];
                 }
                 keyword = encodeURIComponent(keyword)
-                // let search_url = this.loadSetting('search_api') === "webAPI" ? `${this.apiUrl}/api/kb/web/searchbd/comics` : `${this.apiUrl}/api/v3/search/comic`
-                let search_url = `${this.apiUrl}/api/kb/web/searchc/comics`
+                let search_url = this.loadSetting('search_api') === "webAPI"
+                    ? `${this.apiUrl}${CopyManga.searchApi}`
+                    : `${this.apiUrl}/api/v3/search/comic`
                 res = await Network.get(
                     `${search_url}?limit=30&offset=${(page - 1) * 30}&q=${keyword}&q_type=${q_type}`,
                     this.headers
@@ -800,12 +805,12 @@ class CopyManga extends ComicSource {
             type: "select",
             options: [
                 {
-                    value: "0",
-                    text: '海外线路(丢失登陆状态)'
-                },
-                {
                     value: "1",
                     text: '大陆线路'
+                },
+                {
+                    value: "0",
+                    text: '海外线路'
                 },
             ],
             default: CopyManga.defaultCopyRegion,
@@ -829,30 +834,27 @@ class CopyManga extends ComicSource {
             ],
             default: CopyManga.defaultImageQuality,
         },
+        search_api: {
+            title: "搜索方式",
+            type: "select",
+            options: [
+               {
+                   value: 'baseAPI',
+                   text: '基础API'
+               },
+               {
+                   value: 'webAPI',
+                   text: '网页端API'
+               }
+            ],
+            default: 'baseAPI'
+        },
         base_url: {
             title: "API地址",
             type: "input",
             validator: '^(?!:\\/\\/)(?=.{1,253})([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\\.)+[a-zA-Z]{2,}$',
             default: CopyManga.defaultApiUrl,
         }
-        // search_api: {
-        //     // title
-        //     title: "搜索方式",
-        //     // type: input, select, switch
-        //     type: "select",
-        //     // options
-        //     options: [
-        //         {
-        //             value: 'baseAPI',
-        //             text: '基础API'
-        //         },
-        //         {
-        //             value: 'webAPI',
-        //             text: '网页端API（可搜屏蔽作）'
-        //         }
-        //     ],
-        //     default: 'baseAPI'
-        // },
         // version: {
         //     title: "拷贝版本（重启APP生效）",
         //     type: "input",
@@ -881,5 +883,18 @@ class CopyManga extends ComicSource {
             }
         }
         return true
+    }
+
+    async refreshSearchApi() {
+        let url = "https://www.copy20.com/search"
+        let res = await fetch(url)
+        let searchApi = ""
+        if (res.status === 200) {
+            let text = await res.text()
+            let match = text.match(/const countApi = "([^"]+)"/)
+            if (match && match[1]) {
+                CopyManga.searchApi = match[1]
+            }
+        }
     }
 }
