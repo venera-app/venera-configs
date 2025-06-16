@@ -1,22 +1,11 @@
 class Comick extends ComicSource {
-    // Note: The fields which are marked as [Optional] should be removed if not used
-
-    // name of the source
     name = "comick"
-
-    // unique id of the source
     key = "comick"
-
     version = "1.0.0"
-
     minAppVersion = "1.4.0"
-
     // update url
-    url = "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/baozi.js"
+    url = "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/comick.js"
 
-    /**
-     * [Optional] init function
-     */
     settings = {
         domains: {
             title: "主页源",
@@ -110,7 +99,6 @@ class Comick extends ComicSource {
         "yuri": "百合"
     }
 
-    // 统一处理排行榜数据转换
     transformBookList(bookList, descriptionPrefix = "更新至：") {
         return bookList.map(book => ({
             id: book.slug,
@@ -166,26 +154,12 @@ class Comick extends ComicSource {
 
     // categories
     category = {
-        /// 标题, 同时为标识符, 不能与其他漫画源的分类页面重复
         title: "comick",
         parts: [{
             name: "类型",
-
-            // fixed 或者 random
-            // random用于分类数量相当多时, 随机显示其中一部分
             type: "fixed",
-
-            // 如果类型为random, 需要提供此字段, 表示同时显示的数量
-            // randomNumber: 5,
-
             categories: Object.values(Comick.category_param_dict), // 使用上方的字典
-
-            // category或者search
-            // 如果为category, 点击后将进入分类漫画页面, 使用下方的`categoryComics`加载漫画
-            // 如果为search, 将进入搜索页面
             itemType: "category",
-
-            // 若提供, 数量需要和`categories`一致, `categoryComics.load`方法将会收到此参数
             categoryParams: Object.keys(Comick.category_param_dict),
         }
         ],
@@ -375,7 +349,6 @@ class Comick extends ComicSource {
         singleFolderForSingleComic: false,
     }
 
-
     /// single comic related
     comic = {
         // 加载漫画信息
@@ -386,7 +359,7 @@ class Comick extends ComicSource {
             }
 
             let document = new HtmlDocument(res.body)
-            let jsonData = JSON.parse(document.getElementById('__NEXT_DATA__').text); //json解析方式
+            let jsonData = JSON.parse(document.getElementById('__NEXT_DATA__').text);
             let comicData = jsonData.props.pageProps.comic;
             let authorData = jsonData.props.pageProps.authors;
 
@@ -417,7 +390,7 @@ class Comick extends ComicSource {
             const translatedTags = tags.map(tag => {
                 return Comick.category_param_dict[tag] || tag; // 如果字典里没有，就返回原值
             });
-            let description = comicData.desc || "暂无描述"; //测试通过
+            let description = comicData.desc || "暂无描述";
             if(comicData.chapter_count == 0){
                 let chapters = new Map()
                 return {
@@ -457,7 +430,6 @@ class Comick extends ComicSource {
                     ? `-chapter-${firstChapters.chap}` 
                     : `-volume-${firstChapters.vol}`
             }-en.json`;
-            //https://preview.comick.io/_next/data/.5d942a5daa586bb403870880fa68f600d34e779a/comic/my-new-girlfriend-is-not-human/F6yr92Xt-chapter-1-en.json"
             let list_res = await Network.get(chapters_url)
             if (list_res.status !== 200) {
                 throw "Invalid status code: " + res.status
@@ -494,7 +466,7 @@ class Comick extends ComicSource {
         },
         loadEp: async (comicId, epId) => {
             const images = [];
-            const [hid, type, chapter] = epId.split("//");  // 例如 "abc123//42" → ["abc123", "42"]
+            const [hid, type, chapter] = epId.split("//");
 
             // 检查分割结果是否有效
             if (!hid || !type || !chapter) {
@@ -510,9 +482,6 @@ class Comick extends ComicSource {
                 url = "https://preview.comick.io/comic/" + comicId + "/" + hid + "-" + type + "-" + chapter + "-en.json";
             }
 
-            // 构建章节的 web_JSON URL
-            //https://preview.comick.io/comic/my-new-girlfriend-is-not-human/4MNGbfP8-chapter-120-en
-            
             let maxAttempts = 100;
 
             while (maxAttempts > 0) {
