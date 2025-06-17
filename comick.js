@@ -374,13 +374,10 @@ class Comick extends ComicSource {
                 try {
                     // 获取md_comic_md_genres数组
                     const genres = comicData.md_comic_md_genres;
-
                     // 使用map提取每个md_genres中的slug
                     const slugs = genres.map(genre => genre.md_genres.slug);
-
                     return slugs;
                 } catch (error) {
-                    console.error("提取slug时出错:", error);
                     return []; // 返回空数组作为容错处理
                 }
             };
@@ -394,41 +391,54 @@ class Comick extends ComicSource {
             if(comicData.chapter_count == 0){
                 let chapters = new Map()
                 return {
-                title: title,
-                cover: cover,
-                description: description,
-                tags: {
-                    "作者": [author],
-                    "更新": ["暂无更新"],
-                    "标签": translatedTags
-                },
-                chapters: chapters,
+                    title: title,
+                    cover: cover,
+                    description: description,
+                    tags: {
+                        "作者": [author],
+                        "更新": ["暂无更新"],
+                        "标签": translatedTags
+                    },
+                    chapters: chapters,
+                }
             }
-            }
-            let updateTime = comicData.last_chapter ? "第" + comicData.last_chapter + "话" : " "; //这里目前还无法实现更新时间
 
+            let updateTime = comicData.last_chapter ? "第" + comicData.last_chapter + "话" : " "; //这里目前还无法实现更新时间
             let buildId = jsonData.buildId;
             let slug = jsonData.query.slug;
-            let firstChapters = jsonData.props.pageProps.firstChapters[0];
-            if(firstChapters.vol == null && firstChapters.chap == null){
-                let chapters = new Map()
-                chapters.set(firstChapters.hid + "//no//-1", "无标卷")
-                return {
-                title: title,
-                cover: cover,
-                description: description,
-                tags: {
-                    "作者": [author],
-                    "更新": [updateTime],
-                    "标签": translatedTags
-                },
-                chapters: chapters,
+            let firstChapter = jsonData.props.pageProps.firstChapters[0];
+            let firstChapters = jsonData.props.pageProps.firstChapters;
+
+            // 处理无标卷和无标话的情况
+            if(firstChapter.vol == null && firstChapter.chap == null){
+                for(let i = 0; i < firstChapters.length; i++) {
+                    if(firstChapters[i].vol != null || firstChapters[i].chap != null){
+                        firstChapter = firstChapters[i];
+                        break;
+                    }
+                }
+                // 如果处理完成之后依然章节没有卷和话信息，直接返回无标卷
+                if(firstChapter.vol == null && firstChapter.chap == null){
+                    let chapters = new Map()
+                    chapters.set(firstChapters.hid + "//no//-1", "无标卷")
+                    return {
+                        title: title,
+                        cover: cover,
+                        description: description,
+                        tags: {
+                            "作者": [author],
+                            "更新": [updateTime],
+                            "标签": translatedTags
+                        },
+                        chapters: chapters,
+                    }
+                }
             }
-            }
-            let chapters_url = `https://preview.comick.io/_next/data/${buildId}/comic/${id}/${firstChapters.hid}${
-                firstChapters.chap != null 
-                    ? `-chapter-${firstChapters.chap}` 
-                    : `-volume-${firstChapters.vol}`
+
+            let chapters_url = `https://preview.comick.io/_next/data/${buildId}/comic/${id}/${firstChapter.hid}${
+                firstChapter.chap != null 
+                    ? `-chapter-${firstChapter.chap}` 
+                    : `-volume-${firstChapter.vol}`
             }-en.json`;
             let list_res = await Network.get(chapters_url)
             if (list_res.status !== 200) {
@@ -440,14 +450,18 @@ class Comick extends ComicSource {
             let chaptersList = chapters_raw.pageProps.chapters || ["sss"];
             let chapters_next = chaptersList.reverse();
             chapters_next.forEach((chapter, index) => {
-                //let title = chapter.title ? chapter.title : "";
-
-                if(chapter.chap!=null){
+                if(chapter.chap==null && chapter.vol==null) {
+                    let chapNum = "无标卷";
+                    chapters.set(chapter.hid + "//no//-1", chapNum);
+                }else if(chapter.chap!=null && chapter.vol==null){
                     let chapNum =  "第" + chapter.chap + "话" ;
                     chapters.set(chapter.hid + "//chapter//" + chapter.chap, chapNum);
-                }else{
+                }else if(chapter.chap==null && chapter.vol!==null){
                     let chapNum =  "第" + chapter.vol + "卷" ;
                     chapters.set(chapter.hid + "//volume//" + chapter.vol, chapNum);
+                }else{
+                    let chapNum =  "第" + chapter.chap + "话" ;
+                    chapters.set(chapter.hid + "//chapter//" + chapter.chap, chapNum);
                 }
 
             });
