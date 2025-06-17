@@ -15,7 +15,26 @@ class Comick extends ComicSource {
                 {value: "preview.comick.io"}
             ],
             default: "preview.comick.io"
-        }
+        },
+        // language: {
+        //     title: "标题语言",
+        //     type: "select",
+        //     options: [
+        //         {
+        //             value: '中文',
+        //             text: 'zh',
+        //         },
+        //         {
+        //             value: '韩文',
+        //             text: 'ko',
+        //         },
+        //         {
+        //             value: '英文',
+        //             text: 'en',
+        //         },
+        //     ],
+        //     default: 'en',
+        // },
     }
 
     get baseUrl() {
@@ -23,6 +42,12 @@ class Comick extends ComicSource {
         return `https://${domain}`;
     }
 
+    static comic_status = {
+        "1": "连载",
+        "2": "完结",
+        "3": "休刊",
+        "4": "暂停更新",
+    }
     static category_param_dict = {
         "romance": "浪漫",
         "comedy": "喜剧",
@@ -107,7 +132,7 @@ class Comick extends ComicSource {
 
     transformBookList(bookList, descriptionPrefix = "更新至：") {
         return bookList.map(book => ({
-            id: book.slug,
+            id: `${book.slug}//${book.title}`,
             title: book.title,
             cover: book.md_covers?.[0]?.b2key
                 ? `https://meo.comick.pictures/${book.md_covers[0].b2key}`
@@ -119,7 +144,7 @@ class Comick extends ComicSource {
 
     getFormattedManga(manga) {
         return {
-            id: manga.slug,
+            id: `${manga.slug}//${manga.title}`,
             title: manga.title || "无标题",
             cover: manga.md_covers?.[0]?.b2key
                 ? `https://meo.comick.pictures/${manga.md_covers[0].b2key}`
@@ -138,7 +163,7 @@ class Comick extends ComicSource {
                 : this.baseUrl;
 
             let res = await Network.get(url);
-            if (res.status !== 200) throw "请求失败: " + res.status;
+            if (res.status !== 200) throw "Request Error: " + res.status;
 
             let document = new HtmlDocument(res.body);
             let jsonData = JSON.parse(document.getElementById('__NEXT_DATA__').text);
@@ -166,8 +191,7 @@ class Comick extends ComicSource {
             categories: Object.values(Comick.category_param_dict), // 使用上方的字典
             itemType: "category",
             categoryParams: Object.keys(Comick.category_param_dict),
-        }
-        ],
+        }],
         enableRankingPage: false,
     }
 
@@ -191,10 +215,10 @@ class Comick extends ComicSource {
             url += params.join('&');
 
             let res = await Network.get(url);
-            if (res.status !== 200) throw "请求失败: " + res.status;
+            if (res.status !== 200) throw "Request Error: " + res.status;
 
             let mangaList = JSON.parse(res.body);
-            if (!Array.isArray(mangaList)) throw "数据格式无效";
+            if (!Array.isArray(mangaList)) throw "Invalid data format";
 
             return {
                 comics: mangaList.map(this.getFormattedManga),
@@ -212,10 +236,10 @@ class Comick extends ComicSource {
         load: async (keyword, options, page) => {
             let url = `https://api.comick.io/v1.0/search?q=${keyword}&limit=49&page=${page}`;
             let res = await Network.get(url);
-            if (res.status !== 200) throw "请求失败: " + res.status;
+            if (res.status !== 200) throw "Request Error: " + res.status;
 
             let mangaList = JSON.parse(res.body);
-            if (!Array.isArray(mangaList)) throw "数据格式无效";
+            if (!Array.isArray(mangaList)) throw "Invalid data format";
 
             return {
                 comics: mangaList.map(this.getFormattedManga),
@@ -358,7 +382,12 @@ class Comick extends ComicSource {
     comic = {
         // 加载漫画信息
         loadInfo: async (id) => {
-            let res = await Network.get(`${this.baseUrl}/comic/${id}`)
+            const [cId, cTitle] = id.split("//");
+            if (!cId) {
+                throw "ID error: ";
+            }
+
+            let res = await Network.get(`${this.baseUrl}/comic/${cId}`)
             if (res.status !== 200) {
                 throw "Invalid status code: " + res.status
             }
@@ -367,12 +396,11 @@ class Comick extends ComicSource {
             let jsonData = JSON.parse(document.getElementById('__NEXT_DATA__').text);
             let comicData = jsonData.props.pageProps.comic;
             let authorData = jsonData.props.pageProps.authors;
-
-            let title = comicData?.title || "未知标题";
-
+            let title = cTitle? cTitle:comicData?.title|| "未知标题";
+            let status = comicData?.status || "1"; // 默认连载
             let cover = comicData.md_covers?.[0]?.b2key ? `https://meo.comick.pictures/${comicData.md_covers[0].b2key}` : 'w7xqzd.jpg';
 
-            let author = authorData[0]?.name || "未知作者"; 
+            let author = authorData[0]?.name || "未知作者";
 
             // 提取标签的slug数组的代码
             let extractSlugs = (comicData) => {
@@ -402,13 +430,14 @@ class Comick extends ComicSource {
                     tags: {
                         "作者": [author],
                         "更新": ["暂无更新"],
-                        "标签": translatedTags
+                        "标签": translatedTags,
+                        "状态": [Comick.comic_status[status]]
                     },
                     chapters: chapters,
                 }
             }
 
-            let updateTime = comicData.last_chapter ? "第" + comicData.last_chapter + "话" : " "; //这里目前还无法实现更新时间
+           // let updateTime = comicData.last_chapter ? "第" + comicData.last_chapter + "话" : " "; //这里目前还无法实现更新时间
             let buildId = jsonData.buildId;
             let slug = jsonData.query.slug;
             let firstChapter = jsonData.props.pageProps.firstChapters[0];
@@ -433,14 +462,15 @@ class Comick extends ComicSource {
                         tags: {
                             "作者": [author],
                             "更新": [updateTime],
-                            "标签": translatedTags
+                            "标签": translatedTags,
+                            "状态": [Comick.comic_status[status]]
                         },
                         chapters: chapters,
                     }
                 }
             }
 
-            let chapters_url = `https://preview.comick.io/_next/data/${buildId}/comic/${id}/${firstChapter.hid}${
+            let chapters_url = `${this.baseUrl}/_next/data/${buildId}/comic/${slug}/${firstChapter.hid}${
                 firstChapter.chap != null 
                     ? `-chapter-${firstChapter.chap}` 
                     : `-volume-${firstChapter.vol}`
@@ -452,6 +482,10 @@ class Comick extends ComicSource {
             let chapters_raw = JSON.parse(list_res.body);
             let chapters = new Map()
             // 剩余解析章节信息
+            //获得更新时间：
+            let updateTime = chapters_raw.pageProps.chapter.updated_at
+                ? chapters_raw.pageProps.chapter.updated_at.split('T')[0] : comicData.last_chapter
+                    ? `第${comicData.last_chapter}话`: " ";
             let chaptersList = chapters_raw.pageProps.chapters || [];
             let chapters_next = chaptersList.reverse();
             chapters_next.forEach((chapter, index) => {
@@ -468,7 +502,6 @@ class Comick extends ComicSource {
                     let chapNum =  "第" + chapter.chap + "话" ;
                     chapters.set(chapter.hid + "//chapter//" + chapter.chap, chapNum);
                 }
-
             });
 
             return {
@@ -478,12 +511,18 @@ class Comick extends ComicSource {
                 tags: {
                     "作者": [author],
                     "更新": [updateTime],
-                    "标签": translatedTags
+                    "标签": translatedTags,
+                    "状态": [Comick.comic_status[status]]
                 },
                 chapters: chapters,
             }
         },
         loadEp: async (comicId, epId) => {
+            const [cId, cTitle] = comicId.split("//");
+            if (!cId) {
+                throw "ID error: ";
+            }
+
             const images = [];
             const [hid, type, chapter] = epId.split("//");
 
@@ -496,9 +535,9 @@ class Comick extends ComicSource {
             let url = " ";
             if(type=="no"){
                 // 如果是无标卷, 只看第一个
-                url = "https://preview.comick.io/comic/" + comicId + "/" + hid;
+                url = `${this.baseUrl}/comic/${cId}/${hid}`;
             }else{
-                url = "https://preview.comick.io/comic/" + comicId + "/" + hid + "-" + type + "-" + chapter + "-en.json";
+                url = `${this.baseUrl}/comic/${cId}/${hid}-${type}-${chapter}-en.json`;
             }
 
             let maxAttempts = 100;
@@ -529,6 +568,16 @@ class Comick extends ComicSource {
                 maxAttempts--;
             }
             return {images};
+        },
+        onClickTag: (namespace, tag) => {
+            if (namespace === "标签") {
+                return {
+                    action: 'category',
+                    keyword: `${tag}`,
+                    param: null,
+                }
+            }
+            throw "未支持此类Tag检索"
         }
     }
 }
