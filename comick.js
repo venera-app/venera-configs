@@ -129,7 +129,6 @@ class Comick extends ComicSource {
         };
     }
 
-    // 测试通过
     explore = [{
         title: "comick",
         type: "singlePageWithMultiPart",
@@ -369,11 +368,11 @@ class Comick extends ComicSource {
             let comicData = jsonData.props.pageProps.comic;
             let authorData = jsonData.props.pageProps.authors;
 
-            let title = comicData?.title || "未知标题"; //测试通过
+            let title = comicData?.title || "未知标题";
 
             let cover = comicData.md_covers?.[0]?.b2key ? `https://meo.comick.pictures/${comicData.md_covers[0].b2key}` : 'w7xqzd.jpg';
 
-            let author = authorData[0]?.name || "未知作者"; //测试通过
+            let author = authorData[0]?.name || "未知作者"; 
 
             // 提取标签的slug数组的代码
             let extractSlugs = (comicData) => {
@@ -426,7 +425,7 @@ class Comick extends ComicSource {
                 // 如果处理完成之后依然章节没有卷和话信息，直接返回无标卷
                 if(firstChapter.vol == null && firstChapter.chap == null){
                     let chapters = new Map()
-                    chapters.set(firstChapters.hid + "//no//-1", "无标卷")
+                    chapters.set(firstChapter.hid + "//no//-1", "无标卷")
                     return {
                         title: title,
                         cover: cover,
@@ -453,7 +452,7 @@ class Comick extends ComicSource {
             let chapters_raw = JSON.parse(list_res.body);
             let chapters = new Map()
             // 剩余解析章节信息
-            let chaptersList = chapters_raw.pageProps.chapters || ["sss"];
+            let chaptersList = chapters_raw.pageProps.chapters || [];
             let chapters_next = chaptersList.reverse();
             chapters_next.forEach((chapter, index) => {
                 if(chapter.chap==null && chapter.vol==null) {
