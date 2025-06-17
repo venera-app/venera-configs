@@ -474,7 +474,7 @@ class Comick extends ComicSource {
                 firstChapter.chap != null 
                     ? `-chapter-${firstChapter.chap}` 
                     : `-volume-${firstChapter.vol}`
-            }-en.json`;
+            }-${firstChapter.lang}.json`;
             let list_res = await Network.get(chapters_url)
             if (list_res.status !== 200) {
                 throw "Invalid status code: " + res.status
@@ -494,13 +494,13 @@ class Comick extends ComicSource {
                     chapters.set(chapter.hid + "//no//-1", chapNum);
                 }else if(chapter.chap!=null && chapter.vol==null){
                     let chapNum =  "第" + chapter.chap + "话" ;
-                    chapters.set(chapter.hid + "//chapter//" + chapter.chap, chapNum);
+                    chapters.set(chapter.hid + "//chapter//" + chapter.chap + "//" + firstChapter.lang, chapNum);
                 }else if(chapter.chap==null && chapter.vol!==null){
                     let chapNum =  "第" + chapter.vol + "卷" ;
-                    chapters.set(chapter.hid + "//volume//" + chapter.vol, chapNum);
+                    chapters.set(chapter.hid + "//volume//" + chapter.vol + "//" + firstChapter.lang, chapNum);
                 }else{
                     let chapNum =  "第" + chapter.chap + "话" ;
-                    chapters.set(chapter.hid + "//chapter//" + chapter.chap, chapNum);
+                    chapters.set(chapter.hid + "//chapter//" + chapter.chap + "//" + firstChapter.lang, chapNum);
                 }
             });
 
@@ -524,10 +524,10 @@ class Comick extends ComicSource {
             }
 
             const images = [];
-            const [hid, type, chapter] = epId.split("//");
+            const [hid, type, chapter, lang] = epId.split("//");
 
             // 检查分割结果是否有效
-            if (!hid || !type || !chapter) {
+            if (!hid || !type || !chapter || !lang) {
                 console.error("Invalid epId format. Expected 'hid//chapter'");
                 return {images};  // 返回空数组
             }
@@ -537,7 +537,7 @@ class Comick extends ComicSource {
                 // 如果是无标卷, 只看第一个
                 url = `${this.baseUrl}/comic/${cId}/${hid}`;
             }else{
-                url = `${this.baseUrl}/comic/${cId}/${hid}-${type}-${chapter}-en.json`;
+                url = `${this.baseUrl}/comic/${cId}/${hid}-${type}-${chapter}-${lang}.json`;
             }
 
             let maxAttempts = 100;
@@ -577,7 +577,26 @@ class Comick extends ComicSource {
                     param: null,
                 }
             }
-            throw "未支持此类Tag检索"
-        }
+            throw "Click Tag Error"
+        },
+        /**
+         * [Optional] Handle links
+         */
+        link: {
+            /**
+             * set accepted domains
+             */
+            domains: [
+                'example.com'
+            ],
+            /**
+             * parse url to comic id
+             * @param url {string}
+             * @returns {string | null}
+             */
+            linkToId: (url) => {
+
+            }
+        },
     }
 }
