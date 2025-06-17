@@ -47,7 +47,7 @@ class Comick extends ComicSource {
         "magical-girls": "魔法少女",
         "superhero": "超级英雄",
         "shounen-ai": "少年爱",
-        "mature": "成人",
+        "mature": "成年",
         "gender-bender": "性转",
         "shoujo-ai": "少女爱",
         "oneshot": "单篇",
@@ -76,6 +76,9 @@ class Comick extends ComicSource {
         "military": "军事",
         "crossdressing": "女装",
         "loli": "萝莉",
+        "shota": "正太",
+        "yuri": "百合",
+        "yaoi": "耽美",
         "video-games": "电子游戏",
         "monster-girls": "魔物娘",
         "delinquents": "不良少年",
@@ -96,7 +99,10 @@ class Comick extends ComicSource {
         "zombies": "僵尸",
         "traditional-games": "传统游戏",
         "virtual-reality": "虚拟现实",
-        "yuri": "百合"
+        "adult": "成人",
+        "ecchi": "情色",
+        "sexual-violence": "性暴力",
+        "smut": "肉欲",
     }
 
     transformBookList(bookList, descriptionPrefix = "更新至：") {
