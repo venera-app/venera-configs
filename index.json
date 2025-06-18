@@ -73,5 +73,11 @@
         "fileName": "hitomi.js",
         "key": "hitomi",
         "version": "1.0.0"
+    },
+    {
+        "name": "comick",
+        "fileName": "comick.js",
+        "key": "comick",
+        "version": "1.0.0"
     }
 ]
