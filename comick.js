@@ -488,75 +488,82 @@ class Comick extends ComicSource {
 
             // 加载漫画信息
             let load_chapter = async (firstChapters, comicData, buildId, id) => {
-            // 1. 按 lang 聚合首个有效 {hid,vol,chap}
-            const langMap = firstChapters.reduce((map, chapter) => {
-                const { lang, hid, vol, chap } = chapter;
-                if (!map[lang]) {
-                    // 第一次见该语言，先记录
-                    map[lang] = { hid, vol, chap };
-                } else if (
-                    // 如果当前已记录的 vol/chap 都为 null，且新的有任意一个不为 null，则用新记录替换
-                    map[lang].vol == null && map[lang].chap == null &&
-                    (vol != null || chap != null)
-                ) {
-                    map[lang] = { hid, vol, chap };
-                }
-                return map;
-            }, {});
-
-            let lang_min_len = Math.min(firstChapters.length, parseInt(this.loadSetting("lang_len"))|| parseInt(this.settings.lang_len.default));
-
-            // 2. 取前 lang_min_len 个语言
-            const langs = Object.keys(langMap).slice(0, lang_min_len);
-            const result = {};
-            
-
-            for (const lang of langs) {
-                let first = langMap[lang];
-                if (first.vol == null && first.chap == null) {
-                    const chapters = new Map();
-                    chapters.set(`${first.hid}//no//-1//${first.lang}`, '无标卷');
-                    result[Comick.language_dict[lang] || lang] = chapters;
-                    continue;
-                }
-
-                // 3. 构造章节请求 URL
-                const url =
-                `${this.baseUrl}/_next/data/${buildId}/comic/${id}/${first.hid}` +
-                (first.chap != null
-                    ? `-chapter-${first.chap}`
-                    : `-volume-${first.vol}`) +
-                `-${lang}.json`;
-
-                const res = await Network.get(url);
-                if (res.status !== 200) {
-                    throw `Invalid status code: ${res.status}`;
-                }
-                const raw = JSON.parse(res.body);
-                const list = (raw.pageProps.chapters || []).reverse();
-                
-
-                // 4. 构建章节 Map
-                const chapters = new Map();
-                list.forEach(ch => {
-                    let key, label;
-                    if (ch.chap == null && ch.vol == null) {
-                        key = `${ch.hid}//no//-1//${first.lang}`;
-                        label = '无标卷';
-                    } else if (ch.chap != null) {
-                        key = `${ch.hid}//chapter//${ch.chap}//${first.lang}`;
-                        label = `第${ch.chap}话`;
-                    } else {
-                        key = `${ch.hid}//volume//${ch.vol}//${first.lang}`;
-                        label = `第${ch.vol}卷`;
+                // 1. 按 lang 聚合首个有效 {hid,vol,chap}
+                const langMap = firstChapters.reduce((map, chapter) => {
+                    const { lang, hid, vol, chap } = chapter;
+                    if (!map[lang]) {
+                        // 第一次见该语言，先记录
+                        map[lang] = { hid, vol, chap };
+                    } else if (
+                        // 如果当前已记录的 vol/chap 都为 null，且新的有任意一个不为 null，则用新记录替换
+                        map[lang].vol == null && map[lang].chap == null &&
+                        (vol != null || chap != null)
+                    ) {
+                        map[lang] = { hid, vol, chap };
                     }
-                    chapters.set(key, label);
-                });
+                    return map;
+                }, {});
 
-                result[Comick.language_dict[lang] || lang] = chapters;
-                }
+                let lang_min_len = Math.min(firstChapters.length, parseInt(this.loadSetting("lang_len"))|| parseInt(this.settings.lang_len.default));
+
+                // 2. 取前 lang_min_len 个语言
+                const langs = Object.keys(langMap).slice(0, lang_min_len);
+                const result = {};
+                let updateTime = "";
+                let i = 1;
+                for (const lang of langs) {
+                    let first = langMap[lang];
+                    if (first.vol == null && first.chap == null) {
+                        const chapters = new Map();
+                        chapters.set(`${first.hid}//no//-1//${first.lang}`, '无标卷');
+                        result[Comick.language_dict[lang] || lang] = chapters;
+                        continue;
+                    }
+
+                    // 3. 构造章节请求 URL
+                    const url =
+                    `${this.baseUrl}/_next/data/${buildId}/comic/${id}/${first.hid}` +
+                    (first.chap != null
+                        ? `-chapter-${first.chap}`
+                        : `-volume-${first.vol}`) +
+                    `-${lang}.json`;
+
+                    const res = await Network.get(url);
+                    if (res.status !== 200) {
+                        throw `Invalid status code: ${res.status}`;
+                    }
+                    const raw = JSON.parse(res.body);
+                    if(i==1){
+                        //获得更新时间：
+                        updateTime = raw.pageProps.chapter.updated_at
+                            ? raw.pageProps.chapter.updated_at.split('T')[0] : comicData.last_chapter
+                                ? `第${comicData.last_chapter}话`: " ";
+                    }
+                    const list = (raw.pageProps.chapters || []).reverse();
+                    
+
+                    // 4. 构建章节 Map
+                    const chapters = new Map();
+                    list.forEach(ch => {
+                        let key, label;
+                        if (ch.chap == null && ch.vol == null) {
+                            key = `${ch.hid}//no//-1//${first.lang}`;
+                            label = '无标卷';
+                        } else if (ch.chap != null) {
+                            key = `${ch.hid}//chapter//${ch.chap}//${first.lang}`;
+                            label = `第${ch.chap}话`;
+                        } else {
+                            key = `${ch.hid}//volume//${ch.vol}//${first.lang}`;
+                            label = `第${ch.vol}卷`;
+                        }
+                        chapters.set(key, label);
+                    });
+
+                    result[Comick.language_dict[lang] || lang] = chapters;
+
+                    }
                 // 5. 返回 Map<语言, Map<章节Key, 章节名称>>
-                return new Map(Object.entries(result));
+                return [new Map(Object.entries(result)), updateTime];
             };
 
             //填充文章id：
@@ -631,7 +638,7 @@ class Comick extends ComicSource {
                 // 如果处理完成之后依然章节没有卷和话信息，直接返回无标卷
                 if(firstChapter.vol == null && firstChapter.chap == null){
                     let chapters = new Map()
-                    chapters.set(firstChapter.hid + "//no//-1", "无标卷")
+                    chapters.set(firstChapter.hid + "//no//-1//" + firstChapter.lang, "无标卷")
                     return {
                         title: title,
                         cover: cover,
@@ -647,23 +654,10 @@ class Comick extends ComicSource {
                 }
             }
 
-            let chapters_url = `${this.baseUrl}/_next/data/${buildId}/comic/${slug}/${firstChapter.hid}${
-                firstChapter.chap != null 
-                    ? `-chapter-${firstChapter.chap}` 
-                    : `-volume-${firstChapter.vol}`
-            }-${firstChapter.lang}.json`;
-            let list_res = await Network.get(chapters_url)
-            if (list_res.status !== 200) {
-                throw "Invalid status code: " + res.status
-            }
-            let chapters_raw = JSON.parse(list_res.body);
-            //获得更新时间：
-            let updateTime = chapters_raw.pageProps.chapter.updated_at
-                ? chapters_raw.pageProps.chapter.updated_at.split('T')[0] : comicData.last_chapter
-                    ? `第${comicData.last_chapter}话`: " ";
-
             //获取章节
-            let chapters = await load_chapter(firstChapters, comicData, buildId, cId);
+            let temp = await load_chapter(firstChapters, comicData, buildId, cId);
+            let chapters = temp[0];
+            let updateTime = temp[1];
 
             return {
                 title: title,
