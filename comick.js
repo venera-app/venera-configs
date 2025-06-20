@@ -1,7 +1,7 @@
 class Comick extends ComicSource {
     name = "comick"
     key = "comick"
-    version = "1.0.0"
+    version = "1.0.1"
     minAppVersion = "1.4.0"
     // update url
     url = "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/comick.js"
@@ -16,25 +16,22 @@ class Comick extends ComicSource {
             ],
             default: "preview.comick.io"
         },
-        // language: {
-        //     title: "标题语言",
-        //     type: "select",
-        //     options: [
-        //         {
-        //             value: '中文',
-        //             text: 'zh',
-        //         },
-        //         {
-        //             value: '韩文',
-        //             text: 'ko',
-        //         },
-        //         {
-        //             value: '英文',
-        //             text: 'en',
-        //         },
-        //     ],
-        //     default: 'en',
-        // },
+        lang_len: {
+            title: "最大语言数量(不建议大于5)",
+            type: "select",
+            options: [
+                {value: "1"},
+                {value: "2"},
+                {value: "3"},
+                {value: "4"},
+                {value: "5"},
+                {value: "8"},
+                {value: "10"},
+                {value: "15"},
+                {value: "20"},
+            ],
+            default: "3"
+        },
     }
 
     get baseUrl() {
@@ -129,6 +126,229 @@ class Comick extends ComicSource {
         "sexual-violence": "性暴力",
         "smut": "肉欲",
     }
+    static reversed_category_param_dict = {
+    "浪漫": "romance",
+    "喜剧": "comedy",
+    "剧情": "drama",
+    "奇幻": "fantasy",
+    "日常": "slice-of-life",
+    "动作": "action",
+    "冒险": "adventure",
+    "心理": "psychological",
+    "悬疑": "mystery",
+    "历史": "historical",
+    "悲剧": "tragedy",
+    "科幻": "sci-fi",
+    "恐怖": "horror",
+    "异世界": "isekai",
+    "运动": "sports",
+    "惊悚": "thriller",
+    "机甲": "mecha",
+    "哲学": "philosophical",
+    "武侠": "wuxia",
+    "医疗": "medical",
+    "魔法少女": "magical-girls",
+    "超级英雄": "superhero",
+    "少年爱": "shounen-ai",
+    "成年": "mature",
+    "性转": "gender-bender",
+    "少女爱": "shoujo-ai",
+    "单篇": "oneshot",
+    "网络漫画": "web-comic",
+    "同人志": "doujinshi",
+    "全彩": "full-color",
+    "长条": "long-strip",
+    "改编": "adaptation",
+    "选集": "anthology",
+    "四格": "4-koma",
+    "用户创作": "user-created",
+    "获奖": "award-winning",
+    "官方上色": "official-colored",
+    "粉丝上色": "fan-colored",
+    "校园生活": "school-life",
+    "超自然": "supernatural",
+    "魔法": "magic",
+    "怪物": "monsters",
+    "武术": "martial-arts",
+    "动物": "animals",
+    "恶魔": "demons",
+    "后宫": "harem",
+    "转生": "reincarnation",
+    "上班族": "office-workers",
+    "生存": "survival",
+    "军事": "military",
+    "女装": "crossdressing",
+    "萝莉": "loli",
+    "正太": "shota",
+    "百合": "yuri",
+    "耽美": "yaoi",
+    "电子游戏": "video-games",
+    "魔物娘": "monster-girls",
+    "不良少年": "delinquents",
+    "幽灵": "ghosts",
+    "时间旅行": "time-travel",
+    "烹饪": "cooking",
+    "警察": "police",
+    "外星人": "aliens",
+    "音乐": "music",
+    "黑帮": "mafia",
+    "吸血鬼": "vampires",
+    "武士": "samurai",
+    "后末日": "post-apocalyptic",
+    "辣妹": "gyaru",
+    "恶役千金": "villainess",
+    "逆后宫": "reverse-harem",
+    "忍者": "ninja",
+    "僵尸": "zombies",
+    "传统游戏": "traditional-games",
+    "虚拟现实": "virtual-reality",
+    "成人": "adult",
+    "情色": "ecchi",
+    "性暴力": "sexual-violence",
+    "肉欲": "smut"
+    }
+    static language_dict = {
+        'en': '英文',
+        'pt-br': '巴西葡萄牙文',
+        'es-419': '拉丁美洲西班牙文',
+        'ru': '俄文',
+        'vi': '越南文',
+        'fr': '法文',
+        'pl': '波兰文',
+        'id': '印度尼西亚文',
+        'tr': '土耳其文',
+        'it': '意大利文',
+        'es': '西班牙文',
+        'uk': '乌克兰文',
+        'ar': '阿拉伯文',
+        'zh-hk': '繁体中文',
+        'hu': '匈牙利文',
+        'zh': '中文',
+        'de': '德文',
+        'ko': '韩文',
+        'th': '泰文',
+        'bg': '保加利亚文',
+        'ca': '加泰罗尼亚文',
+        'fa': '波斯文',
+        'ro': '罗马尼亚文',
+        'cs': '捷克文',
+        'mn': '蒙古文',
+        'he': '希伯来文',
+        'pt': '葡萄牙文',
+        'hi': '印地文',
+        'tl': '他加禄文',
+        'fi': '芬兰文',
+        'ms': '马来文',
+        'eu': '巴斯克文',
+        'kk': '哈萨克文',
+        'sr': '塞尔维亚文',
+        'my': '缅甸文',
+        'el': '希腊文',
+        'nl': '荷兰文',
+        'ja': '日文',
+        'uz': '乌兹别克文',
+        'eo': '世界语',
+        'bn': '孟加拉文',
+        'lt': '立陶宛文',
+        'ka': '格鲁吉亚文',
+        'da': '丹麦文',
+        'ta': '泰米尔文',
+        'sv': '瑞典文',
+        'be': '白俄罗斯文',
+        'cv': '楚瓦什文',
+        'hr': '克罗地亚文',
+        'la': '拉丁文',
+        'ne': '尼泊尔文',
+        'ur': '乌尔都文',
+        'gl': '加利西亚文',
+        'no': '挪威文',
+        'sq': '阿尔巴尼亚文',
+        'ga': '爱尔兰文',
+        'te': '泰卢固文',
+        'jv': '爪哇文',
+        'sl': '斯洛文尼亚文',
+        'et': '爱沙尼亚文',
+        'az': '阿塞拜疆文',
+        'sk': '斯洛伐克文',
+        'af': '南非荷兰文',
+        'lv': '拉脱维亚文'
+    }
+    static reversed_language_dict = {
+        '英文': 'en',
+        '巴西葡萄牙文': 'pt-br',
+        '拉丁美洲西班牙文': 'es-419',
+        '俄文': 'ru',
+        '越南文': 'vi',
+        '法文': 'fr',
+        '波兰文': 'pl',
+        '印度尼西亚文': 'id',
+        '土耳其文': 'tr',
+        '意大利文': 'it',
+        '西班牙文': 'es',
+        '乌克兰文': 'uk',
+        '阿拉伯文': 'ar',
+        '香港繁体中文': 'zh-hk',
+        '匈牙利文': 'hu',
+        '中文': 'zh',
+        '德文': 'de',
+        '韩文': 'ko',
+        '泰文': 'th',
+        '保加利亚文': 'bg',
+        '加泰罗尼亚文': 'ca',
+        '波斯文': 'fa',
+        '罗马尼亚文': 'ro',
+        '捷克文': 'cs',
+        '蒙古文': 'mn',
+        '希伯来文': 'he',
+        '葡萄牙文': 'pt',
+        '印地文': 'hi',
+        '菲律宾文/他加禄文': 'tl',
+        '芬兰文': 'fi',
+        '马来文': 'ms',
+        '巴斯克文': 'eu',
+        '哈萨克文': 'kk',
+        '塞尔维亚文': 'sr',
+        '缅甸文': 'my',
+        '希腊文': 'el',
+        '荷兰文': 'nl',
+        '日文': 'ja',
+        '乌兹别克文': 'uz',
+        '世界语': 'eo',
+        '孟加拉文': 'bn',
+        '立陶宛文': 'lt',
+        '格鲁吉亚文': 'ka',
+        '丹麦文': 'da',
+        '泰米尔文': 'ta',
+        '瑞典文': 'sv',
+        '白俄罗斯文': 'be',
+        '楚瓦什文': 'cv',
+        '克罗地亚文': 'hr',
+        '拉丁文': 'la',
+        '尼泊尔文': 'ne',
+        '乌尔都文': 'ur',
+        '加利西亚文': 'gl',
+        '挪威文': 'no',
+        '阿尔巴尼亚文': 'sq',
+        '爱尔兰文': 'ga',
+        '泰卢固文': 'te',
+        '爪哇文': 'jv',
+        '斯洛文尼亚文': 'sl',
+        '爱沙尼亚文': 'et',
+        '阿塞拜疆文': 'az',
+        '斯洛伐克文': 'sk',
+        '南非荷兰文': 'af',
+        '拉脱维亚文': 'lv'
+    }
+
+    transReformBookList(bookList, descriptionPrefix = "更新至：") {
+        return bookList.map(book => ({
+            id: `${book.relates.slug}//${book.relates.title}`,
+            title: book.relates.title,
+            cover: book.relates.md_covers?.[0]?.b2key
+                ? `https://meo.comick.pictures/${book.relates.md_covers[0].b2key}`
+                : 'w7xqzd.jpg',
+        }));
+    }
 
     transformBookList(bookList, descriptionPrefix = "更新至：") {
         return bookList.map(book => ({
@@ -171,11 +391,11 @@ class Comick extends ComicSource {
 
             // 使用统一函数转换数据
             const result = {
+                "最近更新": this.transformBookList(mangaData.extendedNews),
+                "最近上传": this.transformBookList(mangaData.news),
                 "最近热门": this.transformBookList(mangaData.recentRank),
                 "总热门": this.transformBookList(mangaData.rank),
-                "最近上传": this.transformBookList(mangaData.news),
-                "最近更新": this.transformBookList(mangaData.extendedNews),
-                "完结": this.transformBookList(mangaData.completions)
+                "完结": this.transformBookList(mangaData.completions),
             };
 
             return result;
@@ -249,138 +469,11 @@ class Comick extends ComicSource {
         optionList: []
     }
 
-    // favorite related
-    favorites = {
-        // whether support multi folders
-        multiFolder: false,
-        /**
-         * add or delete favorite.
-         * throw `Login expired` to indicate login expired, App will automatically re-login and re-add/delete favorite
-         * @param comicId {string}
-         * @param folderId {string}
-         * @param isAdding {boolean} - true for add, false for delete
-         * @param favoriteId {string?} - [Comic.favoriteId]
-         * @returns {Promise<any>} - return any value to indicate success
-         */
-        addOrDelFavorite: async (comicId, folderId, isAdding, favoriteId) => {
-            /*
-            ```
-            let res = await Network.post('...')
-            if (res.status === 401) {
-                throw `Login expired`;
-            }
-            return 'ok'
-            ```
-            */
-        },
-        /**
-         * load favorite folders.
-         * throw `Login expired` to indicate login expired, App will automatically re-login retry.
-         * if comicId is not null, return favorite folders which contains the comic.
-         * @param comicId {string?}
-         * @returns {Promise<{folders: {[p: string]: string}, favorited: string[]}>} - `folders` is a map of folder id to folder name, `favorited` is a list of folder id which contains the comic
-         */
-        loadFolders: async (comicId) => {
-            /*
-            ```
-            let data = JSON.parse((await Network.get('...')).body)
-
-            let folders = {}
-
-            data.folders.forEach((f) => {
-                folders[f.id] = f.name
-            })
-
-            return {
-                folders: folders,
-                favorited: data.favorited
-            }
-            ```
-            */
-        },
-        /**
-         * add a folder
-         * @param name {string}
-         * @returns {Promise<any>} - return any value to indicate success
-         */
-        addFolder: async (name) => {
-            /*
-            ```
-            let res = await Network.post('...')
-            if (res.status === 401) {
-                throw `Login expired`;
-            }
-            return 'ok'
-            ```
-            */
-        },
-        /**
-         * delete a folder
-         * @param folderId {string}
-         * @returns {Promise<void>} - return any value to indicate success
-         */
-        deleteFolder: async (folderId) => {
-            /*
-            ```
-            let res = await Network.delete('...')
-            if (res.status === 401) {
-                throw `Login expired`;
-            }
-            return 'ok'
-            ```
-            */
-        },
-        /**
-         * load comics in a folder
-         * throw `Login expired` to indicate login expired, App will automatically re-login retry.
-         * @param page {number}
-         * @param folder {string?} - folder id, null for non-multi-folder
-         * @returns {Promise<{comics: Comic[], maxPage: number}>}
-         */
-        loadComics: async (page, folder) => {
-            /*
-            ```
-            let data = JSON.parse((await Network.get('...')).body)
-            let maxPage = data.maxPage
-
-            function parseComic(comic) {
-                // ...
-
-                return new Comic{
-                    id: id,
-                    title: title,
-                    subTitle: author,
-                    cover: cover,
-                    tags: tags,
-                    description: description
-                }
-            }
-
-            return {
-                comics: data.list.map(parseComic),
-                maxPage: maxPage
-            }
-            ```
-            */
-        },
-        /**
-         * load comics with next page token
-         * @param next {string | null} - next page token, null for first page
-         * @param folder {string}
-         * @returns {Promise<{comics: Comic[], next: string?}>}
-         */
-        loadNext: async (next, folder) => {
-
-        },
-        /**
-         * If the comic source only allows one comic in one folder, set this to true.
-         */
-        singleFolderForSingleComic: false,
-    }
-
     /// single comic related
     comic = {
-        // 加载漫画信息
+        id: null,
+        buildId: null,
+    
         loadInfo: async (id) => {
             const [cId, cTitle] = id.split("//");
             if (!cId) {
@@ -392,6 +485,90 @@ class Comick extends ComicSource {
                 throw "Invalid status code: " + res.status
             }
 
+
+            // 加载漫画信息
+            let load_chapter = async (firstChapters, comicData, buildId, id) => {
+                // 1. 按 lang 聚合首个有效 {hid,vol,chap}
+                const langMap = firstChapters.reduce((map, chapter) => {
+                    const { lang, hid, vol, chap } = chapter;
+                    if (!map[lang]) {
+                        // 第一次见该语言，先记录
+                        map[lang] = { hid, vol, chap };
+                    } else if (
+                        // 如果当前已记录的 vol/chap 都为 null，且新的有任意一个不为 null，则用新记录替换
+                        map[lang].vol == null && map[lang].chap == null &&
+                        (vol != null || chap != null)
+                    ) {
+                        map[lang] = { hid, vol, chap };
+                    }
+                    return map;
+                }, {});
+
+                let lang_min_len = Math.min(firstChapters.length, parseInt(this.loadSetting("lang_len"))|| parseInt(this.settings.lang_len.default));
+
+                // 2. 取前 lang_min_len 个语言
+                const langs = Object.keys(langMap).slice(0, lang_min_len);
+                const result = {};
+                let updateTime = "";
+                let i = 1;
+                for (const lang of langs) {
+                    let first = langMap[lang];
+                    if (first.vol == null && first.chap == null) {
+                        const chapters = new Map();
+                        chapters.set(`${first.hid}//no//-1//${first.lang}`, '无标卷');
+                        result[Comick.language_dict[lang] || lang] = chapters;
+                        continue;
+                    }
+
+                    // 3. 构造章节请求 URL
+                    const url =
+                    `${this.baseUrl}/_next/data/${buildId}/comic/${id}/${first.hid}` +
+                    (first.chap != null
+                        ? `-chapter-${first.chap}`
+                        : `-volume-${first.vol}`) +
+                    `-${lang}.json`;
+
+                    const res = await Network.get(url);
+                    if (res.status !== 200) {
+                        throw `Invalid status code: ${res.status}`;
+                    }
+                    const raw = JSON.parse(res.body);
+                    if(i==1){
+                        //获得更新时间：
+                        updateTime = raw.pageProps.chapter.updated_at
+                            ? raw.pageProps.chapter.updated_at.split('T')[0] : comicData.last_chapter
+                                ? `第${comicData.last_chapter}话`: " ";
+                    }
+                    i++;
+                    const list = (raw.pageProps.chapters || []).reverse();
+                    
+
+                    // 4. 构建章节 Map
+                    const chapters = new Map();
+                    list.forEach(ch => {
+                        let key, label;
+                        if (ch.chap == null && ch.vol == null) {
+                            key = `${ch.hid}//no//-1//${first.lang}`;
+                            label = '无标卷';
+                        } else if (ch.chap != null) {
+                            key = `${ch.hid}//chapter//${ch.chap}//${first.lang}`;
+                            label = `第${ch.chap}话`;
+                        } else {
+                            key = `${ch.hid}//volume//${ch.vol}//${first.lang}`;
+                            label = `第${ch.vol}卷`;
+                        }
+                        chapters.set(key, label);
+                    });
+
+                    result[Comick.language_dict[lang] || lang] = chapters;
+
+                    }
+                // 5. 返回 Map<语言, Map<章节Key, 章节名称>>
+                return [new Map(Object.entries(result)), updateTime];
+            };
+
+            //填充文章id：
+            this.comic.id = id;
             let document = new HtmlDocument(res.body)
             let jsonData = JSON.parse(document.getElementById('__NEXT_DATA__').text);
             let comicData = jsonData.props.pageProps.comic;
@@ -399,7 +576,6 @@ class Comick extends ComicSource {
             let title = cTitle? cTitle:comicData?.title|| "未知标题";
             let status = comicData?.status || "1"; // 默认连载
             let cover = comicData.md_covers?.[0]?.b2key ? `https://meo.comick.pictures/${comicData.md_covers[0].b2key}` : 'w7xqzd.jpg';
-
             let author = authorData[0]?.name || "未知作者";
 
             // 提取标签的slug数组的代码
@@ -421,13 +597,23 @@ class Comick extends ComicSource {
                 return Comick.category_param_dict[tag] || tag; // 如果字典里没有，就返回原值
             });
             let description = comicData.desc || "暂无描述";
-            if(comicData.chapter_count == 0){
+
+            //处理推荐列表
+            let recommends = this.transReformBookList(comicData.recommendations!=null?comicData.recommendations:[]);
+            //只要recommends数组前面十个，不够十个则就是recommends的长度
+            recommends = recommends.slice(0, Math.min(recommends.length, 10));
+
+            //处理空漫画
+            let firstChapters = jsonData.props.pageProps.firstChapters;
+
+            if(comicData.chapter_count == 0 && (firstChapters==null||firstChapters.length==0)){
                 let chapters = new Map()
                 return {
                     title: title,
                     cover: cover,
                     description: description,
                     tags: {
+                        "语言": [],
                         "作者": [author],
                         "更新": ["暂无更新"],
                         "标签": translatedTags,
@@ -441,8 +627,7 @@ class Comick extends ComicSource {
             let buildId = jsonData.buildId;
             let slug = jsonData.query.slug;
             let firstChapter = jsonData.props.pageProps.firstChapters[0];
-            let firstChapters = jsonData.props.pageProps.firstChapters;
-
+            
             // 处理无标卷和无标话的情况
             if(firstChapter.vol == null && firstChapter.chap == null){
                 for(let i = 0; i < firstChapters.length; i++) {
@@ -454,7 +639,7 @@ class Comick extends ComicSource {
                 // 如果处理完成之后依然章节没有卷和话信息，直接返回无标卷
                 if(firstChapter.vol == null && firstChapter.chap == null){
                     let chapters = new Map()
-                    chapters.set(firstChapter.hid + "//no//-1", "无标卷")
+                    chapters.set(firstChapter.hid + "//no//-1//" + firstChapter.lang, "无标卷")
                     return {
                         title: title,
                         cover: cover,
@@ -470,39 +655,10 @@ class Comick extends ComicSource {
                 }
             }
 
-            let chapters_url = `${this.baseUrl}/_next/data/${buildId}/comic/${slug}/${firstChapter.hid}${
-                firstChapter.chap != null 
-                    ? `-chapter-${firstChapter.chap}` 
-                    : `-volume-${firstChapter.vol}`
-            }-${firstChapter.lang}.json`;
-            let list_res = await Network.get(chapters_url)
-            if (list_res.status !== 200) {
-                throw "Invalid status code: " + res.status
-            }
-            let chapters_raw = JSON.parse(list_res.body);
-            let chapters = new Map()
-            // 剩余解析章节信息
-            //获得更新时间：
-            let updateTime = chapters_raw.pageProps.chapter.updated_at
-                ? chapters_raw.pageProps.chapter.updated_at.split('T')[0] : comicData.last_chapter
-                    ? `第${comicData.last_chapter}话`: " ";
-            let chaptersList = chapters_raw.pageProps.chapters || [];
-            let chapters_next = chaptersList.reverse();
-            chapters_next.forEach((chapter, index) => {
-                if(chapter.chap==null && chapter.vol==null) {
-                    let chapNum = "无标卷";
-                    chapters.set(chapter.hid + "//no//-1", chapNum);
-                }else if(chapter.chap!=null && chapter.vol==null){
-                    let chapNum =  "第" + chapter.chap + "话" ;
-                    chapters.set(chapter.hid + "//chapter//" + chapter.chap + "//" + firstChapter.lang, chapNum);
-                }else if(chapter.chap==null && chapter.vol!==null){
-                    let chapNum =  "第" + chapter.vol + "卷" ;
-                    chapters.set(chapter.hid + "//volume//" + chapter.vol + "//" + firstChapter.lang, chapNum);
-                }else{
-                    let chapNum =  "第" + chapter.chap + "话" ;
-                    chapters.set(chapter.hid + "//chapter//" + chapter.chap + "//" + firstChapter.lang, chapNum);
-                }
-            });
+            //获取章节
+            let temp = await load_chapter(firstChapters, comicData, buildId, cId);
+            let chapters = temp[0];
+            let updateTime = temp[1];
 
             return {
                 title: title,
@@ -512,9 +668,10 @@ class Comick extends ComicSource {
                     "作者": [author],
                     "更新": [updateTime],
                     "标签": translatedTags,
-                    "状态": [Comick.comic_status[status]]
+                    "状态": [Comick.comic_status[status]],
                 },
                 chapters: chapters,
+                recommend: recommends!=null?recommends:[]
             }
         },
         loadEp: async (comicId, epId) => {
@@ -571,32 +728,14 @@ class Comick extends ComicSource {
         },
         onClickTag: (namespace, tag) => {
             if (namespace === "标签") {
+                let r_tag = Comick.reversed_category_param_dict[tag] || tag;
                 return {
                     action: 'category',
                     keyword: `${tag}`,
-                    param: null,
+                    param: r_tag,
                 }
             }
             throw "Click Tag Error"
-        },
-        /**
-         * [Optional] Handle links
-         */
-        link: {
-            /**
-             * set accepted domains
-             */
-            domains: [
-                'example.com'
-            ],
-            /**
-             * parse url to comic id
-             * @param url {string}
-             * @returns {string | null}
-             */
-            linkToId: (url) => {
-
-            }
         },
     }
 }
