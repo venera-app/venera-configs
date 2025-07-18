@@ -72,15 +72,48 @@ class Nhentai extends ComicSource {
         })
     }
 
-    parseComicList(html) {
+    async parseComicList(html, type='search') {
         let document = new HtmlDocument(html)
         let comicElements = document.querySelectorAll("div.gallery")
-        let h1 = document.querySelector("div#content > h1").text
-        let numbers = h1.match(/\d+/g)
+
+        let numbers = '0'
         let total = comicElements.length;
-        if(numbers) {
-            total = parseInt(numbers.join(''))
+
+        switch(type) {
+            case 'search':
+                let h1 = document.querySelector("div#content > h1").text
+                numbers = h1.match(/\d+/g)
+
+                if(numbers) {
+                    total = parseInt(numbers.join(''))
+                }
+            break;
+            default:
+                let tagEl = document.querySelector("div#content > h1 > a");
+                let classAttr = tagEl?.attributes?.["class"];
+                let tagId = classAttr?.match(/tag-(\d+)/)?.[1];
+
+                // temp solution, some tags return error = true
+                let res = await Network.get(`https://nhentai.net/api/galleries/tagged?tag_id=${tagId}`, {})
+                if(res.status !== 200) {
+                    let h1 = document.querySelector("div#content > h1").text
+                    numbers = h1.match(/\d+/g)
+
+                    if(numbers) {
+                        total = parseInt(numbers.join(''))
+                    }
+                } else {
+                    let resBody = JSON.parse(res.body);
+                    var item = resBody.result[0];
+                    var tag = item?.tags?.find(t => t.id === Number(tagId));
+                    numbers = tag?.count ?? null;
+
+                    if(numbers) {
+                        total = numbers
+                    }
+                }
         }
+
         return {
             comics: comicElements.map(e => this.parseComic(e)),
             maxPage: Math.ceil(total / 25)
@@ -191,7 +224,7 @@ class Nhentai extends ComicSource {
             category = category.replaceAll('.', '-');
             let url = `${this.baseUrl}/${param}/${encodeURIComponent(category)}${sort}?page=${page}`
             let res = await Network.get(url, {})
-            return this.parseComicList(res.body)
+            return this.parseComicList(res.body, 'category')
         },
         // provide options for category comic loading
         optionList: [
@@ -233,7 +266,7 @@ class Nhentai extends ComicSource {
             {
                 // For a single option, use `-` to separate the value and text, left for value, right for text
                 options: [
-                    "-Recent",
+                    "&-Recent",
                     "&sort=popular@today-Popular Today",
                     "&sort=popular@week-Popular Week",
                     "&sort=popular@month-Popular Month",
