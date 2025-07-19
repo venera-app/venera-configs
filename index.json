@@ -79,5 +79,10 @@
         "fileName": "comick.js",
         "key": "comick",
         "version": "1.0.1"
+    },{
+        "name":"可乐漫画",
+        "fileName":"colamanga.js",
+        "key":"colamanga",
+        "version":"1.0.0"
     }
 ]
