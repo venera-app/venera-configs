@@ -12,7 +12,7 @@ class JM extends ComicSource {
     minAppVersion = "1.2.5"
 
     // update url
-    url = "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/jm.js"
+    url = "https://git.nyne.dev/nyne/venera-configs/raw/branch/main/jm.js"
 
     static apiDomains = [
         "www.jmapiproxyxxx.vip",
