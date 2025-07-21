@@ -79,5 +79,10 @@
         "fileName": "comick.js",
         "key": "comick",
         "version": "1.0.1"
+    },{
+        "name": "漫画柜",
+        "fileName": "manhuagui.js",
+        "key": "manhuagui",
+        "version": "1.0.0"
     }
 ]
