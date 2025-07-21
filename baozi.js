@@ -5,7 +5,7 @@ class Baozi extends ComicSource {
     // 唯一标识符
     key = "baozi"
 
-    version = "1.0.4"
+    version = "1.0.5"
 
     minAppVersion = "1.0.0"
 
