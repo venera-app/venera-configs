@@ -2,7 +2,7 @@ class Ikm extends ComicSource {
   // 基础配置
   name = "爱看漫";
   key = "ikmmh";
-  version = "1.0.2";
+  version = "1.0.3";
   minAppVersion = "1.0.0";
   url = "https://git.nyne.dev/nyne/venera-configs/raw/branch/main/ikmmh.js";
   // 常量定义
@@ -397,7 +397,7 @@ class Ikm extends ComicSource {
       let month = String(date.getMonth() + 1).padStart(2, "0"); // 月份从0开始，要加1
       let day = String(date.getDate()).padStart(2, "0");
       let updateTime = `${year}-${month}-${day}`;
-      
+
       return new ComicDetails({
         title: title.split("~")[0],
         cover: thumb,
