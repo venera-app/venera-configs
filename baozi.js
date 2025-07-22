@@ -5,7 +5,7 @@ class Baozi extends ComicSource {
     // 唯一标识符
     key = "baozi"
 
-    version = "1.0.4"
+    version = "1.0.5"
 
     minAppVersion = "1.0.0"
 
@@ -35,7 +35,7 @@ class Baozi extends ComicSource {
             default: "baozimhcn.com"
         }
     }
-    
+
     // 动态生成完整域名
     get lang() {
         return this.loadSetting('language') || this.settings.language.default;
@@ -70,7 +70,7 @@ class Baozi extends ComicSource {
         },
 
         // 退出登录时将会调用此函数
-        logout: function() {
+        logout: function () {
             Network.deleteCookies(this.loadSetting('domains') || this.settings.domains.default)
         },
 
@@ -290,21 +290,21 @@ class Baozi extends ComicSource {
             tags = [...tags.filter(e => e !== "")]
             let updateTime = document.querySelector("div.supporting-text > div > span > em")?.text.trim().replace('(', '').replace(')', '')
             if (!updateTime) {
-            const getLastChapterText = () => {
-            // 合并所有章节容器（处理可能存在多个列表的情况）
-            const containers = [
-                ...document.querySelectorAll("#chapter-items, #chapters_other_list")
-            ];
-            let allChapters = [];
-            containers.forEach(container => {
-                const chapters = container.querySelectorAll(".comics-chapters > a");
-                allChapters.push(...Array.from(chapters));
-            });
-            const lastChapter = allChapters[allChapters.length - 1];
-            return lastChapter?.querySelector("div > span")?.text.trim() || "暂无更新信息";
-        };
-        updateTime = getLastChapterText();
-    }
+                const getLastChapterText = () => {
+                    // 合并所有章节容器（处理可能存在多个列表的情况）
+                    const containers = [
+                        ...document.querySelectorAll("#chapter-items, #chapters_other_list")
+                    ];
+                    let allChapters = [];
+                    containers.forEach(container => {
+                        const chapters = container.querySelectorAll(".comics-chapters > a");
+                        allChapters.push(...Array.from(chapters));
+                    });
+                    const lastChapter = allChapters[allChapters.length - 1];
+                    return lastChapter?.querySelector("div > span")?.text.trim() || "暂无更新信息";
+                };
+                updateTime = getLastChapterText();
+            }
             let description = document.querySelector("p.comics-detail__desc").text.trim()
             let chapters = new Map()
             let i = 0
@@ -338,36 +338,38 @@ class Baozi extends ComicSource {
                     })
                 }
             }
+            // updateTime 将 Y年 M月 D日 转化为 Y-M-D 
+            let updateDate = updateTime.replace(/年/g, '-').replace(/月/g, '-').replace(/日/g, '');
 
-            return {
+            return new ComicDetails({
                 title: title,
                 cover: cover,
                 description: description,
                 tags: {
                     "作者": [author],
-                    "更新": [updateTime],
                     "标签": tags
                 },
                 chapters: chapters,
-                recommend: recommend
-            }
+                recommend: recommend,
+                updateTime: updateDate,
+            })
         },
         loadEp: async (comicId, epId) => {
             const images = [];
             let currentPageUrl = `${this.baseUrl}/comic/chapter/${comicId}/0_${epId}.html`;
             let maxAttempts = 100;
-        
+
             while (maxAttempts > 0) {
                 const res = await Network.get(currentPageUrl);
                 if (res.status !== 200) break;
-        
+
                 // 解析当前页图片
                 const doc = new HtmlDocument(res.body);
                 doc.querySelectorAll("ul.comic-contain > div > amp-img").forEach(img => {
                     const src = img?.attributes?.['src'];
                     if (typeof src === 'string') images.push(src);
                 });
-        
+
                 // 查找下一页链接
                 const nextLink = doc.querySelector("a#next-chapter");
                 if (nextLink?.text?.match(/下一页|下一頁/)) {
@@ -377,7 +379,7 @@ class Baozi extends ComicSource {
                 }
                 maxAttempts--;
             }
-        // 代理后图片水印更少
+            // 代理后图片水印更少
             return { images };
         }
     }
