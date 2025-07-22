@@ -2,7 +2,7 @@ class Ikm extends ComicSource {
   // 基础配置
   name = "爱看漫";
   key = "ikmmh";
-  version = "1.0.2";
+  version = "1.0.3";
   minAppVersion = "1.0.0";
   url = "https://git.nyne.dev/nyne/venera-configs/raw/branch/main/ikmmh.js";
   // 常量定义
