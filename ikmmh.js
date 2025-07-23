@@ -2,7 +2,7 @@ class Ikm extends ComicSource {
   // 基础配置
   name = "爱看漫";
   key = "ikmmh";
-  version = "1.0.2";
+  version = "1.0.3";
   minAppVersion = "1.0.0";
   url = "https://git.nyne.dev/nyne/venera-configs/raw/branch/main/ikmmh.js";
   // 常量定义
@@ -388,17 +388,28 @@ class Ikm extends ComicSource {
         );
       let intro = desc?.[1]?.trim().replace(/\s+/g, " ") || "";
 
-      return {
+      // 获取更新日期
+      let fullDateStr = document
+        .querySelector('meta[property="og:cartoon:update_time"]')
+        .attributes["content"]; // "2025-07-18 08:37:02"
+      let date = new Date(fullDateStr);
+      let year = date.getFullYear();
+      let month = String(date.getMonth() + 1).padStart(2, "0"); // 月份从0开始，要加1
+      let day = String(date.getDate()).padStart(2, "0");
+      let updateTime = `${year}-${month}-${day}`;
+      
+      return new ComicDetails({
         title: title.split("~")[0],
         cover: thumb,
         description: intro,
+        updateTime: updateTime,
         tags: {
           作者: [
             document
               .querySelector("div.book-container__author")
               .text.split("作者：")[1],
           ],
-          更新: [document.querySelector("div.update > a > em").text],
+          最新章节: [document.querySelector("div.update > a > em").text],
           标签: document
             .querySelectorAll("div.book-hero__detail > div.tags > a")
             .map((e) => e.text.trim())
@@ -412,7 +423,7 @@ class Ikm extends ComicSource {
             cover: e.querySelector("div.thumb_img").attributes["data-src"],
             id: `${Ikm.baseUrl}${e.querySelector("a").attributes["href"]}`,
           })),
-      };
+      });
     },
     onThumbnailLoad: Ikm.thumbConfig,
     loadEp: async (comicId, epId) => {
