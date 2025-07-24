@@ -3,7 +3,7 @@
         "name": "拷贝漫画",
         "fileName": "copy_manga.js",
         "key": "copy_manga",
-        "version": "1.3.3"
+        "version": "1.3.6"
     },
     {
         "name": "Komiic",
@@ -15,7 +15,7 @@
         "name": "包子漫画",
         "fileName": "baozi.js",
         "key": "baozi",
-        "version": "1.0.4"
+        "version": "1.0.5"
     },
     {
         "name": "Picacg",
@@ -60,18 +60,30 @@
         "name": "爱看漫",
         "fileName": "ikmmh.js",
         "key": "ikmmh",
-        "version": "1.0.2"
+        "version": "1.0.3"
     },
     {
         "name": "少年ジャンプ＋",
         "fileName": "shonenjumpplus.js",
         "key": "shonen_jump_plus",
-        "version": "1.0.0"
+        "version": "1.0.1"
     },
     {
         "name": "hitomi.la",
         "fileName": "hitomi.js",
         "key": "hitomi",
+        "version": "1.0.0"
+    },
+    {
+        "name": "comick",
+        "fileName": "comick.js",
+        "key": "comick",
+        "version": "1.1.0"
+    },
+    {
+        "name": "优酷漫画",
+        "fileName": "ykmh.js",
+        "key": "ykmh",
         "version": "1.0.0"
     }
 ]
