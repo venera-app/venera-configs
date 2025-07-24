@@ -78,11 +78,305 @@ class NewComicSource extends ComicSource {
       author,
     });
   }
-
   /**
    * [Optional] init function
    */
-  init() {}
+  init() {
+    var LZString = (function () {
+      var f = String.fromCharCode;
+      var keyStrBase64 =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+      var baseReverseDic = {};
+      function getBaseValue(alphabet, character) {
+        if (!baseReverseDic[alphabet]) {
+          baseReverseDic[alphabet] = {};
+          for (var i = 0; i < alphabet.length; i++) {
+            baseReverseDic[alphabet][alphabet.charAt(i)] = i;
+          }
+        }
+        return baseReverseDic[alphabet][character];
+      }
+      var LZString = {
+        decompressFromBase64: function (input) {
+          if (input == null) return "";
+          if (input == "") return null;
+          return LZString._0(input.length, 32, function (index) {
+            return getBaseValue(keyStrBase64, input.charAt(index));
+          });
+        },
+        _0: function (length, resetValue, getNextValue) {
+          var dictionary = [],
+            next,
+            enlargeIn = 4,
+            dictSize = 4,
+            numBits = 3,
+            entry = "",
+            result = [],
+            i,
+            w,
+            bits,
+            resb,
+            maxpower,
+            power,
+            c,
+            data = {
+              val: getNextValue(0),
+              position: resetValue,
+              index: 1,
+            };
+          for (i = 0; i < 3; i += 1) {
+            dictionary[i] = i;
+          }
+          bits = 0;
+          maxpower = Math.pow(2, 2);
+          power = 1;
+          while (power != maxpower) {
+            resb = data.val & data.position;
+            data.position >>= 1;
+            if (data.position == 0) {
+              data.position = resetValue;
+              data.val = getNextValue(data.index++);
+            }
+            bits |= (resb > 0 ? 1 : 0) * power;
+            power <<= 1;
+          }
+          switch ((next = bits)) {
+            case 0:
+              bits = 0;
+              maxpower = Math.pow(2, 8);
+              power = 1;
+              while (power != maxpower) {
+                resb = data.val & data.position;
+                data.position >>= 1;
+                if (data.position == 0) {
+                  data.position = resetValue;
+                  data.val = getNextValue(data.index++);
+                }
+                bits |= (resb > 0 ? 1 : 0) * power;
+                power <<= 1;
+              }
+              c = f(bits);
+              break;
+            case 1:
+              bits = 0;
+              maxpower = Math.pow(2, 16);
+              power = 1;
+              while (power != maxpower) {
+                resb = data.val & data.position;
+                data.position >>= 1;
+                if (data.position == 0) {
+                  data.position = resetValue;
+                  data.val = getNextValue(data.index++);
+                }
+                bits |= (resb > 0 ? 1 : 0) * power;
+                power <<= 1;
+              }
+              c = f(bits);
+              break;
+            case 2:
+              return "";
+          }
+          dictionary[3] = c;
+          w = c;
+          result.push(c);
+          while (true) {
+            if (data.index > length) {
+              return "";
+            }
+            bits = 0;
+            maxpower = Math.pow(2, numBits);
+            power = 1;
+            while (power != maxpower) {
+              resb = data.val & data.position;
+              data.position >>= 1;
+              if (data.position == 0) {
+                data.position = resetValue;
+                data.val = getNextValue(data.index++);
+              }
+              bits |= (resb > 0 ? 1 : 0) * power;
+              power <<= 1;
+            }
+            switch ((c = bits)) {
+              case 0:
+                bits = 0;
+                maxpower = Math.pow(2, 8);
+                power = 1;
+                while (power != maxpower) {
+                  resb = data.val & data.position;
+                  data.position >>= 1;
+                  if (data.position == 0) {
+                    data.position = resetValue;
+                    data.val = getNextValue(data.index++);
+                  }
+                  bits |= (resb > 0 ? 1 : 0) * power;
+                  power <<= 1;
+                }
+                dictionary[dictSize++] = f(bits);
+                c = dictSize - 1;
+                enlargeIn--;
+                break;
+              case 1:
+                bits = 0;
+                maxpower = Math.pow(2, 16);
+                power = 1;
+                while (power != maxpower) {
+                  resb = data.val & data.position;
+                  data.position >>= 1;
+                  if (data.position == 0) {
+                    data.position = resetValue;
+                    data.val = getNextValue(data.index++);
+                  }
+                  bits |= (resb > 0 ? 1 : 0) * power;
+                  power <<= 1;
+                }
+                dictionary[dictSize++] = f(bits);
+                c = dictSize - 1;
+                enlargeIn--;
+                break;
+              case 2:
+                return result.join("");
+            }
+            if (enlargeIn == 0) {
+              enlargeIn = Math.pow(2, numBits);
+              numBits++;
+            }
+            if (dictionary[c]) {
+              entry = dictionary[c];
+            } else {
+              if (c === dictSize) {
+                entry = w + w.charAt(0);
+              } else {
+                return null;
+              }
+            }
+            result.push(entry);
+            dictionary[dictSize++] = w + entry.charAt(0);
+            enlargeIn--;
+            w = entry;
+            if (enlargeIn == 0) {
+              enlargeIn = Math.pow(2, numBits);
+              numBits++;
+            }
+          }
+        },
+      };
+      return LZString;
+    })();
+
+    function splitParams(str) {
+      let params = [];
+      let currentParam = "";
+      let stack = [];
+
+      for (let i = 0; i < str.length; i++) {
+        const char = str[i];
+
+        if (char === "(" || char === "[" || char === "{") {
+          stack.push(char);
+          currentParam += char;
+        } else if (char === ")" && stack[stack.length - 1] === "(") {
+          stack.pop();
+          currentParam += char;
+        } else if (char === "]" && stack[stack.length - 1] === "[") {
+          stack.pop();
+          currentParam += char;
+        } else if (char === "}" && stack[stack.length - 1] === "{") {
+          stack.pop();
+          currentParam += char;
+        } else if (char === "," && stack.length === 0) {
+          params.push(currentParam.trim());
+          currentParam = "";
+        } else {
+          currentParam += char;
+        }
+      }
+
+      if (currentParam) {
+        params.push(currentParam.trim());
+      }
+
+      return params;
+    }
+
+    function extractParams(str) {
+      let params_part = str.split("}(")[1].split("))")[0];
+      let params = splitParams(params_part);
+      params[5] = {};
+      params[3] = LZString.decompressFromBase64(params[3].split("'")[1]).split(
+        "|"
+      );
+      return params;
+    }
+
+    function formatData(p, a, c, k, e, d) {
+      e = function (c) {
+        return (
+          (c < a ? "" : e(parseInt(c / a))) +
+          ((c = c % a) > 35 ? String.fromCharCode(c + 29) : c.toString(36))
+        );
+      };
+      if (!"".replace(/^/, String)) {
+        while (c--) d[e(c)] = k[c] || e(c);
+        k = [
+          function (e) {
+            return d[e];
+          },
+        ];
+        e = function () {
+          return "\\w+";
+        };
+        c = 1;
+      }
+      while (c--)
+        if (k[c]) p = p.replace(new RegExp("\\b" + e(c) + "\\b", "g"), k[c]);
+      return p;
+    }
+    function extractFields(text) {
+      // 创建一个对象存储提取的结果
+      const result = {};
+
+      // 提取files数组
+      const filesMatch = text.match(/"files":\s*\[(.*?)\]/);
+      if (filesMatch && filesMatch[1]) {
+        // 提取所有文件名并去除引号和空格
+        result.files = filesMatch[1]
+          .split(",")
+          .map((file) => file.trim().replace(/"/g, ""));
+      }
+
+      // 提取path
+      const pathMatch = text.match(/"path":\s*"([^"]+)"/);
+      if (pathMatch && pathMatch[1]) {
+        result.path = pathMatch[1];
+      }
+
+      // 提取len
+      const lenMatch = text.match(/"len":\s*(\d+)/);
+      if (lenMatch && lenMatch[1]) {
+        result.len = parseInt(lenMatch[1], 10);
+      }
+
+      // 提取sl对象
+      const slMatch = text.match(/"sl":\s*({[^}]+})/);
+      if (slMatch && slMatch[1]) {
+        try {
+          // 将提取的字符串转换为对象
+          result.sl = JSON.parse(slMatch[1].replace(/(\w+):/g, '"$1":'));
+        } catch (e) {
+          console.error("解析sl字段失败:", e);
+          result.sl = null;
+        }
+      }
+
+      return result;
+    }
+    this.getImgInfos = function (script) {
+      let params = extractParams(script);
+      let imgData = formatData(...params);
+      let imgInfos = extractFields(imgData);
+      return imgInfos;
+    };
+  }
 
   // explore page list
   explore = [
@@ -485,26 +779,19 @@ class NewComicSource extends ComicSource {
       let document = await this.getHtml(url);
 
       let chapter = document.querySelector(".title h2").text;
-      let allImgNum = document
-        .querySelector(".title")
-        .text.split("/")
-        .pop()
-        .replace(")", "");
-      allImgNum = parseInt(allImgNum);
+
+      let script = document.querySelectorAll("script")[4].innerHTML;
+      let infos = this.getImgInfos(script);
 
       // https://us.hamreus.com/ps3/y/yiquanchaoren/第190话重制版/003.jpg.webp?e=1754143606&m=DPpelwkhr-pS3OXJpS6VkQ
-      let imgDomain = `https://us.hamreus.com/ps3/y/yiquanchaoren`;
-      let imgScrParams = document
-        .querySelector("#mangaBox")
-        .attributes["src"].split("?")
-        .pop();
-      images = [];
-      for (let i = 0; i < allImgNum; i++) {
-        let imgUrl = `${imgDomain}/${chapter}/${i
-          .toString()
-          .padStart(3, "0")}.jpg.webp?${imgScrParams}`;
+      let imgDomain = `https://us.hamreus.com`;
+      let images = [];
+      for (let f of infos.files) {
+        let imgUrl =
+          imgDomain + infos.path + f + `?e=${infos.sl.e}&m=${infos.sl.m}`;
         images.push(imgUrl);
       }
+      log("warning", "漫画柜", images);
       return {
         images,
       };
