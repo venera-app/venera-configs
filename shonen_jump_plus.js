@@ -1,7 +1,7 @@
 class ShonenJumpPlus extends ComicSource {
   name = "少年ジャンプ＋";
   key = "shonen_jump_plus";
-  version = "1.0.1";
+  version = "1.0.2";
   minAppVersion = "1.2.1";
   url =
     "https://git.nyne.dev/nyne/venera-configs/raw/branch/main/shonen_jump_plus.js";
@@ -16,7 +16,7 @@ class ShonenJumpPlus extends ComicSource {
       "Origin": "https://shonenjumpplus.com",
       "Referer": "https://shonenjumpplus.com/",
       "X-Giga-Device-Id": this.deviceId,
-      "User-Agent": "ShonenJumpPlus-Android/4.0.19",
+      "User-Agent": "ShonenJumpPlus-Android/4.0.21",
     };
   }
 
@@ -368,7 +368,7 @@ const GraphQLQueries = {
   "SeriesDetailEpisodeList":
     `query SeriesDetailEpisodeList($id: String!, $episodeOffset: Int, $episodeFirst: Int, $episodeSort: ReadableProductSorting) {
         series(databaseId: $id) {
-            episodes: readableProducts(types: [EPISODE,SPECIAL_CONTENT], first: $episodeFirst, offset: $episodeOffset, sort: $episodeSort) {
+            episodes: readableProducts(types: [EPISODE], first: $episodeFirst, offset: $episodeOffset, sort: $episodeSort) {
                 edges { node { databaseId title } }
             }
         }

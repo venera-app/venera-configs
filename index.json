@@ -64,9 +64,9 @@
     },
     {
         "name": "少年ジャンプ＋",
-        "fileName": "shonenjumpplus.js",
+        "fileName": "shonen_jump_plus.js",
         "key": "shonen_jump_plus",
-        "version": "1.0.1"
+        "version": "1.0.2"
     },
     {
         "name": "hitomi.la",
