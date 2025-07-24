@@ -50,6 +50,9 @@ class NewComicSource extends ComicSource {
     let id = url.split("/")[2];
     let title = e.querySelector(".ell > a").text.trim();
     let cover = e.querySelector("img").attributes["src"];
+    if (!cover) {
+      cover = e.querySelector("img").attributes["data-src"];
+    }
     cover = `https:${cover}`;
     let description = e.querySelector(".tt").text.trim();
     return new Comic({
@@ -398,7 +401,7 @@ class NewComicSource extends ComicSource {
        */
       load: async (page) => {
         let document = await this.getHtml(this.baseUrl);
-        log("info", this.name, `获取主页成功`);
+        // log("info", this.name, `获取主页成功`);
         let tabs = document.querySelectorAll("#cmt-tab li");
         // log("info", this.name, tabs);
         let parts = document.querySelectorAll("#cmt-cont ul");
@@ -538,11 +541,11 @@ class NewComicSource extends ComicSource {
       let genre = param;
       let age = options[1];
       let status = options[2];
-      log(
-        "info",
-        this.name,
-        ` 加载分类漫画: ${area} | ${genre} | ${age} | ${status}`
-      );
+      // log(
+      //   "info",
+      //   this.name,
+      //   ` 加载分类漫画: ${area} | ${genre} | ${age} | ${status}`
+      // );
       // 字符串之间用“_”连接，空字符串除外
       let params = [area, genre, age, status].filter((e) => e != "").join("_");
 
@@ -710,13 +713,13 @@ class NewComicSource extends ComicSource {
         if (ele.length > 0) {
           return ele.map((e) => e.text.trim());
         }
-        return [null];
+        return [""];
       }
       let createYear = parseDetail(0);
       let area = parseDetail(1);
       let genre = parseDetail(3);
       let author = parseDetail(4);
-      let alias = parseDetail(5);
+      // let alias = parseDetail(5);
 
       //   let lastChapter = parseDetail(6);
       let status = detail_list[7].text.trim();
@@ -725,7 +728,6 @@ class NewComicSource extends ComicSource {
         年代: createYear,
         状态: [status],
         作者: author,
-        别名: alias,
         地区: area,
         类型: genre,
       };
@@ -733,10 +735,12 @@ class NewComicSource extends ComicSource {
 
       // ANCHOR 章节信息
       let chapters = new Map();
-      let chapter_list = document
-        .querySelector("#chapter-list-1")
-        .querySelectorAll("li");
-      for (let li of chapter_list) {
+      let chapter_list = document.querySelector("#chapter-list-1");
+      if (!chapter_list) {
+        chapter_list = document.querySelector("#chapter-list-0");
+      }
+      let lis = chapter_list.querySelectorAll("li");
+      for (let li of lis) {
         let a = li.querySelector("a");
         let i = a.attributes["href"].split("/").pop().replace(".html", "");
         let title = a.querySelector("span").text.trim();
@@ -777,9 +781,6 @@ class NewComicSource extends ComicSource {
     loadEp: async (comicId, epId) => {
       let url = `${this.baseUrl}/comic/${comicId}/${epId}.html`;
       let document = await this.getHtml(url);
-
-      let chapter = document.querySelector(".title h2").text;
-
       let script = document.querySelectorAll("script")[4].innerHTML;
       let infos = this.getImgInfos(script);
 
@@ -791,7 +792,7 @@ class NewComicSource extends ComicSource {
           imgDomain + infos.path + f + `?e=${infos.sl.e}&m=${infos.sl.m}`;
         images.push(imgUrl);
       }
-      log("warning", "漫画柜", images);
+      // log("warning", this.name, images);
       return {
         images,
       };
@@ -834,7 +835,28 @@ class NewComicSource extends ComicSource {
      * They are not supported for thumbnails.
      */
     onThumbnailLoad: (url) => {
-      return {};
+      let headers = {
+        accept:
+          "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+        "accept-language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
+        "cache-control": "no-cache",
+        pragma: "no-cache",
+        priority: "u=0, i",
+        "sec-ch-ua":
+          '"Microsoft Edge";v="137", "Chromium";v="137", "Not/A)Brand";v="24"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"Windows"',
+        "sec-fetch-dest": "document",
+        "sec-fetch-mode": "navigate",
+        "sec-fetch-site": "none",
+        "sec-fetch-user": "?1",
+        "upgrade-insecure-requests": "1",
+        "Referrer-Policy": "strict-origin-when-cross-origin",
+      };
+
+      return {
+        headers,
+      };
     },
   };
 }
