@@ -1,7 +1,7 @@
 class Comick extends ComicSource {
     name = "comick"
     key = "comick"
-    version = "1.1.0"
+    version = "1.1.1"
     minAppVersion = "1.4.0"
     // update url
     url = "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/comick.js"
