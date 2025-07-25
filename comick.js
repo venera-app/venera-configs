@@ -1,7 +1,7 @@
 class Comick extends ComicSource {
     name = "comick"
     key = "comick"
-    version = "1.1.0"
+    version = "1.1.1"
     minAppVersion = "1.4.0"
     // update url
     url = "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/comick.js"
@@ -340,6 +340,23 @@ class Comick extends ComicSource {
         '拉脱维亚文': 'lv'
     }
 
+    static getRandomHeaders() {
+        const userAgents = [
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+            "Mozilla/5.0 (iPhone; CPU iPhone OS 14_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1",
+            "Mozilla/5.0 (Linux; Android 10; SM-G973F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Mobile Safari/537.36",
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        ];
+
+        return {
+            "User-Agent": userAgents[Math.floor(Math.random() * userAgents.length)],
+            "Accept": "application/json, text/plain, */*",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Connection": "keep-alive"
+        };
+    }
+
     transReformBookList(bookList, descriptionPrefix = "更新至：") {
         return bookList.map(book => ({
             id: `${book.relates?.slug || 'unknown'}//${book.relates?.title || '未知标题'}`,
@@ -482,12 +499,15 @@ class Comick extends ComicSource {
         buildId: null,
     
         loadInfo: async (id) => {
+            let headers = Comick.getRandomHeaders();
+
+
             const [cId, cTitle] = id.split("//");
             if (!cId) {
                 throw "ID error: ";
             }
 
-            let res = await Network.get(`${this.baseUrl}/comic/${cId}`)
+            let res = await Network.get(`${this.baseUrl}/comic/${cId}`, { headers });
             if (res.status !== 200) {
                 throw "Invalid status code: " + res.status
             }
@@ -518,7 +538,13 @@ class Comick extends ComicSource {
                 const result = {};
                 let updateTime = "";
                 let i = 1;
+            
+
+
                 for (const lang of langs) {
+                    // 随机生成请求头
+                    let headers = Comick.getRandomHeaders();
+
                     let first = langMap[lang];
                     if (first.vol == null && first.chap == null) {
                         const chapters = new Map();
@@ -533,9 +559,17 @@ class Comick extends ComicSource {
                     (first.chap != null
                         ? `-chapter-${first.chap}`
                         : `-volume-${first.vol}`) +
-                    `-${lang}.json`;
+                    `-${lang}.json?slug=${id}&` +
+                    (first.chap != null
+                        ? `chapter=${first.hid || 'unknown'}`
+                        : `volume=${first.hid || 'unknown'}`) 
+                    +
+                    (first.chap != null
+                        ? `-chapter-${first.chap}`
+                        : `-volume-${first.vol}`) + `-${lang}`
+                    ;
 
-                    const res = await Network.get(url);
+                    const res = await Network.get(url, { headers });
                     if (res.status !== 200) {
                         throw `Invalid status code: ${res.status}`;
                     }
