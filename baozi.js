@@ -484,21 +484,11 @@ class Baozi extends ComicSource {
       }
       // 代理后图片水印更少
       let mobileImages = images.map((e) => {
-        return e.replace(
-          "https://s1.baozicdn.com",
-          "https://as-rsa1-usla.baozicdn.com/w640"
-        );
+        const regex = /scomic\/.*/;
+        const match = e.match(regex);
+        return `https://as-rsa1-usla.baozicdn.com/w640/${match[0]}`;
       });
       return { images: mobileImages };
-    },
-    onImageLoad: (url, comicId, epId) => {
-      let headers = {
-        "User-Agent": "Apifox/1.0.0 (https://apifox.com)",
-        Accept: "*/*",
-        Host: "as-rsa1-usla.baozicdn.com",
-        Connection: "keep-alive",
-      };
-      return { headers };
     },
   };
 }
