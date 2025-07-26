@@ -63,37 +63,6 @@ class ZaiManHua extends ComicSource {
 
     return new Comic({ title, id, subtitle, url, cover, description });
   }
-  /**
-   * parse comic from html element
-   * @param comic {HtmlElement}
-   * @returns {Comic}
-   */
-  parseListComic(comic) {
-    let cover = comic.querySelector("img").attributes["src"];
-    let title = comic.querySelector("h3 > a").text.trim();
-    let url = comic.querySelector("h3 > a").attributes["href"];
-    let id = url.split("/").pop().split(".")[0];
-
-    let infos = comic.querySelectorAll("p");
-
-    let subtitle = infos[0]?.text.replace("作者：", "").trim();
-    let classify = infos[1]?.text.replace("类型：", "").trim().split("/");
-    let status = infos[2]?.text.replace("状态：", "").trim();
-    let description = infos[3]?.text.replace("最新：", "").trim();
-    let tags = {
-      类型: classify,
-      状态: status,
-    };
-
-    return new Comic({
-      title,
-      id,
-      subtitle,
-      tags,
-      cover,
-      description,
-    });
-  }
 
   /**
    * parse json content
@@ -249,7 +218,7 @@ class ZaiManHua extends ComicSource {
      * @returns {Promise<{comics: Comic[], maxPage: number}>}
      */
     load: async (category, param, options, page) => {
-      let fil = "https://manhua.zaimanhua.com/api/v1/comic1/filter";
+      let fil = `${this.baseUrl}/api/v1/comic1/filter`;
       let params = {
         timestamp: Date.now(),
         sortType: 0,
@@ -301,7 +270,7 @@ class ZaiManHua extends ComicSource {
      * @returns {Promise<{comics: Comic[], maxPage: number}>}
      */
     load: async (keyword, options, page) => {
-      let url = `https://manhua.zaimanhua.com/app/v1/search/index?keyword=${keyword}&source=0&page=${page}&size=20`;
+      let url = `${this.baseUrl}/app/v1/search/index?keyword=${keyword}&source=0&page=${page}&size=20`;
       const json = await this.fetchJson(url);
       let comics = json.comicList.map((e) => this.parseJsonComic(e));
       let maxPage = Math.ceil(json.totalNum / params.size);
@@ -314,7 +283,6 @@ class ZaiManHua extends ComicSource {
 
     // provide options for search
     optionList: [],
-
   };
 
   /// single comic related
@@ -324,7 +292,67 @@ class ZaiManHua extends ComicSource {
      * @param id {string}
      * @returns {Promise<ComicDetails>}
      */
-    loadInfo: async (id) => {},
+    loadInfo: async (id) => {
+      const api = `${this.domain}/api/v1/comic1/comic/detail`;
+      let params = {
+        channel: "pc",
+        app_name: "zmh",
+        version: "1.0.0",
+        timestamp: Date.now(),
+        uid: 0,
+        comic_py: id,
+      };
+      let params_str = Object.keys(params)
+        .map((key) => `${key}=${params[key]}`)
+        .join("&");
+      let url = `${api}?${params_str}`;
+      const json = await this.fetchJson(url);
+      const info = json.comicInfo;
+      const comic_id = info.id;
+      let title = info.title;
+      let author = info.authorInfo.authorName;
+      let lastUpdateTime = new Date(info.lastUpdateTime);
+      let updateTime = `${lastUpdateTime.getFullYear()}-${
+        lastUpdateTime.getMonth() + 1
+      }-${lastUpdateTime.getDate()}`;
+      let description = info.description;
+      let cover = info.cover;
+
+      let chapters = new Map();
+      info.chapterList.data.forEach((e) => {
+        chapters.set(e.chapter_id, e.chapter_title);
+      });
+
+      // &uid=0&comic_id=69500
+      const api2 = `${this.baseUrl}/api/v1/comic1/comic/same_list`;
+      let params2 = {
+        channel: "pc",
+        app_name: "zmh",
+        version: "1.0.0",
+        timestamp: Date.now(),
+        uid: 0,
+        comic_id: comic_id,
+      };
+      let params2_str = Object.keys(params2)
+        .map((key) => `${key}=${params2[key]}`)
+        .join("&");
+      let url2 = `${api2}?${params2_str}`;
+      const json2 = await this.fetchJson(url2);
+      let recommend = json2.comicList.map((e) => this.parseJsonComic(e));
+      return new ComicDetails({
+        title,
+        subtitle: author,
+        cover,
+        description,
+        tags: {
+          状态: [info.status],
+          类型: [info.readerGroup, ...info.types.split("/")],
+        },
+        chapters,
+        recommend,
+        updateTime,
+      });
+    },
     /**
      * [Optional] load thumbnails of a comic
      *
