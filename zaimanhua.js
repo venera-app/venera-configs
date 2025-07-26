@@ -314,7 +314,7 @@ class ZaiManHua extends ComicSource {
 
       let chapters = new Map();
       info.chapterList[0].data.forEach((e) => {
-        chapters.set(e.chapter_id, e.chapter_title);
+        chapters.set(e.chapter_id.toString(), e.chapter_title);
       });
       //   chapters 按照key排序
       let chaptersSorted = new Map([...chapters].sort((a, b) => a[0] - b[0]));
@@ -338,7 +338,7 @@ class ZaiManHua extends ComicSource {
       let tags = {
         状态: [info.status],
         类型: [info.readerGroup, ...info.types.split("/")],
-        点击: [info.hitNumStr],
+        点击: [info.hitNumStr.toString()],
         订阅: [info.subNumStr],
       };
 
@@ -372,7 +372,7 @@ class ZaiManHua extends ComicSource {
         comic_py: comicId,
       };
       let params_str_ = Object.keys(params_)
-        .map((key) => `${key}=${params[key]}`)
+        .map((key) => `${key}=${params_[key]}`)
         .join("&");
       let url_ = `${api_}?${params_str_}`;
       const json_ = await this.fetchJson(url_);
