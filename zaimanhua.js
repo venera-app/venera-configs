@@ -70,22 +70,13 @@ class ZaiManHua extends ComicSource {
    * @returns {Comic}
    */
   parseJsonComic(e) {
-    let cover = e.cover;
-    let title = e.name;
-    let id = e.comic_py;
-
-    let subtitle = e.authors;
-
-    let classify = e.types.split("/");
-    let description = e.last_update_chapter_name;
-
     return new Comic({
-      title,
-      id,
-      subtitle,
-      tags: classify,
-      cover,
-      description,
+      id: e.comic_py,
+      title: e.name,
+      subtitle: e.authors,
+      tags: e.types.split("/"),
+      cover: e.cover,
+      description: e.last_update_chapter_name,
     });
   }
 
