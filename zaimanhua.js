@@ -303,13 +303,18 @@ class ZaiManHua extends ComicSource {
     load: async (keyword, options, page) => {
       let url = `https://manhua.zaimanhua.com/app/v1/search/index?keyword=${keyword}&source=0&page=${page}&size=20`;
       const json = await this.fetchJson(url);
+      let comics = json.comicList.map((e) => this.parseJsonComic(e));
+      let maxPage = Math.ceil(json.totalNum / params.size);
+      //   log("error", "再漫画", comics);
+      return {
+        comics,
+        maxPage,
+      };
     },
 
     // provide options for search
     optionList: [],
 
-    // enable tags suggestions
-    enableTagsSuggestions: false,
   };
 
   /// single comic related
