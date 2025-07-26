@@ -19,22 +19,27 @@ class ZaiManHua extends ComicSource {
    * fetch html content
    * @param url {string}
    * @param headers {object?}
-   * @returns {Promise<{body: string, status: number, headers: object}>}
+   * @returns {Promise<{document:HtmlDocument}>}
    */
   async fetchHtml(url, headers = {}) {
     let res = await Network.get(url, headers);
-    return res;
+    if (res.status !== 200) {
+      throw "Invalid status code: " + res.status;
+    }
+    let document = new HtmlDocument(res.body);
+
+    return document;
   }
 
   /**
    * fetch json content
    * @param url {string}
    * @param headers {object?}
-   * @returns {Promise<{errno:number,errmsg:string,data:object}>}
+   * @returns {Promise<{data:object}>}
    */
   async fetchJson(url, headers = {}) {
     let res = await Network.get(url, headers);
-    return JSON.parse(res.body);
+    return JSON.parse(res.body).data;
   }
 
   /**
@@ -85,7 +90,6 @@ class ZaiManHua extends ComicSource {
       id,
       subtitle,
       tags,
-      url,
       cover,
       description,
     });
@@ -100,24 +104,17 @@ class ZaiManHua extends ComicSource {
     let cover = e.cover;
     let title = e.name;
     let id = e.comic_py;
-    let url = `https://www.zaimanhua.com/info/${e.id}.html`;
 
     let subtitle = e.authors;
 
-    let classify = e.types;
-    let status = e.status;
+    let classify = e.types.split("/");
     let description = e.last_update_chapter_name;
-    let tags = {
-      类型: classify,
-      状态: status,
-    };
 
     return new Comic({
       title,
       id,
       subtitle,
-      tags,
-      url,
+      tags: classify,
       cover,
       description,
     });
@@ -152,11 +149,7 @@ class ZaiManHua extends ComicSource {
        */
       load: async (page) => {
         let result = {};
-        let res = await this.fetchHtml(this.domain);
-        if (res.status !== 200) {
-          throw `Invalid status code: ${res.status}`;
-        }
-        let document = new HtmlDocument(res.body);
+        let document = await this.fetchHtml(this.domain);
         // 推荐
         let recommend_title = document.querySelector(
           ".new_recommend_l h2"
@@ -179,142 +172,124 @@ class ZaiManHua extends ComicSource {
     },
   ];
 
-    // categories
-    category = {
-        /// title of the category page, used to identify the page, it should be unique
-        title: "",
-        parts: [
-            {
-                // title of the part
-                name: "Theme",
-
-                // fixed or random or dynamic
-                // if random, need to provide `randomNumber` field, which indicates the number of comics to display at the same time
-                // if dynamic, need to provide `loader` field, which indicates the function to load comics
-                type: "fixed",
-
-                // Remove this if type is dynamic
-                categories: [
-                    {
-                        label: "Category1",
-                        /**
-                         * @type {PageJumpTarget}
-                         */
-                        target: {
-                            page: "category",
-                            attributes: {
-                                category: "category1",
-                                param: null,
-                            },
-                        },
-                    },
-                ]
-
-                // number of comics to display at the same time
-                // randomNumber: 5,
-
-                // load function for dynamic type
-                // loader: async () => {
-                //     return [
-                //          // ...
-                //     ]
-                // }
-            }
+  // categories
+  // categories
+  category = {
+    /// title of the category page, used to identify the page, it should be unique
+    title: this.name,
+    parts: [
+      {
+        name: "类型",
+        type: "fixed",
+        categories: [
+          "全部",
+          "冒险",
+          "搞笑",
+          "格斗",
+          "科幻",
+          "爱情",
+          "侦探",
+          "竞技",
+          "魔法",
+          "校园",
+          "百合",
+          "耽美",
+          "历史",
+          "战争",
+          "宅系",
+          "治愈",
+          "仙侠",
+          "武侠",
+          "职场",
+          "神鬼",
+          "奇幻",
+          "生活",
+          "其他",
         ],
-        // enable ranking page
-        enableRankingPage: false,
-    }
-
-    /// category comic loading related
-    categoryComics = {
-        /**
-         * load comics of a category
-         * @param category {string} - category name
-         * @param param {string?} - category param
-         * @param options {string[]} - options from optionList
-         * @param page {number} - page number
-         * @returns {Promise<{comics: Comic[], maxPage: number}>}
-         */
-        load: async (category, param, options, page) => {
-            /*
-            ```
-            let data = JSON.parse((await Network.get('...')).body)
-            let maxPage = data.maxPage
-
-            function parseComic(comic) {
-                // ...
-
-                return new Comic({
-                    id: id,
-                    title: title,
-                    subTitle: author,
-                    cover: cover,
-                    tags: tags,
-                    description: description
-                })
-            }
-
-            return {
-                comics: data.list.map(parseComic),
-                maxPage: maxPage
-            }
-            ```
-            */
-        },
-        // provide options for category comic loading
-        optionList: [
-            {
-                // For a single option, use `-` to separate the value and text, left for value, right for text
-                options: [
-                    "newToOld-New to Old",
-                    "oldToNew-Old to New"
-                ],
-                // [Optional] {string[]} - show this option only when the value not in the list
-                notShowWhen: null,
-                // [Optional] {string[]} - show this option only when the value in the list
-                showWhen: null
-            }
+        itemType: "category",
+        categoryParams: [
+          "0",
+          "1",
+          "2",
+          "3",
+          "4",
+          "5",
+          "6",
+          "7",
+          "8",
+          "9",
+          "11",
+          "13",
+          "14",
+          "15",
+          "16",
+          "17",
+          "18",
+          "19",
+          "20",
+          "21",
+          "22",
+          "23",
+          "24",
         ],
-        ranking: {
-            // For a single option, use `-` to separate the value and text, left for value, right for text
-            options: [
-                "day-Day",
-                "week-Week"
-            ],
-            /**
-             * load ranking comics
-             * @param option {string} - option from optionList
-             * @param page {number} - page number
-             * @returns {Promise<{comics: Comic[], maxPage: number}>}
-             */
-            load: async (option, page) => {
-                /*
-                ```
-                let data = JSON.parse((await Network.get('...')).body)
-                let maxPage = data.maxPage
+      },
+    ],
+    // enable ranking page
+    enableRankingPage: false,
+  };
 
-                function parseComic(comic) {
-                    // ...
+  /// category comic loading related
+  categoryComics = {
+    /**
+     * load comics of a category
+     * @param category {string} - category name
+     * @param param {string?} - category param
+     * @param options {string[]} - options from optionList
+     * @param page {number} - page number
+     * @returns {Promise<{comics: Comic[], maxPage: number}>}
+     */
+    load: async (category, param, options, page) => {
+      let fil = "https://manhua.zaimanhua.com/api/v1/comic1/filter";
+      let params = {
+        timestamp: Date.now(),
+        sortType: 0,
+        page: page,
+        size: 20,
+        status: options[1],
+        audience: options[0],
+        theme: param,
+        cate: options[2],
+      };
+      //   拼接url
+      let params_str = Object.keys(params)
+        .map((key) => `${key}=${params[key]}`)
+        .join("&");
+      //   log("error", "再漫画", params_str);
+      let url = `${fil}?${params_str}&firstLetter`;
+      //   log("error", "再漫画", url);
 
-                    return new Comic({
-                        id: id,
-                        title: title,
-                        subTitle: author,
-                        cover: cover,
-                        tags: tags,
-                        description: description
-                    })
-                }
-
-                return {
-                    comics: data.list.map(parseComic),
-                    maxPage: maxPage
-                }
-                ```
-                */
-            }
-        }
-    }
+      const json = await this.fetchJson(url);
+      let comics = json.comicList.map((e) => this.parseJsonComic(e));
+      let maxPage = Math.ceil(json.totalNum / params.size);
+      //   log("error", "再漫画", comics);
+      return {
+        comics,
+        maxPage,
+      };
+    },
+    // provide options for category comic loading
+    optionList: [
+      {
+        options: ["0-全部", "3262-少年", "3263-少女", "3264-青年"],
+      },
+      {
+        options: ["0-全部", "1-故事漫画", "2-四格多格"],
+      },
+      {
+        options: ["0-全部", "1-连载", "2-完结"],
+      },
+    ],
+  };
 
   /// search related
   search = {
@@ -326,189 +301,15 @@ class ZaiManHua extends ComicSource {
      * @returns {Promise<{comics: Comic[], maxPage: number}>}
      */
     load: async (keyword, options, page) => {
-      /*
-            ```
-            let data = JSON.parse((await Network.get('...')).body)
-            let maxPage = data.maxPage
-
-            function parseComic(comic) {
-                // ...
-
-                return new Comic({
-                    id: id,
-                    title: title,
-                    subTitle: author,
-                    cover: cover,
-                    tags: tags,
-                    description: description
-                })
-            }
-
-            return {
-                comics: data.list.map(parseComic),
-                maxPage: maxPage
-            }
-            ```
-            */
+      let url = `https://manhua.zaimanhua.com/app/v1/search/index?keyword=${keyword}&source=0&page=${page}&size=20`;
+      const json = await this.fetchJson(url);
     },
 
-    /**
-     * load search result with next page token.
-     * The field will be ignored if `load` function is implemented.
-     * @param keyword {string}
-     * @param options {(string)[]} - options from optionList
-     * @param next {string | null}
-     * @returns {Promise<{comics: Comic[], maxPage: number}>}
-     */
-    loadNext: async (keyword, options, next) => {},
-
     // provide options for search
-    optionList: [
-      {
-        // [Optional] default is `select`
-        // type: select, multi-select, dropdown
-        // For select, there is only one selected value
-        // For multi-select, there are multiple selected values or none. The `load` function will receive a json string which is an array of selected values
-        // For dropdown, there is one selected value at most. If no selected value, the `load` function will receive a null
-        type: "select",
-        // For a single option, use `-` to separate the value and text, left for value, right for text
-        options: ["0-time", "1-popular"],
-        // option label
-        label: "sort",
-        // default selected options. If not set, use the first option as default
-        default: null,
-      },
-    ],
+    optionList: [],
 
     // enable tags suggestions
     enableTagsSuggestions: false,
-  };
-
-  // favorite related
-  favorites = {
-    // whether support multi folders
-    multiFolder: false,
-    /**
-     * add or delete favorite.
-     * throw `Login expired` to indicate login expired, App will automatically re-login and re-add/delete favorite
-     * @param comicId {string}
-     * @param folderId {string}
-     * @param isAdding {boolean} - true for add, false for delete
-     * @param favoriteId {string?} - [Comic.favoriteId]
-     * @returns {Promise<any>} - return any value to indicate success
-     */
-    addOrDelFavorite: async (comicId, folderId, isAdding, favoriteId) => {
-      /*
-            ```
-            let res = await Network.post('...')
-            if (res.status === 401) {
-                throw `Login expired`;
-            }
-            return 'ok'
-            ```
-            */
-    },
-    /**
-     * load favorite folders.
-     * throw `Login expired` to indicate login expired, App will automatically re-login retry.
-     * if comicId is not null, return favorite folders which contains the comic.
-     * @param comicId {string?}
-     * @returns {Promise<{folders: {[p: string]: string}, favorited: string[]}>} - `folders` is a map of folder id to folder name, `favorited` is a list of folder id which contains the comic
-     */
-    loadFolders: async (comicId) => {
-      /*
-            ```
-            let data = JSON.parse((await Network.get('...')).body)
-
-            let folders = {}
-
-            data.folders.forEach((f) => {
-                folders[f.id] = f.name
-            })
-
-            return {
-                folders: folders,
-                favorited: data.favorited
-            }
-            ```
-            */
-    },
-    /**
-     * add a folder
-     * @param name {string}
-     * @returns {Promise<any>} - return any value to indicate success
-     */
-    addFolder: async (name) => {
-      /*
-            ```
-            let res = await Network.post('...')
-            if (res.status === 401) {
-                throw `Login expired`;
-            }
-            return 'ok'
-            ```
-            */
-    },
-    /**
-     * delete a folder
-     * @param folderId {string}
-     * @returns {Promise<void>} - return any value to indicate success
-     */
-    deleteFolder: async (folderId) => {
-      /*
-            ```
-            let res = await Network.delete('...')
-            if (res.status === 401) {
-                throw `Login expired`;
-            }
-            return 'ok'
-            ```
-            */
-    },
-    /**
-     * load comics in a folder
-     * throw `Login expired` to indicate login expired, App will automatically re-login retry.
-     * @param page {number}
-     * @param folder {string?} - folder id, null for non-multi-folder
-     * @returns {Promise<{comics: Comic[], maxPage: number}>}
-     */
-    loadComics: async (page, folder) => {
-      /*
-            ```
-            let data = JSON.parse((await Network.get('...')).body)
-            let maxPage = data.maxPage
-
-            function parseComic(comic) {
-                // ...
-
-                return new Comic{
-                    id: id,
-                    title: title,
-                    subTitle: author,
-                    cover: cover,
-                    tags: tags,
-                    description: description
-                }
-            }
-
-            return {
-                comics: data.list.map(parseComic),
-                maxPage: maxPage
-            }
-            ```
-            */
-    },
-    /**
-     * load comics with next page token
-     * @param next {string | null} - next page token, null for first page
-     * @param folder {string}
-     * @returns {Promise<{comics: Comic[], next: string?}>}
-     */
-    loadNext: async (next, folder) => {},
-    /**
-     * If the comic source only allows one comic in one folder, set this to true.
-     */
-    singleFolderForSingleComic: false,
   };
 
   /// single comic related
