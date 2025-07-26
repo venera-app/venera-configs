@@ -489,7 +489,16 @@ class Baozi extends ComicSource {
           "https://as-rsa1-usla.baozicdn.com/w640"
         );
       });
-      return { images:mobileImages };
+      return { images: mobileImages };
+    },
+    onImageLoad: (url, comicId, epId) => {
+      let headers = {
+        "User-Agent": "Apifox/1.0.0 (https://apifox.com)",
+        Accept: "*/*",
+        Host: "as-rsa1-usla.baozicdn.com",
+        Connection: "keep-alive",
+      };
+      return { headers };
     },
   };
 }
