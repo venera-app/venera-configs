@@ -302,19 +302,24 @@ class ZaiManHua extends ComicSource {
       const comic_id = info.id;
       let title = info.title;
       let author = info.authorInfo.authorName;
-      let lastUpdateTime = new Date(info.lastUpdateTime);
+
+      // 修复时间戳转换问题
+      let lastUpdateTime = new Date(info.lastUpdateTime * 1000);
       let updateTime = `${lastUpdateTime.getFullYear()}-${
         lastUpdateTime.getMonth() + 1
       }-${lastUpdateTime.getDate()}`;
+
       let description = info.description;
       let cover = info.cover;
 
       let chapters = new Map();
-      info.chapterList.data.forEach((e) => {
+      info.chapterList[0].data.forEach((e) => {
         chapters.set(e.chapter_id, e.chapter_title);
       });
+      //   chapters 按照key排序
+      let chaptersSorted = new Map([...chapters].sort((a, b) => a[0] - b[0]));
 
-      // &uid=0&comic_id=69500
+      // 获取推荐漫画
       const api2 = `${this.baseUrl}/api/v1/comic1/comic/same_list`;
       let params2 = {
         channel: "pc",
@@ -329,42 +334,24 @@ class ZaiManHua extends ComicSource {
         .join("&");
       let url2 = `${api2}?${params2_str}`;
       const json2 = await this.fetchJson(url2);
-      let recommend = json2.comicList.map((e) => this.parseJsonComic(e));
+      let recommend = json2.data.comicList.map((e) => this.parseJsonComic(e));
+      let tags = {
+        状态: [info.status],
+        类型: [info.readerGroup, ...info.types.split("/")],
+        点击: [info.hitNumStr],
+        订阅: [info.subNumStr],
+      };
+
       return new ComicDetails({
         title,
         subtitle: author,
         cover,
         description,
-        tags: {
-          状态: [info.status],
-          类型: [info.readerGroup, ...info.types.split("/")],
-        },
-        chapters,
+        tags,
+        chapters: chaptersSorted,
         recommend,
         updateTime,
       });
-    },
-    /**
-     * [Optional] load thumbnails of a comic
-     *
-     * To render a part of an image as thumbnail, return `${url}@x=${start}-${end}&y=${start}-${end}`
-     * - If width is not provided, use full width
-     * - If height is not provided, use full height
-     * @param id {string}
-     * @param next {string?} - next page token, null for first page
-     * @returns {Promise<{thumbnails: string[], next: string?}>} - `next` is next page token, null for no more
-     */
-    loadThumbnails: async (id, next) => {
-      /*
-            ```
-            let data = JSON.parse((await Network.get('...')).body)
-
-            return {
-                thumbnails: data.list,
-                next: next,
-            }
-            ```
-            */
     },
 
     /**
@@ -374,14 +361,44 @@ class ZaiManHua extends ComicSource {
      * @returns {Promise<{images: string[]}>}
      */
     loadEp: async (comicId, epId) => {
-      /*
-            ```
-            return {
-                // string[]
-                images: images
-            }
-            ```
-            */
+      const api_ = `${this.domain}/api/v1/comic1/comic/detail`;
+      //   log("error", "再漫画", id);
+      let params_ = {
+        channel: "pc",
+        app_name: "zmh",
+        version: "1.0.0",
+        timestamp: Date.now(),
+        uid: 0,
+        comic_py: comicId,
+      };
+      let params_str_ = Object.keys(params_)
+        .map((key) => `${key}=${params[key]}`)
+        .join("&");
+      let url_ = `${api_}?${params_str_}`;
+      const json_ = await this.fetchJson(url_);
+      const info_ = json_.comicInfo;
+      const comic_id = info_.id;
+
+      const api = `${this.baseUrl}/api/v1/comic1/chapter/detail`;
+      // comic_id=18114&chapter_id=36227
+      let params = {
+        channel: "pc",
+        app_name: "zmh",
+        version: "1.0.0",
+        timestamp: Date.now(),
+        uid: 0,
+        comic_id: comic_id,
+        chapter_id: epId,
+      };
+      let params_str = Object.keys(params)
+        .map((key) => `${key}=${params[key]}`)
+        .join("&");
+      let url = `${api}?${params_str}`;
+      const json = await this.fetchJson(url);
+      const info = json.chapterInfo;
+      return {
+        images: info.page_url,
+      };
     },
     /**
      * [Optional] provide configs for an image loading
