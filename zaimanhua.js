@@ -43,40 +43,26 @@ class ZaiManHua extends ComicSource {
   }
 
   /**
-   * parse comic from html element
-   * @param comic {HtmlElement}
-   * @returns {Comic}
-   */
-  parseCoverComic(comic) {
-    let title = comic.querySelector("p > a").text.trim();
-    let url = comic.querySelector("p > a").attributes["href"];
-    let id = url.split("/").pop().split(".")[0];
-    let cover = comic.querySelector("img").attributes["src"];
-    let subtitle = comic.querySelector(".auth")?.text.trim();
-    if (!subtitle) {
-      subtitle = comic
-        .querySelector(".con_author")
-        ?.text.replace("作者：", "")
-        .trim();
-    }
-    let description = comic.querySelector(".tip")?.text.trim();
-
-    return new Comic({ title, id, subtitle, url, cover, description });
-  }
-
-  /**
    * parse json content
    * @param e object
    * @returns {Comic}
    */
   parseJsonComic(e) {
+    let id = e.comic_py;
+    if (!id) {
+      id = id.comicPy;
+    }
+    let title = e?.name;
+    if (!title) {
+      title = e?.title;
+    }
     return new Comic({
-      id: e.comic_py,
-      title: e.name,
-      subtitle: e.authors,
-      tags: e.types.split("/"),
-      cover: e.cover,
-      description: e.last_update_chapter_name,
+      id: id.toString(),
+      title: title.toString(),
+      subtitle: e?.authors,
+      tags: e?.types?.split("/"),
+      cover: e?.cover,
+      description: e?.last_update_chapter_name.toString(),
     });
   }
 
@@ -109,24 +95,31 @@ class ZaiManHua extends ComicSource {
        */
       load: async (page) => {
         let result = {};
-        let document = await this.fetchHtml(this.domain);
-        // 推荐
-        let recommend_title = document.querySelector(
-          ".new_recommend_l h2"
-        )?.text;
-        let recommend_comics = document
-          .querySelectorAll(".new_recommend_l li")
-          .map(this.parseCoverComic);
-        result[recommend_title] = recommend_comics;
-        // 更新
-        let update_title = document.querySelector(".new_update_l h2")?.text;
-        let update_comics = document
-          .querySelectorAll(".new_update_l li")
-          .map(this.parseCoverComic);
-        result[update_title] = update_comics;
-        // 少男漫画
-        // 少女漫画
-        // 冒险，搞笑，奇幻
+        // https://manhua.zaimanhua.com/api/v1/comic1/recommend/list?
+        // channel=pc&app_name=zmh&version=1.0.0&timestamp=1753547675981&uid=0
+        let api = `${this.baseUrl}/api/v1/comic1/recommend/list`;
+        let params = {
+          channel: "pc",
+          app_name: "zmh",
+          version: "1.0.0",
+          timestamp: Date.now(),
+          uid: 0,
+        };
+        let params_str = Object.keys(params)
+          .map((key) => `${key}=${params[key]}`)
+          .join("&");
+        let url = `${api}?${params_str}`;
+        const json = await this.fetchJson(url);
+        let data = json.list;
+        data.shift(); // 去掉第一个
+        data.pop(); // 去掉最后一个
+        data.map((arr) => {
+          let title = arr.name;
+          let comic_list = arr.list.map((item) => this.parseJsonComic(item));
+          result[title] = comic_list;
+        });
+
+        log("error", "再看漫画", result);
         return result;
       },
     },
