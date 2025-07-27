@@ -81,6 +81,18 @@
         "version": "1.1.1"
     },
     {
+        "name": "优酷漫画",
+        "fileName": "ykmh.js",
+        "key": "ykmh",
+        "version": "1.0.0"
+    },
+    {
+        "name": "再漫画",
+        "fileName": "zaimanhua.js",
+        "key": "zaimanhua",
+        "version": "1.0.0"
+    },
+    {
       "name": "漫画柜",
       "fileName": "manhuagui.js",
       "key": "manhuagui",
