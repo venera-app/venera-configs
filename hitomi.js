@@ -995,12 +995,12 @@ class Hitomi extends ComicSource {
   // unique id of the source
   key = "hitomi";
 
-  version = "1.0.0";
+  version = "1.1.0";
 
-  minAppVersion = "1.4.0";
+  minAppVersion = "1.4.6";
 
   // update url
-  url = "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/hitomi.js";
+  url = "https://git.nyne.dev/nyne/venera-configs/raw/branch/main/hitomi.js";
 
   galleryCache = [];
   categoryResultCache = undefined;
@@ -1482,6 +1482,34 @@ class Hitomi extends ComicSource {
 
     // enable tags suggestions
     enableTagsSuggestions: true,
+    onTagSuggestionSelected: (namespace, tag) => {
+      let fixedNamespace = undefined;
+      switch (namespace) {
+        case "reclass":
+          fixedNamespace = "type";
+          break;
+        case "parody":
+          fixedNamespace = "series";
+          break;
+        case "other":
+          fixedNamespace = "tag";
+          break;
+        case "mixed":
+          fixedNamespace = "tag";
+          break;
+        case "temp":
+          fixedNamespace = "tag";
+          break;
+        case "cosplayer":
+          fixedNamespace = "tag";
+          break;
+        default:
+          fixedNamespace = namespace;
+          break;
+      }
+      // return the text to insert into search box
+      return `${fixedNamespace}:${tag.replaceAll(" ", "_")}`;
+    },
   };
 
   /// single comic related

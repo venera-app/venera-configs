@@ -4,11 +4,11 @@ class CopyManga extends ComicSource {
 
     key = "copy_manga"
 
-    version = "1.3.5"
+    version = "1.3.6"
 
     minAppVersion = "1.2.1"
 
-    url = "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/copy_manga.js"
+    url = "https://git.nyne.dev/nyne/venera-configs/raw/branch/main/copy_manga.js"
 
     get headers() {
         let token = this.loadData("token");
@@ -17,14 +17,25 @@ class CopyManga extends ComicSource {
         } else {
             token = " " + token;
         }
+        let now = new Date(Date.now());
+        let year = now.getFullYear();
+        let month = (now.getMonth() + 1).toString().padStart(2, '0');
+        let day = now.getDate().toString().padStart(2, '0');
+
         return {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/114.0",
-            "Origin": `https://${this.loadSetting('base_url')}`,
+            "User-Agent": "COPY/2.3.2",
+            "source": "copyApp",
+            "deviceinfo": this.deviceinfo,
+            "dt": `${year}.${month}.${day}`,
+            "platform": "3",
+            "referer": `com.copymanga.app-2.3.2`,
+            "version": "2.3.2",
+            "device": this.device,
+            "pseudoid": this.pseudoid,
             "Accept": "application/json",
-            "platform": "1",
-            "version": "2025.05.09",
             "region": this.copyRegion,
             "authorization": `Token${token}`,
+            "umstring": "b4c89ca4104ea9a97750314d791520ac",
         }
     }
 
@@ -36,9 +47,36 @@ class CopyManga extends ComicSource {
 
     static defaultImageQuality = "1500"
 
-    static defaultApiUrl = 'mapi.copy20.com'
+    static defaultApiUrl = 'api.copy2000.online'
 
     static searchApi = "/api/kb/web/searchb/comics"
+
+    get deviceinfo() {
+        let info = this.loadData("_deviceinfo");
+        if (!info) {
+            info = CopyManga.generateDeviceInfo();
+            this.saveData("_deviceinfo", info);
+        }
+        return info;
+    }
+
+    get device() {
+        let dev = this.loadData("_device");
+        if (!dev) {
+            dev = CopyManga.generateDevice();
+            this.saveData("_device", dev);
+        }
+        return dev;
+    }
+
+    get pseudoid() {
+        let pid = this.loadData("_pseudoid");
+        if (!pid) {
+            pid = CopyManga.generatePseudoid();
+            this.saveData("_pseudoid", pid);
+        }
+        return pid;
+    }
 
     // get copyVersion() {
     // return this.loadSetting('version')
@@ -47,6 +85,43 @@ class CopyManga extends ComicSource {
     // get copyPlatform()
     // return this.loadSetting('platform')
     // }
+
+    static generateDeviceInfo() {
+        return `${randomInt(1000000, 9999999)}V-${randomInt(1000, 9999)}`;
+    }
+
+    static generateDevice() {
+        function randCharA() {
+            return String.fromCharCode(65 + randomInt(0, 25));
+        }
+        function randDigit() {
+            return String.fromCharCode(48 + randomInt(0, 9));
+        }
+        return (
+            randCharA() +
+            randCharA() +
+            randDigit() +
+            randCharA() + "." +
+            randDigit() +
+            randDigit() +
+            randDigit() +
+            randDigit() +
+            randDigit() +
+            randDigit() + "." +
+            randDigit() +
+            randDigit() +
+            randDigit()
+        );
+    }
+
+    static generatePseudoid() {
+        const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        let pseudoid = '';
+        for (let i = 0; i < 16; i++) {
+            pseudoid += chars.charAt(randomInt(0, chars.length - 1));
+        }
+        return pseudoid;
+    }
 
     get apiUrl() {
         return `https://${this.loadSetting('base_url')}`
@@ -64,6 +139,7 @@ class CopyManga extends ComicSource {
         // 用于储存 { 作者名 : 英文参数 }
         this.author_path_word_dict = {}
         this.refreshSearchApi()
+        this.refreshAppApi()
     }
 
     /// account
@@ -445,7 +521,7 @@ class CopyManga extends ComicSource {
             let is_collect = isAdding ? 1 : 0
             let token = this.loadData("token");
             let comicData = await Network.get(
-                `${this.apiUrl}/api/v3/comic2/${comicId}`,
+                `${this.apiUrl}/api/v3/comic2/${comicId}?in_mainland=true&request_id=&platform=3`,
                 this.headers
             )
             if (comicData.status !== 200) {
@@ -520,7 +596,7 @@ class CopyManga extends ComicSource {
             let getChapters = async (id, groups) => {
                 let fetchSingle = async (id, path) => {
                     let res = await Network.get(
-                        `${this.apiUrl}/api/v3/comic/${id}/group/${path}/chapters?limit=500&offset=0`,
+                        `${this.apiUrl}/api/v3/comic/${id}/group/${path}/chapters?limit=500&offset=0&in_mainland=true&request_id=`,
                         this.headers
                     );
                     if (res.status !== 200) {
@@ -595,7 +671,7 @@ class CopyManga extends ComicSource {
 
             let results = await Promise.all([
                 Network.get(
-                    `${this.apiUrl}/api/v3/comic2/${id}`,
+                    `${this.apiUrl}/api/v3/comic2/${id}?in_mainland=true&request_id=&platform=3`,
                     this.headers
                 ),
                 getFavoriteStatus.bind(this)(id)
@@ -647,7 +723,7 @@ class CopyManga extends ComicSource {
             while (attempt < maxAttempts) {
                 try {
                     res = await Network.get(
-                        `${this.apiUrl}/api/v3/comic/${comicId}/chapter2/${epId}`,
+                        `${this.apiUrl}/api/v3/comic/${comicId}/chapter2/${epId}?in_mainland=true&request_id=`,
                         {
                             ...this.headers
                         }
@@ -854,6 +930,17 @@ class CopyManga extends ComicSource {
             type: "input",
             validator: '^(?!:\\/\\/)(?=.{1,253})([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\\.)+[a-zA-Z]{2,}$',
             default: CopyManga.defaultApiUrl,
+        },
+        clear_device_info: {
+            title: "清除设备信息",
+            type: "callback",
+            buttonText:  "点击清除设备信息",
+            callback: () => {
+                this.deleteData("_deviceinfo");
+                this.deleteData("_device");
+                this.deleteData("_pseudoid");
+                this.refreshAppApi();
+            }
         }
         // version: {
         //     title: "拷贝版本（重启APP生效）",
@@ -895,6 +982,15 @@ class CopyManga extends ComicSource {
             if (match && match[1]) {
                 CopyManga.searchApi = match[1]
             }
+        }
+    }
+
+    async refreshAppApi() {
+        const url = "https://api.copy-manga.com/api/v3/system/network2?platform=3"
+        const res = await fetch(url, { headers: this.headers });
+        if (res.status === 200) {
+            let data = await res.json();
+            this.settings.base_url= data.results.api[0][0];
         }
     }
 }
