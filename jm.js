@@ -7,25 +7,31 @@ class JM extends ComicSource {
     // unique id of the source
     key = "jm"
 
-    version = "1.1.4"
+    version = "1.2.0"
 
     minAppVersion = "1.2.5"
+
+    static jmVersion = "2.0.1"
+
+    static jmPkgName = "com.example.app"
 
     // update url
     url = "https://git.nyne.dev/nyne/venera-configs/raw/branch/main/jm.js"
 
     static apiDomains = [
-        "www.jmapiproxyxxx.vip",
-        "www.cdnblackmyth.club",
-        "www.cdnmhws.cc",
-        "www.cdnmhwscc.org"
+        "www.cdnaspa.vip",
+        "www.cdnaspa.club",
+        "www.cdnplaystation6.vip",
+        "www.cdnplaystation6.cc"
     ];
 
     static imageUrl = "https://cdn-msp.jmapinodeudzn.net"
 
-    static apiUa = "Mozilla/5.0 (Linux; Android 10; K; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/130.0.0.0 Mobile Safari/537.36"
+    static ua = "Mozilla/5.0 (Linux; Android 10; K; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/130.0.0.0 Mobile Safari/537.36"
 
-    static imgUa = "okhttp/3.12.1"
+    get ua() {
+        return JM.ua;
+    }
 
     get baseUrl() {
         let index = parseInt(this.loadSetting('apiDomain')) - 1
@@ -48,12 +54,49 @@ class JM extends ComicSource {
         return /^\d+$/.test(str)
     }
 
-    get apiUa() {
-        return JM.apiUa;
+    get baseHeaders() {
+        return {
+            "Accept": "*/*",
+            "Accept-Encoding": "gzip, deflate, br, zstd",
+            "Accept-Language": "zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7",
+            "Connection": "keep-alive",
+            "Origin": "https://localhost",
+            "Referer": "https://localhost/",
+            "Sec-Fetch-Dest": "empty",
+            "Sec-Fetch-Mode": "cors",
+            "Sec-Fetch-Site": "cross-site",
+            "X-Requested-With": JM.jmPkgName,
+        }
     }
 
-    get imgUa() {
-        return JM.imgUa;
+    getApiHeaders(time) {
+        const jmAuthKey = "18comicAPPContent"
+        let token = Convert.md5(Convert.encodeUtf8(`${time}${jmAuthKey}`))
+
+        return {
+            ...this.baseHeaders,
+            "Authorization": "Bearer",
+            "Sec-Fetch-Storage-Access": "active",
+            "token": Convert.hexEncode(token),
+            "tokenparam": `${time},${JM.jmVersion}`,
+            "User-Agent": this.ua,
+        }
+    }
+
+    getImgHeaders() {
+        return {
+            "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+            "Accept-Encoding": "gzip, deflate, br, zstd",
+            "Accept-Language": "zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7",
+            "Connection": "keep-alive",
+            "Referer": "https://localhost/",
+            "Sec-Fetch-Dest": "image",
+            "Sec-Fetch-Mode": "no-cors",
+            "Sec-Fetch-Site": "cross-site",
+            "Sec-Fetch-Storage-Access": "active",
+            "User-Agent": this.ua,
+            "X-Requested-With": JM.jmPkgName,
+        }
     }
 
     getCoverUrl(id) {
@@ -78,32 +121,33 @@ class JM extends ComicSource {
      * @param showConfirmDialog {boolean}
      */
     async refreshApiDomains(showConfirmDialog) {
-        let today = new Date();
-        let url = "https://jmappc01-1308024008.cos.ap-guangzhou.myqcloud.com/server-2024.txt"
+        let url = "https://jmapp03-1308024008.cos.ap-jakarta.myqcloud.com/server-2024.txt"
         let domainSecret = "diosfjckwpqpdfjkvnqQjsik"
         let title = ""
         let message = ""
+        let jm3_Server = []
         let domains = []
         let res = await fetch(
-            `${url}?time=${today.getFullYear()}${today.getMonth() + 1}${today.getDate()}`,
-            {headers: {"User-Agent": this.imgUa}}
+            url,
+            {headers: this.baseHeaders}
         )
         if (res.status === 200) {
             let data = this.convertData(await res.text(), domainSecret)
             let json = JSON.parse(data)
-            if (json["Server"]) {
+            if (json["jm3_Server"]) {
                 title = "Update Success"
-                message = "New domains:\n\n"
-                domains = json["Server"]
+                message = "\n"
+                jm3_Server = json["jm3_Server"]
             }
         }
-        if (domains.length === 0) {
+        if (jm3_Server.length === 0) {
             title = "Update Failed"
             message = `Using built-in domains:\n\n`
             domains = JM.apiDomains
         }
-        for (let i = 0; i < domains.length; i++) {
-            message = message + `Stream ${i + 1}: ${domains[i]}\n`
+        for (let [domain, index] of jm3_Server) {
+            message = message + `${index}: ${domain}\n`
+            domains.push(domain)
         }
         if (showConfirmDialog) {
             UI.showDialog(
@@ -135,7 +179,7 @@ class JM extends ComicSource {
     async refreshImgUrl(showMessage) {
         let index = this.loadSetting('imageStream')
         let res = await this.get(
-            `${this.baseUrl}/setting?app_img_shunt=${index}`
+            `${this.baseUrl}/setting?app_img_shunt=${index}?express=`
         )
         let setting = JSON.parse(res)
         if (setting["img_host"]) {
@@ -174,19 +218,6 @@ class JM extends ComicSource {
         })
     }
 
-    getHeaders(time) {
-        const jmVersion = "1.7.6"
-        const jmAuthKey = "18comicAPPContent"
-        let token = Convert.md5(Convert.encodeUtf8(`${time}${jmAuthKey}`))
-
-        return {
-            "token": Convert.hexEncode(token),
-            "tokenparam": `${time},${jmVersion}`,
-            "Accept-Encoding": "gzip",
-            "User-Agent": this.apiUa,
-        }
-    }
-
     /**
      *
      * @param input {string}
@@ -213,7 +244,7 @@ class JM extends ComicSource {
     async get(url) {
         let time = Math.floor(Date.now() / 1000)
         let kJmSecret = "185Hcomic3PAPP7R"
-        let res = await Network.get(url, this.getHeaders(time))
+        let res = await Network.get(url, this.getApiHeaders(time))
         if(res.status !== 200) {
             if(res.status === 401) {
                 let json = JSON.parse(res.body)
@@ -237,7 +268,7 @@ class JM extends ComicSource {
         let time = Math.floor(Date.now() / 1000)
         let kJmSecret = "185Hcomic3PAPP7R"
         let res = await Network.post(url, {
-            ...this.getHeaders(time),
+            ...this.getApiHeaders(time),
             "Content-Type": "application/x-www-form-urlencoded"
         }, body)
         if(res.status !== 200) {
@@ -634,7 +665,7 @@ class JM extends ComicSource {
             if (id.startsWith('jm')) {
                 id = id.substring(2)
             }
-            let res = await this.get(`${this.baseUrl}/album?comicName=&id=${id}`);
+            let res = await this.get(`${this.baseUrl}/album?id=${id}`);
             let data = JSON.parse(res)
             let author = data.author ?? []
             let chapters = new Map()
@@ -735,10 +766,7 @@ class JM extends ComicSource {
                 return {}
             }
             return {
-                headers: {
-                    "Accept-Encoding": "gzip",
-                    "User-Agent": this.imgUa,
-                },
+                headers: this.getImgHeaders(),
                 modifyImage: `
                     let modifyImage = (image) => {
                         const num = ${num}
@@ -773,10 +801,7 @@ class JM extends ComicSource {
          */
         onThumbnailLoad: (url) => {
             return {
-                headers: {
-                    "Accept-Encoding": "gzip",
-                    "User-Agent": this.imgUa,
-                }
+                headers: this.getImgHeaders()
             }
         },
         /**
