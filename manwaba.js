@@ -278,7 +278,7 @@ class ManWaBa extends ComicSource {
       let total = data.total;
       let comics = data.list.map((item) => {
         return new Comic({
-          id: item.id,
+          id: item.id.toString(),
           title: item.title,
           subTitle: item.author,
           cover: item.cover,
