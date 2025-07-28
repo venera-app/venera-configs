@@ -15,23 +15,42 @@ class ManWaBa extends ComicSource {
   // update url
   url = "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/manwaba.js";
 
-  baseUrl = "https://www.manwaba.com/";
+  baseUrl = "https://www.manwaba.com";
 
-  initFunc() {
+  init() {
     /**
      * Sends an HTTP request.
      * @param {string} url - The URL to send the request to.
      * @param {Object} headers - The headers to include in the request.
-     * @param data - The data to send with the request.
      * @returns {Promise<{status: number, headers: {}, body: string}>} The response from the request.
      */
-    this.fetchJson = async (url, headers, data) => {
-      let res = await Network.sendRequest("GET", url, headers, data);
+    this.getJson = async ({ url, headers }) => {
+      let res = await Network.get(url, headers);
       if (res.status !== 200) {
         throw `Invalid status code: ${res.status}, body: ${res.body}`;
       }
       let json = JSON.parse(res.body);
-      if (json.code !== 0) {
+      if (json.code !== 200) {
+        throw `Invalid response code: ${json.code}, msg: ${json.msg}`;
+      }
+      return json.data;
+    };
+
+    /**
+     * Sends a POST request.
+     * @param {string} url - The URL to send the request to.
+     * @param {Record<string, string>} headers - The headers to include in the request.
+     * @param {String} data - The data to send with the request.
+     * @returns {Promise<{status: number, headers: {}, body: string}>} The response from the request.
+     */
+    this.postJson = async ({ url, headers, data }) => {
+      // data 转换为 json 字符串,原生
+      let res = await Network.post(url, headers, data);
+      if (res.status !== 200) {
+        throw `Invalid status code: ${res.status}, body: ${res.body}`;
+      }
+      let json = JSON.parse(res.body);
+      if (json.code !== 200) {
         throw `Invalid response code: ${json.code}, msg: ${json.msg}`;
       }
       return json.data;
@@ -63,10 +82,6 @@ class ManWaBa extends ComicSource {
     };
   }
 
-  init() {
-    this.initFunc();
-  }
-
   // explore page list
   explore = [
     {
@@ -95,7 +110,7 @@ class ManWaBa extends ComicSource {
         const url = `${this.baseUrl}/api/v1/json/home?${this.dictToQueryString(
           params
         )}`;
-        const res = await this.fetchJson(url);
+        const res = await this.getJson({ url });
         let data = {
           热门: res.comicList,
           古风: res.gufengList,
@@ -104,7 +119,7 @@ class ManWaBa extends ComicSource {
         };
         function parseComic(comic) {
           return new Comic({
-            id: comic.id,
+            id: comic.id.toString(),
             title: comic.title,
             subTitle: comic.author,
             cover: comic.pic,
@@ -136,30 +151,59 @@ class ManWaBa extends ComicSource {
 
         // Remove this if type is dynamic
         categories: [
-          {
-            label: "Category1",
-            /**
-             * @type {PageJumpTarget}
-             */
-            target: {
-              page: "category",
-              attributes: {
-                category: "category1",
-                param: null,
-              },
-            },
-          },
+          "全部",
+          "热血",
+          "玄幻",
+          "恋爱",
+          "冒险",
+          "古风",
+          "都市",
+          "穿越",
+          "奇幻",
+          "其他",
+          "搞笑",
+          "少男",
+          "战斗",
+          "重生",
+          "逆袭",
+          "爆笑",
+          "少年",
+          "后宫",
+          "系统",
+          "BL",
+          "韩漫",
+          "完整版",
+          "19r",
+          "台版",
         ],
 
-        // number of comics to display at the same time
-        // randomNumber: 5,
-
-        // load function for dynamic type
-        // loader: async () => {
-        //     return [
-        //          // ...
-        //     ]
-        // }
+        itemType: "category",
+        categoryParams: [
+          "",
+          "热血",
+          "玄幻",
+          "恋爱",
+          "冒险",
+          "古风",
+          "都市",
+          "穿越",
+          "奇幻",
+          "其他",
+          "搞笑",
+          "少男",
+          "战斗",
+          "重生",
+          "逆袭",
+          "爆笑",
+          "少年",
+          "后宫",
+          "系统",
+          "BL",
+          "韩漫",
+          "完整版",
+          "19r",
+          "台版",
+        ],
       },
     ],
     // enable ranking page
@@ -177,78 +221,77 @@ class ManWaBa extends ComicSource {
      * @returns {Promise<{comics: Comic[], maxPage: number}>}
      */
     load: async (category, param, options, page) => {
-      /*
-            ```
-            let data = JSON.parse((await Network.get('...')).body)
-            let maxPage = data.maxPage
+      let url = `https://www.manwaba.com/api/v1/json/cate`;
+      let payload = JSON.stringify({
+        page: {
+          page: page,
+          pageSize: 10,
+        },
+        category: "comic",
+        sort: parseInt(options[2]),
+        comic: {
+          status: parseInt(options[0] == "2" ? -1 : options[0]),
+          day: parseInt(options[1]),
+          tag: param,
+        },
+        video: {
+          year: 0,
+          typeId: 0,
+          typeId1: 0,
+          area: "",
+          lang: "",
+          status: -1,
+          day: 0,
+        },
+        novel: {
+          status: -1,
+          day: 0,
+          sortId: 0,
+        },
+      });
 
-            function parseComic(comic) {
-                // ...
+      let res = await this.postJson({
+        url,
+        data: payload,
+      });
 
-                return new Comic({
-                    id: id,
-                    title: title,
-                    subTitle: author,
-                    cover: cover,
-                    tags: tags,
-                    description: description
-                })
-            }
-
-            return {
-                comics: data.list.map(parseComic),
-                maxPage: maxPage
-            }
-            ```
-            */
+      function parseComic(comic) {
+        return new Comic({
+          id: comic.url.split("/").pop(),
+          title: comic.title,
+          subTitle: comic.author,
+          cover: comic.pic,
+          tags: comic.tags.split(","),
+          description: comic.intro,
+          status: comic.status == 0 ? "连载中" : "已完结",
+        });
+      }
+      return {
+        comics: res.map(parseComic),
+        maxPage: 100,
+      };
     },
     // provide options for category comic loading
     optionList: [
       {
-        // For a single option, use `-` to separate the value and text, left for value, right for text
-        options: ["newToOld-New to Old", "oldToNew-Old to New"],
-        // [Optional] {string[]} - show this option only when the value not in the list
-        notShowWhen: null,
-        // [Optional] {string[]} - show this option only when the value in the list
-        showWhen: null,
+        options: ["2-全部", "0-连载中", "1-已完结"],
+      },
+      {
+        options: [
+          "0-全部",
+          "1-周一",
+          "2-周二",
+          "3-周三",
+          "4-周四",
+          "5-周五",
+          "6-周六",
+          "7-周日",
+        ],
+      },
+      {
+        options: ["0-更新", "1-新作", "2-畅销", "3-热门", "4-收藏"],
       },
     ],
-    ranking: {
-      // For a single option, use `-` to separate the value and text, left for value, right for text
-      options: ["day-Day", "week-Week"],
-      /**
-       * load ranking comics
-       * @param option {string} - option from optionList
-       * @param page {number} - page number
-       * @returns {Promise<{comics: Comic[], maxPage: number}>}
-       */
-      load: async (option, page) => {
-        /*
-                ```
-                let data = JSON.parse((await Network.get('...')).body)
-                let maxPage = data.maxPage
-
-                function parseComic(comic) {
-                    // ...
-
-                    return new Comic({
-                        id: id,
-                        title: title,
-                        subTitle: author,
-                        cover: cover,
-                        tags: tags,
-                        description: description
-                    })
-                }
-
-                return {
-                    comics: data.list.map(parseComic),
-                    maxPage: maxPage
-                }
-                ```
-                */
-      },
-    },
   };
 
   /// search related
@@ -261,62 +304,29 @@ class ManWaBa extends ComicSource {
      * @returns {Promise<{comics: Comic[], maxPage: number}>}
      */
     load: async (keyword, options, page) => {
-      /*
-            ```
-            let data = JSON.parse((await Network.get('...')).body)
-            let maxPage = data.maxPage
-
-            function parseComic(comic) {
-                // ...
-
-                return new Comic({
-                    id: id,
-                    title: title,
-                    subTitle: author,
-                    cover: cover,
-                    tags: tags,
-                    description: description
-                })
-            }
-
-            return {
-                comics: data.list.map(parseComic),
-                maxPage: maxPage
-            }
-            ```
-            */
+      const pageSize = 20;
+      let url = `${this.baseUrl}api/v1/json/search?keyword=${keyword}&type=mh&page=${page}&pageSize=${pageSize}`;
+      let res = await this.getJson({
+        url,
+      });
+      let total = res.total;
+      let comics = res.list.map((item) => {
+        return new Comic({
+          id: item.id,
+          title: item.title,
+          subTitle: item.author,
+          cover: item.cover,
+          tags: item.tags.split(","),
+          description: item.description,
+          status: item.status == 0 ? "连载中" : "已完结",
+        });
+      });
+      let maxPage = Math.ceil(total / pageSize);
+      return {
+        comics,
+        maxPage,
+      };
     },
-
-    /**
-     * load search result with next page token.
-     * The field will be ignored if `load` function is implemented.
-     * @param keyword {string}
-     * @param options {(string)[]} - options from optionList
-     * @param next {string | null}
-     * @returns {Promise<{comics: Comic[], maxPage: number}>}
-     */
-    loadNext: async (keyword, options, next) => {},
-
-    // provide options for search
-    optionList: [
-      {
-        // [Optional] default is `select`
-        // type: select, multi-select, dropdown
-        // For select, there is only one selected value
-        // For multi-select, there are multiple selected values or none. The `load` function will receive a json string which is an array of selected values
-        // For dropdown, there is one selected value at most. If no selected value, the `load` function will receive a null
-        type: "select",
-        // For a single option, use `-` to separate the value and text, left for value, right for text
-        options: ["0-time", "1-popular"],
-        // option label
-        label: "sort",
-        // default selected options. If not set, use the first option as default
-        default: null,
-      },
-    ],
-
-    // enable tags suggestions
-    enableTagsSuggestions: false,
   };
 
   // favorite related
