@@ -103,5 +103,10 @@
       "fileName": "ykmh.js",
       "key": "ykmh",
       "version": "1.0.0"
+    },{
+        "name": "漫蛙吧",
+        "fileName": "manwaba.js",
+        "key": "manwaba",
+        "version": "1.0.0"
     }
 ]
