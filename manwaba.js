@@ -317,29 +317,23 @@ class ManWaBa extends ComicSource {
      */
     loadInfo: async (id) => {
       let url = `${this.api}/json/comic/${id}`;
-      // https://www.manwaba.com/api/v1/json/comic/3079
-      // https://www.manwaba.com/api/v1/json/comic/3627
-      // this.logger.warn(`loadInfo: ${url}`);
       let data = await this.fetchJson(url, { payload: undefined }).then(
         (res) => res.data
       );
       this.logger.warn(`loadInfo: ${data}`);
       let chapterId = data.id;
       let chapterApi = `${this.api}/json/comic/chapter`;
-
-      let pageRes = await this.fetchJson(chapterApi, {
-        params: {
-          comicId: chapterId,
-          page: 1,
-          pageSize: 1,
-        },
-      });
+      let params = {
+        comicId: chapterId,
+        page: 1,
+        pageSize: 1,
+      };
+      let pageRes = await this.fetchJson(chapterApi, { params });
       let total = pageRes.pagination.total;
 
       let chapterRes = await this.fetchJson(chapterApi, {
         params: {
-          comicId: chapterId,
-          page: 1,
+          ...params,
           pageSize: total,
         },
       });
@@ -370,37 +364,24 @@ class ManWaBa extends ComicSource {
      */
     loadEp: async (comicId, epId) => {
       let imgApi = `${this.api}/comic/image/${epId}`;
-      let testParam = {
+      let params = {
         page: 1,
         pageSize: 1,
         imageSource: "https://tu.mhttu.cc",
       };
-      let pageRes = await this.getJson({
-        url: imgApi,
-        params: testParam,
-      });
-      // let pageNum=
-    },
-    /**
-     * [Optional] provide configs for an image loading
-     * @param url
-     * @param comicId
-     * @param epId
-     * @returns {ImageLoadingConfig | Promise<ImageLoadingConfig>}
-     */
-    onImageLoad: (url, comicId, epId) => {
-      return {};
-    },
-    /**
-     * [Optional] provide configs for a thumbnail loading
-     * @param url {string}
-     * @returns {ImageLoadingConfig | Promise<ImageLoadingConfig>}
-     *
-     * `ImageLoadingConfig.modifyImage` and `ImageLoadingConfig.onLoadFailed` will be ignored.
-     * They are not supported for thumbnails.
-     */
-    onThumbnailLoad: (url) => {
-      return {};
+      let pageNum = await this.fetchJson(imgApi, {
+        params,
+      }).then((res) => res.data.pagination.total);
+      let imageRes = await this.fetchJson(imgApi, {
+        params: {
+          ...params,
+          pageSize: pageNum,
+        },
+      }).then((res) => res.data.images);
+      let images = imageRes.map((item) => item.url);
+      return {
+        images,
+      };
     },
   };
 }
