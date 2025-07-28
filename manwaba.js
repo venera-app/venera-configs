@@ -3,7 +3,7 @@ class ManWaBa extends ComicSource {
   // Note: The fields which are marked as [Optional] should be removed if not used
 
   // name of the source
-  name = "漫蛙";
+  name = "漫蛙吧";
 
   // unique id of the source
   key = "manwaba";
@@ -15,67 +15,34 @@ class ManWaBa extends ComicSource {
   // update url
   url = "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/manwaba.js";
 
-  baseUrl = "https://www.manwaba.com";
+  baseUrl = "https://www.manwaba.com/api/v1";
 
   init() {
     /**
      * Sends an HTTP request.
      * @param {string} url - The URL to send the request to.
+     * @param {string} method - The HTTP method (e.g., GET, POST, PUT, PATCH, DELETE).
+     * @param {Object} params - The query parameters to include in the request.
      * @param {Object} headers - The headers to include in the request.
+     * @param {string} payload - The payload to include in the request.
      * @returns {Promise<Object>} The response from the request.
      */
-    this.getJson = async ({ url, headers }) => {
-      let res = await Network.get(url, headers);
+    this.fetchJson = async (
+      url,
+      { method = "GET", params, headers, payload }
+    ) => {
+      if (params) {
+        let params_str = Object.keys(params)
+          .map((key) => `${key}=${params[key]}`)
+          .join("&");
+        url += `?${params_str}`;
+      }
+      let res = await Network.sendRequest(method, url, headers, payload);
       if (res.status !== 200) {
         throw `Invalid status code: ${res.status}, body: ${res.body}`;
       }
       let json = JSON.parse(res.body);
       return json;
-    };
-
-    /**
-     * Sends a POST request.
-     * @param {string} url - The URL to send the request to.
-     * @param {Record<string, string>} headers - The headers to include in the request.
-     * @param {String} data - The data to send with the request.
-     * @returns {Promise<{status: number, headers: {}, body: string}>} The response from the request.
-     */
-    this.postJson = async ({ url, headers, data }) => {
-      // data 转换为 json 字符串,原生
-      let res = await Network.post(url, headers, data);
-      if (res.status !== 200) {
-        throw `Invalid status code: ${res.status}, body: ${res.body}`;
-      }
-      let json = JSON.parse(res.body);
-      if (json.code !== 200) {
-        throw `Invalid response code: ${json.code}, msg: ${json.msg}`;
-      }
-      return json.data;
-    };
-
-    /**
-     * fetch html from url
-     * @param url {string}
-     * @param headers {Record<string, string>}
-     * @returns {Promise<HtmlDocument>}
-     */
-    this.fetchHtml = async (url, headers = {}) => {
-      let res = await Network.get(url, headers);
-      if (res.status !== 200) {
-        throw `Invalid status code: ${res.status}, body: ${res.body}`;
-      }
-      let document = new HtmlDocument(res.body);
-      return document;
-    };
-    /**
-     * 参数字典转换为字符串
-     * @param dict {Record<string, string>}
-     * @returns {string}
-     */
-    this.dictToQueryString = (dict) => {
-      return Object.keys(dict)
-        .map((key) => `${key}=${dict[key]}`)
-        .join("&");
     };
   }
 
@@ -104,11 +71,8 @@ class ManWaBa extends ComicSource {
           type: "",
           flag: false,
         };
-        const url = `${this.baseUrl}/api/v1/json/home?${this.dictToQueryString(
-          params
-        )}`;
-        const res = await this.getJson({ url });
-        const data = res.data;
+        const url = `${this.baseUrl}/json/home`;
+        const data = await this.fetchJson(url, { params }).then((res) => res.data);
         let magnaList = {
           热门: data.comicList,
           古风: data.gufengList,
@@ -248,10 +212,10 @@ class ManWaBa extends ComicSource {
         },
       });
 
-      let res = await this.postJson({
-        url,
-        data: payload,
-      });
+      let data = await this.fetchJson(url, {
+        method: "POST",
+        payload,
+      }).then((res) => res.data);
 
       function parseComic(comic) {
         return new Comic({
@@ -265,7 +229,7 @@ class ManWaBa extends ComicSource {
         });
       }
       return {
-        comics: res.map(parseComic),
+        comics: data.map(parseComic),
         maxPage: 100,
       };
     },
@@ -303,11 +267,14 @@ class ManWaBa extends ComicSource {
      */
     load: async (keyword, options, page) => {
       const pageSize = 20;
-      let url = `${this.baseUrl}api/v1/json/search?keyword=${keyword}&type=mh&page=${page}&pageSize=${pageSize}`;
-      let res = await this.getJson({
-        url,
-      });
-      let data = res.data;
+      let url = `${this.baseUrl}/json/search`;
+      let params = {
+        keyword,
+        type: "mh",
+        page,
+        pageSize,
+      };
+      let data = await this.fetchJson(url, { params }).then((res) => res.data);
       let total = data.total;
       let comics = data.list.map((item) => {
         return new Comic({
@@ -336,48 +303,26 @@ class ManWaBa extends ComicSource {
      * @returns {Promise<ComicDetails>}
      */
     loadInfo: async (id) => {
-      let url = `${this.baseUrl}/api/v1/json/comic/${id}`;
-      let res = await this.getJson({
-        url,
-      });
-      let data = res.data;
-      //  {
-      //     "id": 4116,
-      //     "title": "掌门低调点",
-      //     "alias": "",
-      //     "cover": "https://tu.mhttu.cc/20254/cover/4116.jpg",
-      //     "banner": "",
-      //     "status": 0,
-      //     "author": "阅文漫画",
-      //     "tags": "热血,玄幻,滑稽搞笑",
-      //     "authority": 0,
-      //     "Collection": 0,
-      //     "SHits": 0,
-      //     "WHits": 0,
-      //     "MHits": 0,
-      //     "THits": 0,
-      //     "freeWeek": 0,
-      //     "intro": "【每周一、六更新】穿越天玄界，开局竟是辣鸡门派掌门人！都市氪金人重生游戏异界，拿玩家当走狗，收世界主角做小弟，论装逼我只认天下第一！",
-      //     "source": 0,
-      //     "areaId": 0,
-      //     "locks": 0,
-      //     "isCopyright": 0,
-      //     "copyrightUrl": "",
-      //     "editTime": 1753658100,
-      //     "createTime": 0
-      // }
-      // https://www.manwaba.com/api/v1/json/comic/chapter?comicId=4116&page=1&pageSize=20
+      let url = `${this.baseUrl}/json/comic/${id}`;
+      let data = await this.fetchJson(url).then((res) => res.data);
       let chapterId = data.id;
-      let chapterApi = `${this.baseUrl}/api/v1/json/comic/chapter`;
+      let chapterApi = `${this.baseUrl}/json/comic/chapter`;
 
-      let pageRes = await this.getJson({
-        url: `${chapterApi}?comicId=${chapterId}&page=1&pageSize=1`,
+      let pageRes = await this.fetchJson(chapterApi, {
+        params: {
+          comicId: chapterId,
+          page: 1,
+          pageSize: 1,
+        },
       });
       let total = pageRes.pagination.total;
 
-      let chapterUrl = `${chapterApi}?comicId=${chapterId}&page=1&pageSize=${total}`;
-      let chapterRes = await this.getJson({
-        url: chapterUrl,
+      let chapterRes = await this.fetchJson(chapterApi, {
+        params: {
+          comicId: chapterId,
+          page: 1,
+          pageSize: total,
+        },
       });
       let chapterList = chapterRes.data;
       let chapters = new Map();
@@ -405,14 +350,17 @@ class ManWaBa extends ComicSource {
      * @returns {Promise<{images: string[]}>}
      */
     loadEp: async (comicId, epId) => {
-      /*
-            ```
-            return {
-                // string[]
-                images: images
-            }
-            ```
-            */
+      let imgApi = `${this.baseUrl}/comic/image/${epId}`;
+      let testParam = {
+        page: 1,
+        pageSize: 1,
+        imageSource: "https://tu.mhttu.cc",
+      };
+      let pageRes = await this.getJson({
+        url: imgApi,
+        params: testParam,
+      });
+      // let pageNum=
     },
     /**
      * [Optional] provide configs for an image loading
