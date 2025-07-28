@@ -15,7 +15,7 @@ class ManWaBa extends ComicSource {
   // update url
   url = "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/manwaba.js";
 
-  baseUrl = "https://www.manwaba.com/api/v1";
+  api = "https://www.manwaba.com/api/v1";
 
   init() {
     /**
@@ -71,7 +71,7 @@ class ManWaBa extends ComicSource {
           type: "",
           flag: false,
         };
-        const url = `${this.baseUrl}/json/home`;
+        const url = `${this.api}/json/home`;
         const data = await this.fetchJson(url, { params }).then((res) => res.data);
         let magnaList = {
           热门: data.comicList,
@@ -183,7 +183,7 @@ class ManWaBa extends ComicSource {
      * @returns {Promise<{comics: Comic[], maxPage: number}>}
      */
     load: async (category, param, options, page) => {
-      let url = `https://www.manwaba.com/api/v1/json/cate`;
+      let url = `${this.api}/json/cate`;
       let payload = JSON.stringify({
         page: {
           page: page,
@@ -267,7 +267,7 @@ class ManWaBa extends ComicSource {
      */
     load: async (keyword, options, page) => {
       const pageSize = 20;
-      let url = `${this.baseUrl}/json/search`;
+      let url = `${this.api}/json/search`;
       let params = {
         keyword,
         type: "mh",
@@ -303,10 +303,10 @@ class ManWaBa extends ComicSource {
      * @returns {Promise<ComicDetails>}
      */
     loadInfo: async (id) => {
-      let url = `${this.baseUrl}/json/comic/${id}`;
+      let url = `${this.api}/json/comic/${id}`;
       let data = await this.fetchJson(url).then((res) => res.data);
       let chapterId = data.id;
-      let chapterApi = `${this.baseUrl}/json/comic/chapter`;
+      let chapterApi = `${this.api}/json/comic/chapter`;
 
       let pageRes = await this.fetchJson(chapterApi, {
         params: {
@@ -350,7 +350,7 @@ class ManWaBa extends ComicSource {
      * @returns {Promise<{images: string[]}>}
      */
     loadEp: async (comicId, epId) => {
-      let imgApi = `${this.baseUrl}/comic/image/${epId}`;
+      let imgApi = `${this.api}/comic/image/${epId}`;
       let testParam = {
         page: 1,
         pageSize: 1,
