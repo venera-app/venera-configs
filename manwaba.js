@@ -22,7 +22,7 @@ class ManWaBa extends ComicSource {
      * Sends an HTTP request.
      * @param {string} url - The URL to send the request to.
      * @param {Object} headers - The headers to include in the request.
-     * @returns {Promise<{status: number, headers: {}, body: string}>} The response from the request.
+     * @returns {Promise<Object>} The response from the request.
      */
     this.getJson = async ({ url, headers }) => {
       let res = await Network.get(url, headers);
@@ -30,10 +30,7 @@ class ManWaBa extends ComicSource {
         throw `Invalid status code: ${res.status}, body: ${res.body}`;
       }
       let json = JSON.parse(res.body);
-      if (json.code !== 200) {
-        throw `Invalid response code: ${json.code}, msg: ${json.msg}`;
-      }
-      return json.data;
+      return json;
     };
 
     /**
@@ -111,11 +108,12 @@ class ManWaBa extends ComicSource {
           params
         )}`;
         const res = await this.getJson({ url });
-        let data = {
-          热门: res.comicList,
-          古风: res.gufengList,
-          玄幻: res.xuanhuanList,
-          校园: res.xiaoyuanList,
+        const data = res.data;
+        let magnaList = {
+          热门: data.comicList,
+          古风: data.gufengList,
+          玄幻: data.xuanhuanList,
+          校园: data.xiaoyuanList,
         };
         function parseComic(comic) {
           return new Comic({
@@ -127,8 +125,8 @@ class ManWaBa extends ComicSource {
           });
         }
         let result = {};
-        for (let key in data) {
-          result[key] = data[key].map(parseComic);
+        for (let key in magnaList) {
+          result[key] = magnaList[key].map(parseComic);
         }
         return result;
       },
@@ -309,8 +307,9 @@ class ManWaBa extends ComicSource {
       let res = await this.getJson({
         url,
       });
-      let total = res.total;
-      let comics = res.list.map((item) => {
+      let data = res.data;
+      let total = data.total;
+      let comics = data.list.map((item) => {
         return new Comic({
           id: item.id,
           title: item.title,
@@ -336,38 +335,69 @@ class ManWaBa extends ComicSource {
      * @param id {string}
      * @returns {Promise<ComicDetails>}
      */
-    loadInfo: async (id) => {},
-    /**
-     * [Optional] load thumbnails of a comic
-     *
-     * To render a part of an image as thumbnail, return `${url}@x=${start}-${end}&y=${start}-${end}`
-     * - If width is not provided, use full width
-     * - If height is not provided, use full height
-     * @param id {string}
-     * @param next {string?} - next page token, null for first page
-     * @returns {Promise<{thumbnails: string[], next: string?}>} - `next` is next page token, null for no more
-     */
-    loadThumbnails: async (id, next) => {
-      /*
-            ```
-            let data = JSON.parse((await Network.get('...')).body)
+    loadInfo: async (id) => {
+      let url = `${this.baseUrl}/api/v1/json/comic/${id}`;
+      let res = await this.getJson({
+        url,
+      });
+      let data = res.data;
+      //  {
+      //     "id": 4116,
+      //     "title": "掌门低调点",
+      //     "alias": "",
+      //     "cover": "https://tu.mhttu.cc/20254/cover/4116.jpg",
+      //     "banner": "",
+      //     "status": 0,
+      //     "author": "阅文漫画",
+      //     "tags": "热血,玄幻,滑稽搞笑",
+      //     "authority": 0,
+      //     "Collection": 0,
+      //     "SHits": 0,
+      //     "WHits": 0,
+      //     "MHits": 0,
+      //     "THits": 0,
+      //     "freeWeek": 0,
+      //     "intro": "【每周一、六更新】穿越天玄界，开局竟是辣鸡门派掌门人！都市氪金人重生游戏异界，拿玩家当走狗，收世界主角做小弟，论装逼我只认天下第一！",
+      //     "source": 0,
+      //     "areaId": 0,
+      //     "locks": 0,
+      //     "isCopyright": 0,
+      //     "copyrightUrl": "",
+      //     "editTime": 1753658100,
+      //     "createTime": 0
+      // }
+      // https://www.manwaba.com/api/v1/json/comic/chapter?comicId=4116&page=1&pageSize=20
+      let chapterId = data.id;
+      let chapterApi = `${this.baseUrl}/api/v1/json/comic/chapter`;
 
-            return {
-                thumbnails: data.list,
-                next: next,
-            }
-            ```
-            */
+      let pageRes = await this.getJson({
+        url: `${chapterApi}?comicId=${chapterId}&page=1&pageSize=1`,
+      });
+      let total = pageRes.pagination.total;
+
+      let chapterUrl = `${chapterApi}?comicId=${chapterId}&page=1&pageSize=${total}`;
+      let chapterRes = await this.getJson({
+        url: chapterUrl,
+      });
+      let chapterList = chapterRes.data;
+      let chapters = new Map();
+      chapterList.forEach((item) => {
+        chapters.set(item.id.toString(), item.title.toString());
+      });
+
+      return new ComicDetails({
+        title: data.title.toString(),
+        subTitle: data.author.toString(),
+        cover: data.cover,
+        tags: {
+          类型: data.tags.split(","),
+          状态: data.status == 0 ? "连载中" : "已完结",
+        },
+        chapters,
+        description: data.intro,
+        updateTime: new Date(data.editTime * 1000).toLocaleDateString(),
+      });
     },
-
-    /**
-     * rate a comic
-     * @param id
-     * @param rating {number} - [0-10] app use 5 stars, 1 rating = 0.5 stars,
-     * @returns {Promise<any>} - return any value to indicate success
-     */
-    starRating: async (id, rating) => {},
-
     /**
      * load images of a chapter
      * @param comicId {string}
