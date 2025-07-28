@@ -29,7 +29,7 @@ class ManWaBa extends ComicSource {
      */
     this.fetchJson = async (
       url,
-      { method = "GET", params, headers, payload = undefined }
+      { method = "GET", params, headers, payload }
     ) => {
       if (params) {
         let params_str = Object.keys(params)
@@ -320,7 +320,9 @@ class ManWaBa extends ComicSource {
       // https://www.manwaba.com/api/v1/json/comic/3079
       // https://www.manwaba.com/api/v1/json/comic/3627
       // this.logger.warn(`loadInfo: ${url}`);
-      let data = await this.fetchJson(url).then((res) => res.data);
+      let data = await this.fetchJson(url, { payload: undefined }).then(
+        (res) => res.data
+      );
       this.logger.warn(`loadInfo: ${data}`);
       let chapterId = data.id;
       let chapterApi = `${this.api}/json/comic/chapter`;
