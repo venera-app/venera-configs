@@ -29,7 +29,7 @@ class ManWaBa extends ComicSource {
      */
     this.fetchJson = async (
       url,
-      { method = "GET", params, headers, payload }
+      { method = "GET", params, headers, payload = undefined }
     ) => {
       if (params) {
         let params_str = Object.keys(params)
@@ -43,6 +43,17 @@ class ManWaBa extends ComicSource {
       }
       let json = JSON.parse(res.body);
       return json;
+    };
+    this.logger = {
+      error: (msg) => {
+        log("error", this.name, msg);
+      },
+      info: (msg) => {
+        log("info", this.name, msg);
+      },
+      warn: (msg) => {
+        log("warning", this.name, msg);
+      },
     };
   }
 
@@ -72,7 +83,9 @@ class ManWaBa extends ComicSource {
           flag: false,
         };
         const url = `${this.api}/json/home`;
-        const data = await this.fetchJson(url, { params }).then((res) => res.data);
+        const data = await this.fetchJson(url, { params }).then(
+          (res) => res.data
+        );
         let magnaList = {
           热门: data.comicList,
           古风: data.gufengList,
@@ -300,11 +313,15 @@ class ManWaBa extends ComicSource {
     /**
      * load comic info
      * @param id {string}
-     * @returns {Promise<ComicDetails>}
+     * @returns {Promise<ComicDetails>}s
      */
     loadInfo: async (id) => {
       let url = `${this.api}/json/comic/${id}`;
+      // https://www.manwaba.com/api/v1/json/comic/3079
+      // https://www.manwaba.com/api/v1/json/comic/3627
+      // this.logger.warn(`loadInfo: ${url}`);
       let data = await this.fetchJson(url).then((res) => res.data);
+      this.logger.warn(`loadInfo: ${data}`);
       let chapterId = data.id;
       let chapterApi = `${this.api}/json/comic/chapter`;
 
@@ -383,117 +400,5 @@ class ManWaBa extends ComicSource {
     onThumbnailLoad: (url) => {
       return {};
     },
-    /**
-     * [Optional] like or unlike a comic
-     * @param id {string}
-     * @param isLike {boolean} - true for like, false for unlike
-     * @returns {Promise<void>}
-     */
-    likeComic: async (id, isLike) => {},
-    /**
-     * [Optional] load comments
-     *
-     * Since app version 1.0.6, rich text is supported in comments.
-     * Following html tags are supported: ['a', 'b', 'i', 'u', 's', 'br', 'span', 'img'].
-     * span tag supports style attribute, but only support font-weight, font-style, text-decoration.
-     * All images will be placed at the end of the comment.
-     * Auto link detection is enabled, but only http/https links are supported.
-     * @param comicId {string}
-     * @param subId {string?} - ComicDetails.subId
-     * @param page {number}
-     * @param replyTo {string?} - commentId to reply, not null when reply to a comment
-     * @returns {Promise<{comments: Comment[], maxPage: number?}>}
-     */
-    loadComments: async (comicId, subId, page, replyTo) => {
-      /*
-            ```
-            // ...
-
-            return {
-                comments: data.results.list.map(e => {
-                    return new Comment({
-                        // string
-                        userName: e.user_name,
-                        // string
-                        avatar: e.user_avatar,
-                        // string
-                        content: e.comment,
-                        // string?
-                        time: e.create_at,
-                        // number?
-                        replyCount: e.count,
-                        // string
-                        id: e.id,
-                    })
-                }),
-                // number
-                maxPage: data.results.maxPage,
-            }
-            ```
-            */
-    },
-    /**
-     * [Optional] send a comment, return any value to indicate success
-     * @param comicId {string}
-     * @param subId {string?} - ComicDetails.subId
-     * @param content {string}
-     * @param replyTo {string?} - commentId to reply, not null when reply to a comment
-     * @returns {Promise<any>}
-     */
-    sendComment: async (comicId, subId, content, replyTo) => {},
-    /**
-     * [Optional] like or unlike a comment
-     * @param comicId {string}
-     * @param subId {string?} - ComicDetails.subId
-     * @param commentId {string}
-     * @param isLike {boolean} - true for like, false for unlike
-     * @returns {Promise<void>}
-     */
-    likeComment: async (comicId, subId, commentId, isLike) => {},
-    /**
-     * [Optional] vote a comment
-     * @param id {string} - comicId
-     * @param subId {string?} - ComicDetails.subId
-     * @param commentId {string} - commentId
-     * @param isUp {boolean} - true for up, false for down
-     * @param isCancel {boolean} - true for cancel, false for vote
-     * @returns {Promise<number>} - new score
-     */
-    voteComment: async (id, subId, commentId, isUp, isCancel) => {},
-    // {string?} - regex string, used to identify comic id from user input
-    idMatch: null,
-    /**
-     * [Optional] Handle tag click event
-     * @param namespace {string}
-     * @param tag {string}
-     * @returns {PageJumpTarget}
-     */
-    onClickTag: (namespace, tag) => {
-      /*
-            ```
-            return new PageJumpTarget({
-                page: 'search',
-                keyword: tag,
-            })
-            ```
-             */
-    },
-    /**
-     * [Optional] Handle links
-     */
-    link: {
-      /**
-       * set accepted domains
-       */
-      domains: ["example.com"],
-      /**
-       * parse url to comic id
-       * @param url {string}
-       * @returns {string | null}
-       */
-      linkToId: (url) => {},
-    },
-    // enable tags translate
-    enableTagsTranslate: false,
   };
 }
