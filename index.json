@@ -15,7 +15,7 @@
         "name": "包子漫画",
         "fileName": "baozi.js",
         "key": "baozi",
-        "version": "1.0.5"
+        "version": "1.1.0"
     },
     {
         "name": "Picacg",
@@ -46,7 +46,7 @@
         "name": "禁漫天堂",
         "fileName": "jm.js",
         "key": "jm",
-        "version": "1.1.4",
+        "version": "1.2.0",
         "description": "禁漫天堂漫畫源, 不能使用時請嘗試切換分流"
     },
     {
@@ -64,15 +64,15 @@
     },
     {
         "name": "少年ジャンプ＋",
-        "fileName": "shonenjumpplus.js",
+        "fileName": "shonen_jump_plus.js",
         "key": "shonen_jump_plus",
-        "version": "1.0.1"
+        "version": "1.0.2"
     },
     {
         "name": "hitomi.la",
         "fileName": "hitomi.js",
         "key": "hitomi",
-        "version": "1.0.0"
+        "version": "1.1.0"
     },
     {
         "name": "comick",
@@ -84,6 +84,29 @@
         "name": "优酷漫画",
         "fileName": "ykmh.js",
         "key": "ykmh",
+        "version": "1.0.0"
+    },
+    {
+        "name": "再漫画",
+        "fileName": "zaimanhua.js",
+        "key": "zaimanhua",
+        "version": "1.0.0"
+    },
+    {
+      "name": "漫画柜",
+      "fileName": "manhuagui.js",
+      "key": "manhuagui",
+      "version": "1.0.0"
+    },
+    {
+      "name": "优酷漫画",
+      "fileName": "ykmh.js",
+      "key": "ykmh",
+      "version": "1.0.0"
+    },{
+        "name": "漫蛙吧",
+        "fileName": "manwaba.js",
+        "key": "manwaba",
         "version": "1.0.0"
     }
 ]

@@ -3,13 +3,13 @@ class Picacg extends ComicSource {
 
     key = "picacg"
 
-    version = "1.0.3"
+    version = "1.0.4"
 
     minAppVersion = "1.0.0"
 
     url = "https://git.nyne.dev/nyne/venera-configs/raw/branch/main/picacg.js"
 
-    api = "https://picaapi.picacomic.com"
+    static defaultApiUrl = "https://picaapi.picacomic.com"
 
     apiKey = "C69BAF41DA5ABD1FFEDC6D2FEA56B";
 
@@ -61,7 +61,7 @@ class Picacg extends ComicSource {
         },
         login: async (account, pwd) => {
             let res = await Network.post(
-                `${this.api}/auth/sign-in`,
+                `${this.loadSetting('base_url')}/auth/sign-in`,
                 this.buildHeaders('POST', 'auth/sign-in'),
                 {
                     email: account,
@@ -111,13 +111,13 @@ class Picacg extends ComicSource {
                     throw 'Not logged in'
                 }
                 let res = await Network.get(
-                    `${this.api}/comics/random`,
+                    `${this.loadSetting('base_url')}/comics/random`,
                     this.buildHeaders('GET', 'comics/random', this.loadData('token'))
                 )
                 if(res.status === 401) {
                     await this.account.reLogin()
                     res = await Network.get(
-                        `${this.api}/comics/random`,
+                        `${this.loadSetting('base_url')}/comics/random`,
                         this.buildHeaders('GET', 'comics/random', this.loadData('token'))
                     )
                 }
@@ -142,13 +142,13 @@ class Picacg extends ComicSource {
                     throw 'Not logged in'
                 }
                 let res = await Network.get(
-                    `${this.api}/comics?page=${page}&s=dd`,
+                    `${this.loadSetting('base_url')}/comics?page=${page}&s=dd`,
                     this.buildHeaders('GET', `comics?page=${page}&s=dd`, this.loadData('token'))
                 )
                 if(res.status === 401) {
                     await this.account.reLogin()
                     res = await Network.get(
-                        `${this.api}/comics?page=${page}&s=dd`,
+                        `${this.loadSetting('base_url')}/comics?page=${page}&s=dd`,
                         this.buildHeaders('GET', `comics?page=${page}&s=dd`, this.loadData('token'))
                     )
                 }
@@ -229,13 +229,13 @@ class Picacg extends ComicSource {
         load: async (category, param, options, page) => {
             let type = param ?? 'c'
             let res = await Network.get(
-                `${this.api}/comics?page=${page}&${type}=${encodeURIComponent(category)}&s=${options[0]}`,
+                `${this.loadSetting('base_url')}/comics?page=${page}&${type}=${encodeURIComponent(category)}&s=${options[0]}`,
                 this.buildHeaders('GET', `comics?page=${page}&${type}=${encodeURIComponent(category)}&s=${options[0]}`, this.loadData('token'))
             )
             if(res.status === 401) {
                 await this.account.reLogin()
                 res = await Network.get(
-                    `${this.api}/comics?page=${page}&${type}=${encodeURIComponent(category)}&s=${options[0]}`,
+                    `${this.loadSetting('base_url')}/comics?page=${page}&${type}=${encodeURIComponent(category)}&s=${options[0]}`,
                     this.buildHeaders('GET', `comics?page=${page}&${type}=${encodeURIComponent(category)}&s=${options[0]}`, this.loadData('token'))
                 )
             }
@@ -271,13 +271,13 @@ class Picacg extends ComicSource {
             ],
             load: async (option, page) => {
                 let res = await Network.get(
-                    `${this.api}/comics/leaderboard?tt=${option}&ct=VC`,
+                    `${this.loadSetting('base_url')}/comics/leaderboard?tt=${option}&ct=VC`,
                     this.buildHeaders('GET', `comics/leaderboard?tt=${option}&ct=VC`, this.loadData('token'))
                 )
                 if(res.status === 401) {
                     await this.account.reLogin()
                     res = await Network.get(
-                        `${this.api}/comics/leaderboard?tt=${option}&ct=VC`,
+                        `${this.loadSetting('base_url')}/comics/leaderboard?tt=${option}&ct=VC`,
                         this.buildHeaders('GET', `comics/leaderboard?tt=${option}&ct=VC`, this.loadData('token'))
                     )
                 }
@@ -301,7 +301,7 @@ class Picacg extends ComicSource {
     search = {
         load: async (keyword, options, page) => {
             let res = await Network.post(
-                `${this.api}/comics/advanced-search?page=${page}`,
+                `${this.loadSetting('base_url')}/comics/advanced-search?page=${page}`,
                 this.buildHeaders('POST', `comics/advanced-search?page=${page}`, this.loadData('token')),
                 JSON.stringify({
                     keyword: keyword,
@@ -311,7 +311,7 @@ class Picacg extends ComicSource {
             if(res.status === 401) {
                 await this.account.reLogin()
                 res = await Network.post(
-                    `${this.api}/comics/advanced-search?page=${page}`,
+                    `${this.loadSetting('base_url')}/comics/advanced-search?page=${page}`,
                     this.buildHeaders('POST', `comics/advanced-search?page=${page}`, this.loadData('token')),
                     JSON.stringify({
                         keyword: keyword,
@@ -351,7 +351,7 @@ class Picacg extends ComicSource {
         /// 添加或者删除收藏
         addOrDelFavorite: async (comicId, folderId, isAdding) => {
             let res = await Network.post(
-                `${this.api}/comics/${comicId}/favourite`,
+                `${this.loadSetting('base_url')}/comics/${comicId}/favourite`,
                 this.buildHeaders('POST', `comics/${comicId}/favourite`, this.loadData('token')),
                 '{}'
             )
@@ -367,7 +367,7 @@ class Picacg extends ComicSource {
         loadComics: async (page, folder) => {
             let sort = this.loadSetting('favoriteSort')
             let res = await Network.get(
-                `${this.api}/users/favourite?page=${page}&s=${sort}`,
+                `${this.loadSetting('base_url')}/users/favourite?page=${page}&s=${sort}`,
                 this.buildHeaders('GET', `users/favourite?page=${page}&s=${sort}`, this.loadData('token'))
             )
             if(res.status === 401) {
@@ -394,7 +394,7 @@ class Picacg extends ComicSource {
         loadInfo: async (id) => {
             let infoLoader = async () => {
                 let res = await Network.get(
-                    `${this.api}/comics/${id}`,
+                    `${this.loadSetting('base_url')}/comics/${id}`,
                     this.buildHeaders('GET', `comics/${id}`, this.loadData('token'))
                 )
                 if (res.status !== 200) {
@@ -410,7 +410,7 @@ class Picacg extends ComicSource {
                 let allEps = [];
                 while (true) {
                     let res = await Network.get(
-                        `${this.api}/comics/${id}/eps?page=${i}`,
+                        `${this.loadSetting('base_url')}/comics/${id}/eps?page=${i}`,
                         this.buildHeaders('GET', `comics/${id}/eps?page=${i}`, this.loadData('token'))
                     );
                     if (res.status !== 200) {
@@ -432,7 +432,7 @@ class Picacg extends ComicSource {
             }
             let relatedLoader = async () => {
                 let res = await Network.get(
-                    `${this.api}/comics/${id}/recommendation`,
+                    `${this.loadSetting('base_url')}/comics/${id}/recommendation`,
                     this.buildHeaders('GET', `comics/${id}/recommendation`, this.loadData('token'))
                 )
                 if (res.status !== 200) {
@@ -491,7 +491,7 @@ class Picacg extends ComicSource {
             let i = 1
             while(true) {
                 let res = await Network.get(
-                    `${this.api}/comics/${comicId}/order/${epId}/pages?page=${i}`,
+                    `${this.loadSetting('base_url')}/comics/${comicId}/order/${epId}/pages?page=${i}`,
                     this.buildHeaders('GET', `comics/${comicId}/order/${epId}/pages?page=${i}`, this.loadData('token'))
                 )
                 if (res.status !== 200) {
@@ -512,7 +512,7 @@ class Picacg extends ComicSource {
         },
         likeComic: async (id, isLike) =>  {
             var res = await Network.post(
-                `${this.api}/comics/${id}/like`,
+                `${this.loadSetting('base_url')}/comics/${id}/like`,
                 this.buildHeaders('POST', `comics/${id}/like`, this.loadData('token')),
                 {}
             );
@@ -541,7 +541,7 @@ class Picacg extends ComicSource {
 
             if(replyTo) {
                 let res = await Network.get(
-                    `${this.api}/comments/${replyTo}/childrens?page=${page}`,
+                    `${this.loadSetting('base_url')}/comments/${replyTo}/childrens?page=${page}`,
                     this.buildHeaders('GET', `comments/${replyTo}/childrens?page=${page}`, this.loadData('token'))
                 )
                 if (res.status !== 200) {
@@ -554,7 +554,7 @@ class Picacg extends ComicSource {
                 maxPage = data.data.comments.pages
             } else {
                 let res = await Network.get(
-                    `${this.api}/comics/${comicId}/comments?page=${page}`,
+                    `${this.loadSetting('base_url')}/comics/${comicId}/comments?page=${page}`,
                     this.buildHeaders('GET', `comics/${comicId}/comments?page=${page}`, this.loadData('token'))
                 )
                 if (res.status !== 200) {
@@ -575,7 +575,7 @@ class Picacg extends ComicSource {
         sendComment: async (comicId, subId, content, replyTo) => {
             if(replyTo) {
                 let res = await Network.post(
-                    `${this.api}/comments/${replyTo}`,
+                    `${this.loadSetting('base_url')}/comments/${replyTo}`,
                     this.buildHeaders('POST', `/comments/${replyTo}`, this.loadData('token')),
                     JSON.stringify({
                         content: content
@@ -586,7 +586,7 @@ class Picacg extends ComicSource {
                 }
             } else {
                 let res = await Network.post(
-                    `${this.api}/comics/${comicId}/comments`,
+                    `${this.loadSetting('base_url')}/comics/${comicId}/comments`,
                     this.buildHeaders('POST', `/comics/${comicId}/comments`, this.loadData('token')),
                     JSON.stringify({
                         content: content
@@ -600,7 +600,7 @@ class Picacg extends ComicSource {
         },
         likeComment: async (comicId, subId, commentId, isLike) => {
             let res = await Network.post(
-                `${this.api}/comments/${commentId}/like`,
+                `${this.loadSetting('base_url')}/comments/${commentId}/like`,
                 this.buildHeaders('POST', `/comments/${commentId}/like`, this.loadData('token')),
                 '{}'
             )
@@ -632,6 +632,12 @@ class Picacg extends ComicSource {
     }
 
     settings = {
+        base_url: {
+            title: "API地址(地址末尾不要添加斜杠)",
+            type: "input",
+            validator: null,
+            default: Picacg.defaultApiUrl,
+        },
         'imageQuality': {
             type: 'select',
             title: 'Image quality',
