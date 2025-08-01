@@ -8,7 +8,7 @@ class ManHuaGui extends ComicSource {
   // unique id of the source
   key = "ManHuaGui";
 
-  version = "1.0.0";
+  version = "1.0.1";
 
   minAppVersion = "1.4.0";
 
@@ -17,6 +17,20 @@ class ManHuaGui extends ComicSource {
     "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/manhuagui.js";
 
   baseUrl = "https://www.manhuagui.com";
+
+  isAppVersionAfter(target) {
+    if (!APP || !APP.version) return false;
+    let current = APP.version;
+    let targetArr = target.split('.');
+    let currentArr = current.split('.');
+    for (let i = 0; i < 3; i++) {
+      if (parseInt(currentArr[i]) < parseInt(targetArr[i])) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   async getHtml(url) {
     let headers = {
       accept:
@@ -624,6 +638,76 @@ class ManHuaGui extends ComicSource {
     },
   };
 
+  /**
+   * 专门解析搜索结果页面中的漫画信息
+   * @param {HTMLElement} item - 搜索结果中的单个漫画项
+   * @returns {Comic} - 解析后的漫画对象
+   */
+  parseSearchComic(item) {
+    try {
+      // 获取漫画链接和ID
+      let linkElement = item.querySelector(".book-detail dl dt a");
+      if (!linkElement) return null;
+      
+      let url = linkElement.attributes["href"];
+      let id = url.split("/")[2];
+      let title = linkElement.text.trim();
+      
+      // 获取封面图片
+      let coverElement = item.querySelector(".book-cover .bcover img");
+      let cover = coverElement ? coverElement.attributes["src"] : null;
+      if (cover) {
+        cover = cover.startsWith("//") ? `https:${cover}` : cover;
+      }
+      
+      // 获取更新状态和描述
+      let statusElement = item.querySelector(".tags.status span .red");
+      let status = statusElement ? statusElement.text.trim() : "";
+      
+      let updateElement = item.querySelector(".tags.status span .red:nth-child(2)");
+      let updateTime = updateElement ? updateElement.text.trim() : "";
+      
+      // 获取评分信息
+      let scoreElement = item.querySelector(".book-score .score-avg strong");
+      let score = scoreElement ? scoreElement.text.trim() : "";
+      
+      // 获取作者信息
+      let authorElements = item.querySelectorAll(".tags a[href*='/author/']");
+      let author = authorElements.length > 0 
+        ? authorElements.map(a => a.text.trim()).join(", ") 
+        : "";
+      
+      // 获取类型信息
+      let typeElements = item.querySelectorAll(".tags a[href*='/list/']");
+      let types = typeElements.length > 0 
+        ? typeElements.map(a => a.text.trim())
+        : [];
+      
+      // 获取简介
+      let introElement = item.querySelector(".intro span");
+      let description = introElement ? introElement.text.replace("简介：", "").trim() : "";
+      
+      // 如果简介为空，使用更新状态作为描述
+      if (!description && status) {
+        description = `状态: ${status}`;
+        if (updateTime) description += `, 更新: ${updateTime}`;
+      }
+      
+      return new Comic({
+        id,
+        title,
+        cover,
+        description,
+        tags: [...types, status],
+        author,
+        score
+      });
+    } catch (error) {
+      console.error("解析搜索结果项时出错:", error);
+      return null;
+    }
+  }
+
   /// search related
   search = {
     /**
@@ -634,44 +718,63 @@ class ManHuaGui extends ComicSource {
      * @returns {Promise<{comics: Comic[], maxPage: number}>}
      */
     load: async (keyword, options, page) => {
-      let url = `${this.baseUrl}/s/${keyword}_p${page}.html`;
+      let url = ""
+      if (options[0]) {
+        let type = options[0].split("-")[0];
+          if (type == '0') {
+              url = `${this.baseUrl}/s/${keyword}_p${page}.html`;
+          } else{
+            url = `${this.baseUrl}/s/${keyword}_o${type}_p${page}.html`;
+          }
+      }else{
+          url = `${this.baseUrl}/s/${keyword}_p${page}.html`;
+      }
       let document = await this.getHtml(url);
-      let comicNum = document
-        .querySelector(".result-count")
-        .querySelectorAll("strong")[1].text;
+      
+      // 检查是否有结果计数元素
+      let resultCount = document.querySelector(".result-count");
+      if (!resultCount) {
+        // 没有搜索结果或页面结构不同
+        return {
+          comics: [],
+          maxPage: 1
+        };
+      }
+      
+      let comicNum = resultCount.querySelectorAll("strong")[1].text;
       comicNum = parseInt(comicNum);
       // 每页10个
       let maxPage = Math.ceil(comicNum / 10);
 
-      let bookshelf = document
-        .querySelector("#contList")
-        .querySelectorAll("li");
-      let comics = bookshelf.map((e) => this.parseComic(e));
+      // 在搜索结果页面中，漫画列表位于 .book-result ul 下
+      let comicList = document.querySelector(".book-result ul");
+      if (!comicList) {
+        return {
+          comics: [],
+          maxPage: maxPage || 1
+        };
+      }
+      
+      // 使用专门的搜索解析函数解析每个漫画项
+      let comics = comicList.querySelectorAll("li.cf")
+        .map(item => this.parseSearchComic(item))
+        .filter(comic => comic !== null); // 过滤掉解析失败的项
+      
       return {
         comics,
         maxPage,
       };
     },
 
-    // provide options for search
     optionList: [
       {
-        // [Optional] default is `select`
-        // type: select, multi-select, dropdown
-        // For select, there is only one selected value
-        // For multi-select, there are multiple selected values or none. The `load` function will receive a json string which is an array of selected values
-        // For dropdown, there is one selected value at most. If no selected value, the `load` function will receive a null
         type: "select",
-        // For a single option, use `-` to separate the value and text, left for value, right for text
-        options: ["0-time", "1-popular"],
-        // option label
+        options: ["0-最新更新", "1-最近最热","2-最新上架", "3-评分最高"],
         label: "sort",
-        // default selected options. If not set, use the first option as default
         default: null,
       },
     ],
 
-    // enable tags suggestions
     enableTagsSuggestions: false,
   };
 
@@ -734,20 +837,52 @@ class ManHuaGui extends ComicSource {
       let updateTime = detail_list[8].text.trim();
 
       // ANCHOR 章节信息
-      let chapters = new Map();
-      let chapter_list = document.querySelector("#chapter-list-1");
-      if (!chapter_list) {
-        chapter_list = document.querySelector("#chapter-list-0");
+      // 支持多分组
+      let chaptersMap = new Map();
+      
+      // 查找所有章节分组标题
+      let chapterGroups = document.querySelectorAll(".chapter h4 span");
+      
+      // 处理每个分组
+      for (let i = 0; i < chapterGroups.length; i++) {
+        let groupName = chapterGroups[i].text.trim();
+        let groupChapters = new Map();
+        
+        // 获取对应的章节列表
+        let chapterList = document.querySelectorAll(".chapter-list")[i];
+        if (chapterList) {
+          let lis = chapterList.querySelectorAll("li");
+          for (let li of lis) {
+            let a = li.querySelector("a");
+            let id = a.attributes["href"].split("/").pop().replace(".html", "");
+            let title = a.querySelector("span").text.trim();
+            groupChapters.set(id, title);
+          }
+          
+          // 章节升序排列
+          groupChapters = new Map([...groupChapters].sort((a, b) => a[0] - b[0]));
+          
+          // 将分组添加到总的章节映射中
+          chaptersMap.set(groupName, groupChapters);
+        }
       }
-      let lis = chapter_list.querySelectorAll("li");
-      for (let li of lis) {
-        let a = li.querySelector("a");
-        let i = a.attributes["href"].split("/").pop().replace(".html", "");
-        let title = a.querySelector("span").text.trim();
-        chapters.set(i, title);
+      
+      // 兼容旧版本，如果app版本不支持多分组，则合并所有分组
+      let chapters;
+      if (this.isAppVersionAfter && this.isAppVersionAfter("1.3.0")) {
+        // 支持多分组
+        chapters = chaptersMap;
+      } else {
+        // 合并所有分组
+        chapters = new Map();
+        for (let [_, groupChapters] of chaptersMap) {
+          for (let [id, title] of groupChapters) {
+            chapters.set(id, title);
+          }
+        }
+        // 章节升序
+        chapters = new Map([...chapters].sort((a, b) => a[0] - b[0]));
       }
-      // chapters 升序
-      chapters = new Map([...chapters].sort((a, b) => a[0] - b[0]));
 
       //ANCHOR - 推荐
       let recommend = [];
