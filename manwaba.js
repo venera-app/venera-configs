@@ -13,7 +13,7 @@ class ManWaBa extends ComicSource {
   minAppVersion = "1.4.0";
 
   // update url
-  url = "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/manwaba.js";
+  url = "https://git.nyne.dev/nyne/venera-configs/raw/branch/main/manwaba.js";
 
   api = "https://www.manwaba.com/api/v1";
 
