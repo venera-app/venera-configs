@@ -7,7 +7,7 @@ class JM extends ComicSource {
     // unique id of the source
     key = "jm"
 
-    version = "1.2.0"
+    version = "1.2.1"
 
     minAppVersion = "1.2.5"
 
@@ -767,7 +767,8 @@ class JM extends ComicSource {
             }
             return {
                 headers: this.getImgHeaders(),
-                modifyImage: `
+                // gif 图片不需要修改
+                modifyImage: url.endsWith(".gif") ? null : `
                     let modifyImage = (image) => {
                         const num = ${num}
                         let blockSize = Math.floor(image.height / num)
