@@ -2,7 +2,7 @@ class Ikm extends ComicSource {
   // 基础配置
   name = "爱看漫";
   key = "ikmmh";
-  version = "1.0.3";
+  version = "1.0.4";
   minAppVersion = "1.0.0";
   url = "https://git.nyne.dev/nyne/venera-configs/raw/branch/main/ikmmh.js";
   // 常量定义
@@ -10,13 +10,13 @@ class Ikm extends ComicSource {
   static Mobile_UA = "Mozilla/5.0 (Linux; Android) Mobile";
   static webHeaders = {
     "User-Agent": Ikm.Mobile_UA,
-    Accept:
+    "Accept":
       "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
   };
   static jsonHead = {
     "User-Agent": Ikm.Mobile_UA,
     "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-    Accept: "application/json, text/javascript, */*; q=0.01",
+    "Accept": "application/json, text/javascript, */*; q=0.01",
     "Accept-Encoding": "gzip",
     "X-Requested-With": "XMLHttpRequest",
   };
@@ -24,7 +24,7 @@ class Ikm extends ComicSource {
   static thumbConfig = (url) => ({
     headers: {
       ...Ikm.webHeaders,
-      Referer: Ikm.baseUrl,
+      "referer": Ikm.baseUrl,
     },
   });
   // 账号系统
@@ -72,10 +72,10 @@ class Ikm extends ComicSource {
             };
           };
           return {
-            本周推荐: document
+            "本周推荐": document
               .querySelectorAll("div.module-good-fir > div.item")
               .map(parseComic),
-            今日更新: document
+            "今日更新": document
               .querySelectorAll("div.module-day-fir > div.item")
               .map(parseComic),
           };
@@ -90,6 +90,21 @@ class Ikm extends ComicSource {
   category = {
     title: "爱看漫",
     parts: [
+      {
+        name: "更新",
+        type: "fixed",
+        categories: [
+          "星期一",
+          "星期二",
+          "星期三",
+          "星期四",
+          "星期五",
+          "星期六",
+          "星期日",
+        ],
+        itemType: "category",
+        categoryParams: ["1", "2", "3", "4", "5", "6", "7"],
+      },
       {
         name: "分类",
         // fixed 或者 random
@@ -139,38 +154,13 @@ class Ikm extends ComicSource {
           "历史",
           "战争",
           "恐怖",
-          "霸总",
-          "全部",
-          "连载中",
-          "已完结",
-          "全部",
-          "日漫",
-          "港台",
-          "美漫",
-          "国漫",
-          "韩漫",
-          "未分类",
+          "霸总"
         ],
         // category或者search
         // 如果为category, 点击后将进入分类漫画页面, 使用下方的`categoryComics`加载漫画
         // 如果为search, 将进入搜索页面
         itemType: "category",
-      },
-      {
-        name: "更新",
-        type: "fixed",
-        categories: [
-          "星期一",
-          "星期二",
-          "星期三",
-          "星期四",
-          "星期五",
-          "星期六",
-          "星期日",
-        ],
-        itemType: "category",
-        categoryParams: ["1", "2", "3", "4", "5", "6", "7"],
-      },
+      }
     ],
     enableRankingPage: false,
   };
@@ -195,7 +185,7 @@ class Ikm extends ComicSource {
           }));
           return {
             comics,
-            maxPage: 1,
+            maxPage: 1
           };
         } else {
           res = await Network.post(
@@ -348,6 +338,14 @@ class Ikm extends ComicSource {
   // 漫画详情
   comic = {
     loadInfo: async (id) => {
+      // 加载收藏页并判断是否收藏
+      let isFavorite = false;
+      try {
+        let favorites = await this.favorites.loadComics(1, null);
+        isFavorite = favorites.comics.some((comic) => comic.id === id);
+      } catch (error) {
+        console.error("加载收藏页失败:", error);
+      }
       let res = await Network.get(id, Ikm.webHeaders);
       let document = new HtmlDocument(res.body);
       let comicId = id.match(/\d+/)[0];
@@ -356,7 +354,7 @@ class Ikm extends ComicSource {
         `${Ikm.baseUrl}/api/comic/zyz/chapterlink?id=${comicId}`,
         {
           ...Ikm.jsonHead,
-          Referer: id,
+          "referer": id,
         }
       );
       let epData = JSON.parse(epRes.body);
@@ -388,29 +386,18 @@ class Ikm extends ComicSource {
         );
       let intro = desc?.[1]?.trim().replace(/\s+/g, " ") || "";
 
-      // 获取更新日期
-      let fullDateStr = document
-        .querySelector('meta[property="og:cartoon:update_time"]')
-        .attributes["content"]; // "2025-07-18 08:37:02"
-      let date = new Date(fullDateStr);
-      let year = date.getFullYear();
-      let month = String(date.getMonth() + 1).padStart(2, "0"); // 月份从0开始，要加1
-      let day = String(date.getDate()).padStart(2, "0");
-      let updateTime = `${year}-${month}-${day}`;
-      
-      return new ComicDetails({
+      return {
         title: title.split("~")[0],
         cover: thumb,
         description: intro,
-        updateTime: updateTime,
         tags: {
-          作者: [
+          "作者": [
             document
               .querySelector("div.book-container__author")
               .text.split("作者：")[1],
           ],
-          最新章节: [document.querySelector("div.update > a > em").text],
-          标签: document
+          "更新": [document.querySelector("div.update > a > em").text],
+          "标签": document
             .querySelectorAll("div.book-hero__detail > div.tags > a")
             .map((e) => e.text.trim())
             .filter((text) => text),
@@ -423,7 +410,8 @@ class Ikm extends ComicSource {
             cover: e.querySelector("div.thumb_img").attributes["data-src"],
             id: `${Ikm.baseUrl}${e.querySelector("a").attributes["href"]}`,
           })),
-      });
+        isFavorite: isFavorite,  
+      };
     },
     onThumbnailLoad: Ikm.thumbConfig,
     loadEp: async (comicId, epId) => {
@@ -444,7 +432,7 @@ class Ikm extends ComicSource {
         url,
         headers: {
           ...Ikm.webHeaders,
-          Referer: epId,
+          "referer": epId,
         },
       };
     },
