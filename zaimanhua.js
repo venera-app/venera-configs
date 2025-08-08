@@ -2,7 +2,7 @@ class Zaimanhua extends ComicSource {
   // 基础信息
   name = "再漫画";
   key = "zaimanhua";
-  version = "1.0.0";
+  version = "1.0.1";
   minAppVersion = "1.0.0";
   url =
     "https://git.nyne.dev/nyne/venera-configs/raw/branch/main/zaimanhua.js";
