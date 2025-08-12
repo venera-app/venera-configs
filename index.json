@@ -109,5 +109,11 @@
         "fileName": "manwaba.js",
         "key": "manwaba",
         "version": "1.0.0"
+    },
+    {
+        "name": "Lanraragi",
+        "fileName": "lanraragi.js",
+        "key": "lanraragi",
+        "version": "1.0.0"
     }
 ]
