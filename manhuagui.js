@@ -14,7 +14,7 @@ class ManHuaGui extends ComicSource {
 
   // update url
   url =
-    "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/manhuagui.js";
+    "https://git.nyne.dev/nyne/venera-configs/raw/branch/main/manhuagui.js";
 
   baseUrl = "https://www.manhuagui.com";
 

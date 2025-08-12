@@ -7,7 +7,7 @@ class Nhentai extends ComicSource {
     // unique id of the source
     key = "nhentai"
 
-    version = "1.0.4"
+    version = "1.0.5"
 
     minAppVersion = "1.0.0"
 
@@ -328,6 +328,25 @@ class Nhentai extends ComicSource {
 
     /// single comic related
     comic = {
+        /**
+         * [Optional] provide configs for a thumbnail loading
+         * @param url {string}
+         * @returns {ImageLoadingConfig | Promise<ImageLoadingConfig>}
+         *
+         * `ImageLoadingConfig.modifyImage` and `ImageLoadingConfig.onLoadFailed` will be ignored.
+         * They are not supported for thumbnails.
+         */
+        onThumbnailLoad: (url) => {
+            if(url.startsWith("//")) {
+                url = "https:" + url
+            } else if(!url.startsWith("http")) {
+                url = "https://" + url
+            }
+
+            return {
+                url: url,
+            }
+        },
         /**
          * load comic info
          * @param id {string}

@@ -1,7 +1,7 @@
 class ShonenJumpPlus extends ComicSource {
   name = "少年ジャンプ＋";
   key = "shonen_jump_plus";
-  version = "1.0.2";
+  version = "1.1.0";
   minAppVersion = "1.2.1";
   url =
     "https://git.nyne.dev/nyne/venera-configs/raw/branch/main/shonen_jump_plus.js";
@@ -10,13 +10,14 @@ class ShonenJumpPlus extends ComicSource {
   bearerToken = null;
   userAccountId = null;
   tokenExpiry = 0;
+  latestVersion = "4.0.21";
 
   get headers() {
     return {
       "Origin": "https://shonenjumpplus.com",
       "Referer": "https://shonenjumpplus.com/",
       "X-Giga-Device-Id": this.deviceId,
-      "User-Agent": "ShonenJumpPlus-Android/4.0.21",
+      "User-Agent": `ShonenJumpPlus-Android/${this.latestVersion}`,
     };
   }
 
@@ -30,7 +31,14 @@ class ShonenJumpPlus extends ComicSource {
     return result;
   }
 
-  init() { }
+  async init() {
+    const url = "https://apps.apple.com/jp/app/少年ジャンプ-人気漫画が読める雑誌アプリ/id875750302";
+    const resp = await Network.get(url);
+    const match = resp.body.match(/":\[\{\\"versionDisplay\\":\\"([\d.]+)\\",\\"rele/);
+    if (match) {
+      this.latestVersion = match[1];
+    }
+  }
 
   explore = [
     {
@@ -85,8 +93,9 @@ class ShonenJumpPlus extends ComicSource {
               ? cover.replace("{height}", "500").replace("{width}", "500")
               : "",
             tags: [],
-            description: `Ranking: ${item.rank} · Views: ${item.viewCount || "Unknown"
-              }`,
+            description: `Ranking: ${item.rank} · Views: ${
+              item.viewCount || "Unknown"
+            }`,
           };
         }
 
@@ -116,6 +125,9 @@ class ShonenJumpPlus extends ComicSource {
       const pageInfo = response?.data?.search?.pageInfo || {};
 
       const comics = edges.map(({ node }) => {
+        const authors = (node.author?.name || "").split(/\s*\/\s*/).filter(
+          Boolean,
+        );
         const cover = node.latestIssue?.thumbnailUriTemplate ||
           node.thumbnailUriTemplate;
         if (node.__typename === "Series") {
@@ -123,9 +135,8 @@ class ShonenJumpPlus extends ComicSource {
             id: node.databaseId,
             title: node.title || "",
             cover: this.replaceCoverUrl(cover),
-            extra: {
-              author: node.author?.name || "",
-            },
+            description: node.description || "",
+            tags: authors,
           });
         }
         if (node.__typename === "MagazineLabel") {
@@ -150,16 +161,40 @@ class ShonenJumpPlus extends ComicSource {
     loadInfo: async (id) => {
       await this.ensureAuth();
       const seriesData = await this.fetchSeriesDetail(id);
-      const chapters = await this.fetchEpisodes(id);
+      const episodes = await this.fetchEpisodes(id);
+
+      const { chapters, latestPublishAt } = episodes.reduce(
+        (acc, ep) => ({
+          chapters: {
+            ...acc.chapters,
+            [ep.databaseId]: ep.title || "",
+          },
+          latestPublishAt:
+            ep.publishedAt && ep.publishedAt > acc.latestPublishAt
+              ? ep.publishedAt
+              : acc.latestPublishAt,
+        }),
+        { chapters: {}, latestPublishAt: "" },
+      );
+
+      const maxDate = latestPublishAt > seriesData.openAt
+        ? latestPublishAt
+        : seriesData.openAt;
+      const updateDate = new Date(new Date(maxDate) - 60 * 60 * 1000);
+      const authors = (seriesData.author?.name || "").split(/\s*\/\s*/).filter(
+        Boolean,
+      );
 
       return new ComicDetails({
         title: seriesData.title || "",
-        subtitle: seriesData.author?.name || "",
+        subtitle: authors.join(" / "),
         cover: this.replaceCoverUrl(seriesData.thumbnailUriTemplate),
-        description: seriesData.descriptionBanner?.text || "",
+        description: seriesData.description || "",
         tags: {
-          "Author": [seriesData.author?.name || ""],
+          "Author": authors,
+          "Update": [updateDate.toISOString().slice(0, 10)],
         },
+        url: `https://shonenjumpplus.com/app/episode/${seriesData.publisherId}`,
         chapters,
       });
     },
@@ -264,11 +299,10 @@ class ShonenJumpPlus extends ComicSource {
       "SeriesDetailEpisodeList",
       { id, episodeOffset: 0, episodeFirst: 1500, episodeSort: "NUMBER_ASC" },
     );
-    const episodes = response?.data?.series?.episodes?.edges || [];
-    return episodes.reduce((chapters, { node }) => ({
-      ...chapters,
-      [node.databaseId]: node.title || "",
-    }), {});
+    const episodes = (response?.data?.series?.episodes?.edges || []).map(
+      (edge) => edge.node
+    );
+    return episodes;
   }
 
   async fetchEpisodePages(episodeId) {
@@ -352,7 +386,7 @@ const GraphQLQueries = {
             edges {
                 node {
                     __typename
-                    ... on Series { id databaseId title thumbnailUriTemplate author { name } }
+                    ... on Series { id databaseId title thumbnailUriTemplate author { name } description }
                     ... on MagazineLabel { id databaseId title thumbnailUriTemplate latestIssue { thumbnailUriTemplate } }
                 }
             }
@@ -361,15 +395,18 @@ const GraphQLQueries = {
   "SeriesDetail": `query SeriesDetail($id: String!) {
         series(databaseId: $id) {
             id databaseId title thumbnailUriTemplate
-            author { name } descriptionBanner { text }
+            author { name }
+            description
             hashtags serialUpdateScheduleLabel
+            openAt
+            publisherId
         }
     }`,
   "SeriesDetailEpisodeList":
     `query SeriesDetailEpisodeList($id: String!, $episodeOffset: Int, $episodeFirst: Int, $episodeSort: ReadableProductSorting) {
         series(databaseId: $id) {
             episodes: readableProducts(types: [EPISODE], first: $episodeFirst, offset: $episodeOffset, sort: $episodeSort) {
-                edges { node { databaseId title } }
+                edges { node { databaseId title publishedAt } }
             }
         }
     }`,
