@@ -995,7 +995,7 @@ class Hitomi extends ComicSource {
   // unique id of the source
   key = "hitomi";
 
-  version = "1.1.0";
+  version = "1.1.1";
 
   minAppVersion = "1.4.6";
 
@@ -1523,10 +1523,10 @@ class Hitomi extends ComicSource {
       const data = await get_gallery_detail(id);
 
       const tags = new Map();
-      if ("type" in data) tags.set("type", [data.type]);
+      if ("type" in data && data.type) tags.set("type", [data.type]);
       if (data.groups.length) tags.set("groups", data.groups);
       if (data.artists.length) tags.set("artists", data.artists);
-      if ("language" in data) tags.set("language", [data.language]);
+      if ("language" in data && data.language) tags.set("language", [data.language]);
       if (data.series.length) tags.set("series", data.series);
       if (data.characters.length) tags.set("characters", data.characters);
       if (data.females.length) tags.set("females", data.females);
