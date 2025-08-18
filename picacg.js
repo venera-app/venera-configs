@@ -3,7 +3,7 @@ class Picacg extends ComicSource {
 
     key = "picacg"
 
-    version = "1.0.4"
+    version = "1.0.5"
 
     minAppVersion = "1.0.0"
 
@@ -158,6 +158,99 @@ class Picacg extends ComicSource {
                 let data = JSON.parse(res.body)
                 let comics = []
                 data.data.comics.docs.forEach(c => {
+                    comics.push(this.parseComic(c))
+                })
+                return {
+                    comics: comics
+                }
+            }
+        },
+        {
+            title: "Picacg H24",
+            type: "multiPageComicList",
+            load: async (page) => {
+                if (!this.isLogged) {
+                    throw 'Not logged in'
+                }
+                let res = await Network.get(
+                    `${this.loadSetting('base_url')}/comics/leaderboard?tt=H24&ct=VC`,
+                    this.buildHeaders('GET', 'comics/leaderboard?tt=H24&ct=VC', this.loadData('token'))
+                )
+                if (res.status === 401) {
+                    await this.account.reLogin()
+                    res = await Network.get(
+                        `${this.loadSetting('base_url')}/comics/leaderboard?tt=H24&ct=VC`,
+                        this.buildHeaders('GET', 'comics/leaderboard?tt=H24&ct=VC', this.loadData('token'))
+                    )
+                }
+                if (res.status !== 200) {
+                    throw 'Invalid status code: ' + res.status
+                }
+                let data = JSON.parse(res.body)
+                let comics = []
+                data.data.comics.forEach(c => {
+                    comics.push(this.parseComic(c))
+                })
+                return {
+                    comics: comics
+                }
+            }
+        },
+        {
+            title: "Picacg D7",
+            type: "multiPageComicList",
+            load: async (page) => {
+                if (!this.isLogged) {
+                    throw 'Not logged in'
+                }
+                let res = await Network.get(
+                    `${this.loadSetting('base_url')}/comics/leaderboard?tt=D7&ct=VC`,
+                    this.buildHeaders('GET', 'comics/leaderboard?tt=D7&ct=VC', this.loadData('token'))
+                )
+                if (res.status === 401) {
+                    await this.account.reLogin()
+                    res = await Network.get(
+                        `${this.loadSetting('base_url')}/comics/leaderboard?tt=D7&ct=VC`,
+                        this.buildHeaders('GET', 'comics/leaderboard?tt=D7&ct=VC', this.loadData('token'))
+                    )
+                }
+                if (res.status !== 200) {
+                    throw 'Invalid status code: ' + res.status
+                }
+                let data = JSON.parse(res.body)
+                let comics = []
+                data.data.comics.forEach(c => {
+                    comics.push(this.parseComic(c))
+                })
+                return {
+                    comics: comics
+                }
+            }
+        },
+        {
+            title: "Picacg D30",
+            type: "multiPageComicList",
+            load: async (page) => {
+                if (!this.isLogged) {
+                    throw 'Not logged in'
+                }
+                let res = await Network.get(
+                    `${this.loadSetting('base_url')}/comics/leaderboard?tt=D30&ct=VC`,
+                    this.buildHeaders('GET', 'comics/leaderboard?tt=D30&ct=VC', this.loadData('token'))
+                )
+                if (res.status === 401) {
+                    await this.account.reLogin()
+                    res = await Network.get(
+                        `${this.loadSetting('base_url')}/comics/leaderboard?tt=D30&ct=VC`,
+                        this.buildHeaders('GET', 'comics/leaderboard?tt=D30&ct=VC', this.loadData('token'))
+                    )
+                }
+                if (res.status !== 200) {
+                    throw 'Invalid status code: ' + res.status
+                }
+                let data = JSON.parse(res.body)
+                let comics = []
+                data.data.comics.forEach(c => {
                     comics.push(this.parseComic(c))
                 })
                 return {
@@ -691,6 +784,9 @@ class Picacg extends ComicSource {
         'zh_CN': {
             'Picacg Random': "哔咔随机",
             'Picacg Latest': "哔咔最新",
+            'Picacg H24': "哔咔日榜",
+            'Picacg D7': "哔咔周榜",
+            'Picacg D30': "哔咔月榜",
             'New to old': "新到旧",
             'Old to new': "旧到新",
             'Most likes': "最多喜欢",
@@ -710,6 +806,9 @@ class Picacg extends ComicSource {
         'zh_TW': {
             'Picacg Random': "哔咔隨機",
             'Picacg Latest': "哔咔最新",
+            'Picacg H24': "哔咔日榜",
+            'Picacg D7': "哔咔周榜",
+            'Picacg D30': "哔咔月榜",
             'New to old': "新到舊",
             'Old to new': "舊到新",
             'Most likes': "最多喜歡",
