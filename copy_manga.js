@@ -4,7 +4,7 @@ class CopyManga extends ComicSource {
 
     key = "copy_manga"
 
-    version = "1.3.6"
+    version = "1.3.7"
 
     minAppVersion = "1.2.1"
 
@@ -12,30 +12,36 @@ class CopyManga extends ComicSource {
 
     get headers() {
         let token = this.loadData("token");
+        let secret = "M2FmMDg1OTAzMTEwMzJlZmUwNjYwNTUwYTA1NjNhNTM="
+
         if (!token) {
             token = "";
         } else {
             token = " " + token;
         }
-        let now = new Date(Date.now());
-        let year = now.getFullYear();
-        let month = (now.getMonth() + 1).toString().padStart(2, '0');
-        let day = now.getDate().toString().padStart(2, '0');
+
+        let ts = Math.floor(Date.now() / 1000).toString()
+        let sig = Convert.hmacString(
+            Convert.decodeBase64(secret),
+            Convert.encodeUtf8(ts),
+            "sha256"
+        )
 
         return {
-            "User-Agent": "COPY/2.3.2",
+            "User-Agent": "COPY/3.0.0",
             "source": "copyApp",
             "deviceinfo": this.deviceinfo,
-            "dt": `${year}.${month}.${day}`,
             "platform": "3",
-            "referer": `com.copymanga.app-2.3.2`,
-            "version": "2.3.2",
+            "referer": `com.copymanga.app-3.0.0`,
+            "version": "3.0.0",
             "device": this.device,
             "pseudoid": this.pseudoid,
             "Accept": "application/json",
             "region": this.copyRegion,
             "authorization": `Token${token}`,
             "umstring": "b4c89ca4104ea9a97750314d791520ac",
+            "x-auth-timestamp": ts,
+            "x-auth-signature": sig,
         }
     }
 
