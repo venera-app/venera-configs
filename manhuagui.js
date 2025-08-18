@@ -1,22 +1,67 @@
 /** @type {import('./_venera_.js')} */
 class ManHuaGui extends ComicSource {
-  // Note: The fields which are marked as [Optional] should be removed if not used
-
-  // name of the source
   name = "漫画柜";
 
-  // unique id of the source
   key = "ManHuaGui";
 
-  version = "1.0.1";
+  version = "1.1.0";
 
   minAppVersion = "1.4.0";
 
-  // update url
-  url =
-    "https://git.nyne.dev/nyne/venera-configs/raw/branch/main/manhuagui.js";
+  url = "https://git.nyne.dev/nyne/venera-configs/raw/branch/main/manhuagui.js";
 
   baseUrl = "https://www.manhuagui.com";
+
+  account = {
+    login: async (username, password) => {
+      let headers = {
+        'content-type': 'application/x-www-form-urlencoded',
+        'accept': 'application/json, text/javascript, */*; q=0.01',
+        'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8',
+        'cache-control': 'no-cache',
+        'pragma': 'no-cache',
+        'x-requested-with': 'XMLHttpRequest',
+        'origin': this.baseUrl,
+        'referer': `${this.baseUrl}/`,
+        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'
+      };
+      let body = `txtUserName=${encodeURIComponent(username)}&txtPassword=${encodeURIComponent(password)}`;
+      let res = await Network.post(`${this.baseUrl}/tools/submit_ajax.ashx?action=user_login`, headers, body);
+      if (res.status !== 200) {
+        throw "Invalid status code: " + res.status;
+      }
+
+      let setCookieHeader = res.headers['set-cookie'];
+      if (!setCookieHeader) {
+        throw "Set-Cookie header not found";
+      }
+
+      let cookies = Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader];
+      let myCookie = null;
+
+      for (let cookie of cookies) {
+        let match = cookie.match(/my=([^;]+)/);
+        if (match) {
+          myCookie = match[1];
+          break;
+        }
+      }
+
+      if (!myCookie) {
+        throw "my cookie not found in Set-Cookie header";
+      }
+
+      this.saveData('mhg_cookie', "my="+myCookie);
+      return "ok";
+    },
+
+    logout: function() {
+      this.deleteData('mhg_cookie');
+    },
+
+    registerWebsite: "https://www.manhuagui.com/user/register"
+
+  };
 
   isAppVersionAfter(target) {
     if (!APP || !APP.version) return false;
@@ -32,9 +77,10 @@ class ManHuaGui extends ComicSource {
   }
 
   async getHtml(url) {
+    let mhg_cookie = this.loadData("mhg_cookie");
     let headers = {
       accept:
-        "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+      "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
       "accept-language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
       "cache-control": "no-cache",
       pragma: "no-cache",
@@ -48,9 +94,9 @@ class ManHuaGui extends ComicSource {
       "sec-fetch-site": "same-origin",
       "sec-fetch-user": "?1",
       "upgrade-insecure-requests": "1",
-      cookie: "country=US",
       Referer: "https://www.manhuagui.com/",
       "Referrer-Policy": "strict-origin-when-cross-origin",
+      cookie: mhg_cookie
     };
     let res = await Network.get(url, headers);
     if (res.status !== 200) {
@@ -60,15 +106,30 @@ class ManHuaGui extends ComicSource {
     return document;
   }
   parseSimpleComic(e) {
-    let url = e.querySelector(".ell > a").attributes["href"];
+    let urlElement = e.querySelector(".ell > a");
+    if (!urlElement) {
+      console.warn("parseSimpleComic: Missing .ell > a element");
+      return null;
+    }
+    let url = urlElement.attributes["href"];
     let id = url.split("/")[2];
-    let title = e.querySelector(".ell > a").text.trim();
-    let cover = e.querySelector("img").attributes["src"];
+    let title = urlElement.text.trim();
+
+    let imgElement = e.querySelector("img");
+    if (!imgElement) {
+      console.warn("parseSimpleComic: Missing img element");
+      return null;
+    }
+    let cover = imgElement.attributes["src"] || imgElement.attributes["data-src"];
     if (!cover) {
-      cover = e.querySelector("img").attributes["data-src"];
+      console.warn("parseSimpleComic: Missing cover attribute");
+      return null;
     }
     cover = `https:${cover}`;
-    let description = e.querySelector(".tt").text.trim();
+
+    let descriptionElement = e.querySelector(".tt");
+    let description = descriptionElement ? descriptionElement.text.trim() : "";
+
     return new Comic({
       id,
       title,
@@ -81,7 +142,6 @@ class ManHuaGui extends ComicSource {
     let simple = this.parseSimpleComic(e);
     let sl = e.querySelector(".sl");
     let status = sl ? "连载" : "完结";
-    // 如果能够找到 <span class="updateon">更新于：2020-03-31<em>3.9</em></span> 解析 更新和评分
     let tmp = e.querySelector(".updateon").childNodes;
     let update = tmp[0].replace("更新于：", "").trim();
     let tags = [status, update];
@@ -398,47 +458,42 @@ class ManHuaGui extends ComicSource {
   // explore page list
   explore = [
     {
-      // title of the page.
-      // title is used to identify the page, it should be unique
       title: "漫画柜",
-
-      /// multiPartPage or multiPageComicList or mixed
-      type: "singlePageWithMultiPart",
-
+      type: "multiPartPage",
       /**
-       * load function
-       * @param page {number | null} - page number, null for `singlePageWithMultiPart` type
-       * @returns {{}}
-       * - for `multiPartPage` type, return [{title: string, comics: Comic[], viewMore: PageJumpTarget}]
-       * - for `multiPageComicList` type, for each page(1-based), return {comics: Comic[], maxPage: number}
-       * - for `mixed` type, use param `page` as index. for each index(0-based), return {data: [], maxPage: number?}, data is an array contains Comic[] or {title: string, comics: Comic[], viewMore: string?}
+       * 参考 manhuagui_explore.html，抓取“热门漫画最新更新”与 tab 板块
        */
       load: async (page) => {
         let document = await this.getHtml(this.baseUrl);
-        // log("info", this.name, `获取主页成功`);
-        let tabs = document.querySelectorAll("#cmt-tab li");
-        // log("info", this.name, tabs);
-        let parts = document.querySelectorAll("#cmt-cont ul");
-        // log("info", this.name, parts);
-        let result = {};
-        // tabs len = parts len
-        for (let i = 0; i < tabs.length; i++) {
-          let title = tabs[i].text.trim();
-          let comics = parts[i]
-            .querySelectorAll("li")
-            .map((e) => this.parseSimpleComic(e));
-          result[title] = comics;
-        }
-        // log("info", this.name, result);
-        return result;
-      },
+        let parts = [];
 
-      /**
-       * Only use for `multiPageComicList` type.
-       * `loadNext` would be ignored if `load` function is implemented.
-       * @param next {string | null} - next page token, null if first page
-       * @returns {Promise<{comics: Comic[], next: string?}>} - next is null if no next page.
-       */
+        // 1. 热门漫画最新更新
+        let updateSection = document.querySelector(".update-cont");
+        if (updateSection) {
+          let updateComics = [];
+          let uls = updateSection.querySelectorAll("ul");
+          for (let ul of uls) {
+            let comics = ul.querySelectorAll("li").map(e => this.parseSimpleComic(e)).filter(c => c);
+            updateComics.push(...comics);
+          }
+          if (updateComics.length > 0) {
+            parts.push({ title: "热门漫画最新更新", comics: updateComics });
+          }
+        }
+
+        // 2. tab 板块（热门连载漫画、经典完结漫画、最新上架漫画、2020新番漫画）
+        let tabTitles = document.querySelectorAll("#cmt-tab li");
+        let tabParts = document.querySelectorAll("#cmt-cont ul.cover-list");
+        for (let i = 0; i < tabTitles.length; i++) {
+          let title = tabTitles[i].text.trim();
+          let comics = tabParts[i].querySelectorAll("li").map(e => this.parseSimpleComic(e)).filter(c => c);
+          if (comics.length > 0) {
+            parts.push({ title, comics });
+          }
+        }
+
+        return parts;
+      },
       loadNext(next) {},
     },
   ];
@@ -555,6 +610,7 @@ class ManHuaGui extends ComicSource {
       let genre = param;
       let age = options[1];
       let status = options[2];
+      let sort = options[3] || "index";
       // log(
       //   "info",
       //   this.name,
@@ -563,7 +619,7 @@ class ManHuaGui extends ComicSource {
       // 字符串之间用“_”连接，空字符串除外
       let params = [area, genre, age, status].filter((e) => e != "").join("_");
 
-      let url = `${this.baseUrl}/list/${params}/index_p${page}.html`;
+      let url = `${this.baseUrl}/list/${params}/${sort}_p${page}.html`;
 
       let document = await this.getHtml(url);
       let maxPage = document
@@ -572,7 +628,8 @@ class ManHuaGui extends ComicSource {
       maxPage = parseInt(maxPage);
       let comics = document
         .querySelectorAll("#contList > li")
-        .map((e) => this.parseSimpleComic(e));
+        .map((e) => this.parseSimpleComic(e))
+        .filter((comic) => comic !== null); // 过滤掉 null 值
       return {
         comics,
         maxPage,
@@ -603,6 +660,9 @@ class ManHuaGui extends ComicSource {
       },
       {
         options: ["-全部", "lianzai-连载", "wanjie-完结"],
+      },
+      {
+        options: ["update-最新更新", "index-最新发布", "view-人气最旺", "rate-评分最高"],
       },
     ],
     ranking: {
@@ -848,7 +908,6 @@ class ManHuaGui extends ComicSource {
         let groupName = chapterGroups[i].text.trim();
         let groupChapters = new Map();
         
-        // 获取对应的章节列表
         let chapterList = document.querySelectorAll(".chapter-list")[i];
         if (chapterList) {
           let lis = chapterList.querySelectorAll("li");
@@ -859,32 +918,25 @@ class ManHuaGui extends ComicSource {
             groupChapters.set(id, title);
           }
           
-          // 章节升序排列
           groupChapters = new Map([...groupChapters].sort((a, b) => a[0] - b[0]));
           
-          // 将分组添加到总的章节映射中
           chaptersMap.set(groupName, groupChapters);
         }
       }
       
-      // 兼容旧版本，如果app版本不支持多分组，则合并所有分组
       let chapters;
       if (this.isAppVersionAfter && this.isAppVersionAfter("1.3.0")) {
-        // 支持多分组
         chapters = chaptersMap;
       } else {
-        // 合并所有分组
         chapters = new Map();
         for (let [_, groupChapters] of chaptersMap) {
           for (let [id, title] of groupChapters) {
             chapters.set(id, title);
           }
         }
-        // 章节升序
         chapters = new Map([...chapters].sort((a, b) => a[0] - b[0]));
       }
 
-      //ANCHOR - 推荐
       let recommend = [];
       let similar = document.querySelector(".similar-list");
       if (similar) {
@@ -919,7 +971,6 @@ class ManHuaGui extends ComicSource {
       let script = document.querySelectorAll("script")[4].innerHTML;
       let infos = this.getImgInfos(script);
 
-      // https://us.hamreus.com/ps3/y/yiquanchaoren/第190话重制版/003.jpg.webp?e=1754143606&m=DPpelwkhr-pS3OXJpS6VkQ
       let imgDomain = `https://us.hamreus.com`;
       let images = [];
       for (let f of infos.files) {
@@ -927,7 +978,6 @@ class ManHuaGui extends ComicSource {
           imgDomain + infos.path + f + `?e=${infos.sl.e}&m=${infos.sl.m}`;
         images.push(imgUrl);
       }
-      // log("warning", this.name, images);
       return {
         images,
       };
@@ -992,6 +1042,308 @@ class ManHuaGui extends ComicSource {
       return {
         headers,
       };
+    },
+    
+    /**
+     * [Optional] load comments
+     *
+     * Since app version 1.0.6, rich text is supported in comments.
+     * Following html tags are supported: ['a', 'b', 'i', 'u', 's', 'br', 'span', 'img'].
+     * span tag supports style attribute, but only support font-weight, font-style, text-decoration.
+     * All images will be placed at the end of the comment.
+     * Auto link detection is enabled, but only http/https links are supported.
+     * @param comicId {string}
+     * @param subId {string?} - ComicDetails.subId
+     * @param page {number}
+     * @param replyTo {string?} - commentId to reply, not null when reply to a comment
+     * @returns {Promise<{comments: Comment[], maxPage: number?}>}
+     */
+    loadComments: async (comicId, subId, page, replyTo) => {
+      if(replyTo){
+        page = replyTo.split('//')[1]; 
+        replyTo = replyTo.split('//')[0]; 
+      }
+
+      let url = `${this.baseUrl}/tools/submit_ajax.ashx?action=comment_list&book_id=${comicId}&page_index=${page}`;
+
+      let headers = {
+        accept: "application/json, text/javascript, */*; q=0.01",
+        "accept-language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
+        "cache-control": "no-cache",
+        pragma: "no-cache",
+        "sec-ch-ua": '"Microsoft Edge";v="137", "Chromium";v="137", "Not/A)Brand";v="24"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"Windows"',
+        "sec-fetch-dest": "empty",
+        "sec-fetch-mode": "cors",
+        "sec-fetch-site": "same-origin",
+        "x-requested-with": "XMLHttpRequest",
+        Referer: `${this.baseUrl}/comic/${comicId}/`,
+        "Referrer-Policy": "strict-origin-when-cross-origin",
+      };
+
+      let res = await Network.get(url, headers);
+
+      if (res.status !== 200) {
+        throw `获取评论失败，状态码: ${res.status}`;
+      }
+
+      let data = JSON.parse(res.body);
+
+      const replyChains = new Map(); 
+      const isSubReply = new Set(); 
+      const replyToMap = new Map(); 
+      
+      if (data.commentIds && data.commentIds.length > 0) {
+        for (let commentIdString of data.commentIds) {
+          const commentIds = commentIdString.split(',');
+          if (commentIds.length > 1) {
+            const mainCommentId = commentIds[commentIds.length - 1];
+      
+            if (!replyChains.has(mainCommentId)) {
+              replyChains.set(mainCommentId, []);
+            }
+            
+            for (let i = 0; i < commentIds.length - 1; i++) {
+              const replyId = commentIds[i];
+              isSubReply.add(replyId); // 标记为子回复
+              
+              if (!replyChains.get(mainCommentId).includes(replyId)) {
+                replyChains.get(mainCommentId).push(replyId);
+              }
+              
+              const targetId = (i === 0) ? mainCommentId : commentIds[i + 1];
+              replyToMap.set(replyId, targetId);
+            }
+          }
+        }
+      }
+      
+      const commentList = [];
+      
+      if (data.comments) {
+        if (replyTo) {
+          const replies = [...(replyChains.get(replyTo) || [])].reverse();
+          
+          for (let replyId of replies) {
+            const comment = data.comments[replyId];
+            if (comment) {
+              const directReplyToId = replyToMap.get(replyId);
+              let replyUserName = "";
+              if (directReplyToId && directReplyToId !== replyTo && data.comments[directReplyToId]) {
+                replyUserName = data.comments[directReplyToId].user_name || "匿名用户";
+              }
+              
+              commentList.push(new Comment({
+                id: `${comment.id}//${page}`,
+                userName: replyUserName ? 
+                  `${comment.user_name || "匿名用户"} ☞ ${replyUserName}` : 
+                  comment.user_name || "匿名用户",
+                avatar: comment.avatar ? `https:${comment.avatar}` : "https://cf.mhgui.com/images/default.png",
+                content: comment.content ? comment.content : "已隐藏评论",
+                time: comment.add_time,
+                replyCount: 0, // 回复的回复暂不支持
+              }));
+            }
+          }
+        } else {
+          const mainComments = [];
+          for (const [id, comment] of Object.entries(data.comments)) {
+            if (!isSubReply.has(id)) {
+              const replyCount = replyChains.has(id) ? replyChains.get(id).length : (comment.reply_count || 0);
+              mainComments.push(new Comment({
+                id: `${comment.id}//${page}`,
+                userName: comment.user_name || "匿名用户", 
+                avatar: comment.avatar ? `https:${comment.avatar}` : "https://cf.mhgui.com/images/default.png",
+                content: comment.content ? comment.content : "已隐藏评论",
+                time: comment.add_time,
+                replyCount: replyCount,
+              }));
+            }
+          }
+          commentList.push(...mainComments.reverse());
+        }
+      }
+      
+      return {
+        comments: commentList,
+        maxPage: replyTo ? 1 : (Math.ceil(data.total / 10) || 1)
+      };
+    },
+    
+    /**
+     * 处理标签点击事件
+     * @param namespace {string} 标签命名空间
+     * @param tag {string} 标签名称
+     * @returns {Object} 跳转操作
+     */
+    onClickTag: (namespace, tag) => {
+      // 点击类型标签时，跳转到对应的分类页面
+      if (namespace === "类型") {
+        // 根据标签查找对应的参数值
+        const categoryPart = this.category.parts.find(part => part.name === "类型");
+        if (categoryPart) {
+          const index = categoryPart.categories.findIndex(cat => cat === tag);
+          if (index !== -1) {
+            const param = categoryPart.categoryParams[index];
+            return {
+              action: 'category',
+              keyword: tag,
+              param: param
+            };
+          }
+        }
+      }
+      if (namespace === "作者") {
+        return {
+          action: 'search',
+          keyword: tag,
+          param: tag
+        };
+      }
+      
+      // 默认返回null，表示不处理此类标签点击
+      return null;
+    },
+  };
+  /// favorites related
+  favorites = {
+    multiFolder: false,
+    /**
+     * load comics of the favorites
+     * @param page {number} - page number
+     * @param folder {string?} - folder name, unused for now
+     * @returns {Promise<{comics: Comic[], maxPage: number}>}
+     */
+    loadComics: async (page, folder) => {
+        let mhg_cookie = this.loadData("mhg_cookie");
+        if (!mhg_cookie) {
+            throw "请先登录漫画柜账号";
+        }
+        let url = `${this.baseUrl}/user/book/shelf/${page}`;
+        let document = await this.getHtml(url);
+        let comicElements = document.querySelectorAll('.dy_content_li');
+        let comics = [];
+        for (let el of comicElements) {
+            let a = el.querySelector('.dy_img a');
+            if (!a) continue;
+            let href = a.attributes['href'];
+            let id = href.split('/')[2];
+            let img = a.querySelector('img');
+            let cover = img ? (img.attributes['src'] || img.attributes['data-src']) : '';
+            if (cover && !cover.startsWith('http')) cover = 'https:' + cover;
+            // dy_r 解析详细信息
+            let dy_r = el.querySelector('.dy_r');
+            let title = '';
+            let updateTitle = '';
+            let updateChapter = '';
+            let updateDate = '';
+            let lastReadChapter = '';
+            let lastReadDate = '';
+            if (dy_r) {
+                // 标题
+                let h3 = dy_r.querySelector('h3');
+                if (h3) {
+                    let h3a = h3.querySelector('a');
+                    if (h3a) title = h3a.text.trim();
+                }
+                // 更新内容
+                let pList = dy_r.querySelectorAll('p');
+                if (pList.length > 0) {
+                    let updateP = pList[0];
+                    let updateEm = updateP.querySelectorAll('em');
+                    if (updateEm.length > 0) {
+                        let chapterA = updateEm[0].querySelector('a');
+                        if (chapterA) updateChapter = chapterA.text.trim();
+                        updateDate = updateEm.length > 1 ? updateEm[1].text.trim() : '';
+                    }
+                    updateTitle = updateP.text.replace(/更新内容：/, '').trim();
+                }
+                // 最近阅读
+                if (pList.length > 1) {
+                    let readP = pList[1];
+                    let readEm = readP.querySelectorAll('em');
+                    if (readEm.length > 0) {
+                        let lastA = readEm[0].querySelector('a');
+                        if (lastA) lastReadChapter = lastA.text.trim();
+                        lastReadDate = readEm.length > 1 ? readEm[1].text.trim() : '';
+                    }
+                }
+            }
+            // 兼容无dy_r时的title
+            if (!title) {
+                if (a.attributes['title']) {
+                    title = a.attributes['title'];
+                } else {
+                    title = a.text.trim();
+                }
+            }
+            // tags 信息
+            let tags = [];
+            if (updateChapter) tags.push(`更新：${updateChapter}`);
+            if (updateDate) tags.push(`更新日期：${updateDate}`);
+            if (lastReadChapter) tags.push(`最近阅读：${lastReadChapter}`);
+            if (lastReadDate) tags.push(`最近阅读时间：${lastReadDate}`);
+            comics.push(new Comic({
+                id,
+                title,
+                subTitle: updateChapter || updateTitle || '',
+                cover,
+                description: '',
+                tags,
+            }));
+        }
+        // 页码信息
+        let maxPage = 1;
+        // 优先用“共N记录”计算
+        let recordInfo = document.querySelector('.flickr.right span');
+        if (recordInfo) {
+            let match = recordInfo.text.match(/共(\d+)记录/);
+            if (match) {
+                let total = parseInt(match[1], 10);
+                maxPage = Math.ceil(total / 20);
+            }
+        } else {
+            // 兼容旧逻辑
+            let pageBtns = document.querySelectorAll('.page-btns a');
+            for (let btn of pageBtns) {
+                let num = parseInt(btn.text.trim(), 10);
+                if (!isNaN(num) && num > maxPage) maxPage = num;
+            }
+        }
+        return {
+            comics,
+            maxPage
+        };
+    },
+    addOrDelFavorite: async (comicId, folderId, isAdding, favoriteId) => {
+        if (!isAdding) {
+            throw '暂不支持取消收藏';
+        }
+        let mhg_cookie = this.loadData("mhg_cookie");
+        if (!mhg_cookie) {
+            throw "请先登录漫画柜账号";
+        }
+        let url = `${this.baseUrl}/tools/submit_ajax.ashx?action=user_book_shelf_add`;
+        let headers = {
+            'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'x-requested-with': 'XMLHttpRequest',
+            'referer': `${this.baseUrl}/comic/${comicId}/`,
+            cookie: mhg_cookie,
+        };
+        let body = `book_id=${encodeURIComponent(comicId)}`;
+        let res = await Network.post(url, headers, body);
+        if (res.status !== 200) {
+            throw `添加收藏失败，状态码: ${res.status}`;
+        }
+        let data = {};
+        try {
+            data = JSON.parse(res.body);
+        } catch (e) {}
+        if (data.state !== true && data.state !== 1) {
+            throw data.msg || '添加收藏失败';
+        }
+        return 'ok';
     },
   };
 }
