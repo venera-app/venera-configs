@@ -4,7 +4,7 @@ class CopyManga extends ComicSource {
 
     key = "copy_manga"
 
-    version = "1.3.7"
+    version = "1.3.8"
 
     minAppVersion = "1.2.1"
 
@@ -14,13 +14,18 @@ class CopyManga extends ComicSource {
         let token = this.loadData("token");
         let secret = "M2FmMDg1OTAzMTEwMzJlZmUwNjYwNTUwYTA1NjNhNTM="
 
+        let now = new Date(Date.now());
+        let year = now.getFullYear();
+        let month = (now.getMonth() + 1).toString().padStart(2, '0');
+        let day = now.getDate().toString().padStart(2, '0');
+        let ts = Math.floor(now.getTime() / 1000).toString()
+
         if (!token) {
             token = "";
         } else {
             token = " " + token;
         }
 
-        let ts = Math.floor(Date.now() / 1000).toString()
         let sig = Convert.hmacString(
             Convert.decodeBase64(secret),
             Convert.encodeUtf8(ts),
@@ -31,6 +36,7 @@ class CopyManga extends ComicSource {
             "User-Agent": "COPY/3.0.0",
             "source": "copyApp",
             "deviceinfo": this.deviceinfo,
+            "dt": `${year}.${month}.${day}`,
             "platform": "3",
             "referer": `com.copymanga.app-3.0.0`,
             "version": "3.0.0",
@@ -602,7 +608,7 @@ class CopyManga extends ComicSource {
             let getChapters = async (id, groups) => {
                 let fetchSingle = async (id, path) => {
                     let res = await Network.get(
-                        `${this.apiUrl}/api/v3/comic/${id}/group/${path}/chapters?limit=500&offset=0&in_mainland=true&request_id=`,
+                        `${this.apiUrl}/api/v3/comic/${id}/group/${path}/chapters?limit=100&offset=0&in_mainland=true&request_id=`,
                         this.headers
                     );
                     if (res.status !== 200) {
@@ -616,11 +622,11 @@ class CopyManga extends ComicSource {
                         eps.set(id, title);
                     });
                     let maxChapter = data.results.total;
-                    if (maxChapter > 500) {
-                        let offset = 500;
+                    if (maxChapter > 100) {
+                        let offset = 100;
                         while (offset < maxChapter) {
                             res = await Network.get(
-                                `${this.apiUrl}/api/v3/comic/${id}/group/${path}/chapters?limit=500&offset=${offset}`,
+                                `${this.apiUrl}/api/v3/comic/${id}/group/${path}/chapters?limit=100&offset=${offset}`,
                                 this.headers
                             );
                             if (res.status !== 200) {
@@ -632,7 +638,7 @@ class CopyManga extends ComicSource {
                                 let id = e.uuid;
                                 eps.set(id, title)
                             });
-                            offset += 500;
+                            offset += 100;
                         }
                     }
                     return eps;
