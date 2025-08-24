@@ -7,7 +7,7 @@ class Ehentai extends ComicSource {
     // unique id of the source
     key = "ehentai"
 
-    version = "1.1.3"
+    version = "1.1.4"
 
     minAppVersion = "1.0.0"
 
@@ -1182,7 +1182,7 @@ class Ehentai extends ComicSource {
                 if(url.includes('?')) {
                     url = url.split('?')[0]
                 }
-                let reg = RegExp("https?://(e-|ex)hentai.org/g/(\\d+)/(\\w+)/")
+                let reg = RegExp("https?://(e-|ex)hentai.org/g/(\\d+)/(\\w+)/?$")
                 let match = reg.exec(url)
                 if(match) {
                     return `${this.baseUrl}/g/${match[2]}/${match[3]}/`
