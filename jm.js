@@ -7,22 +7,22 @@ class JM extends ComicSource {
     // unique id of the source
     key = "jm"
 
-    version = "1.2.1"
+    version = "1.2.2"
 
     minAppVersion = "1.2.5"
 
-    static jmVersion = "2.0.1"
+    static jmVersion = "2.0.6"
 
     static jmPkgName = "com.example.app"
 
     // update url
     url = "https://git.nyne.dev/nyne/venera-configs/raw/branch/main/jm.js"
 
-    static apiDomains = [
-        "www.cdnaspa.vip",
-        "www.cdnaspa.club",
-        "www.cdnplaystation6.vip",
-        "www.cdnplaystation6.cc"
+    static fallbackServers = [
+        "www.cdntwice.org",
+        "www.cdnsha.org",
+        "www.cdnaspa.cc",
+        "www.cdnntr.cc",
     ];
 
     static imageUrl = "https://cdn-msp.jmapinodeudzn.net"
@@ -121,11 +121,11 @@ class JM extends ComicSource {
      * @param showConfirmDialog {boolean}
      */
     async refreshApiDomains(showConfirmDialog) {
-        let url = "https://jmapp03-1308024008.cos.ap-jakarta.myqcloud.com/server-2024.txt"
+        let url = "https://rup4a04-c02.tos-cn-hongkong.bytepluses.com/newsvr-2025.txt"
         let domainSecret = "diosfjckwpqpdfjkvnqQjsik"
         let title = ""
         let message = ""
-        let jm3_Server = []
+        let servers = []
         let domains = []
         let res = await fetch(
             url,
@@ -134,20 +134,20 @@ class JM extends ComicSource {
         if (res.status === 200) {
             let data = this.convertData(await res.text(), domainSecret)
             let json = JSON.parse(data)
-            if (json["jm3_Server"]) {
+            if (json["Server"]) {
                 title = "Update Success"
                 message = "\n"
-                jm3_Server = json["jm3_Server"]
+                servers = json["Server"].slice(0, 4)
             }
         }
-        if (jm3_Server.length === 0) {
+        if (servers.length === 0) {
             title = "Update Failed"
             message = `Using built-in domains:\n\n`
-            domains = JM.apiDomains
+            servers = JM.fallbackServers
         }
-        for (let [domain, index] of jm3_Server) {
-            message = message + `${index}: ${domain}\n`
-            domains.push(domain)
+        for (let i = 0; i < servers.length; i++) {
+            message = message + `線路${i + 1}:  ${servers[i]}\n\n`
+            domains.push(servers[i])
         }
         if (showConfirmDialog) {
             UI.showDialog(
