@@ -7,18 +7,29 @@ class Lanraragi extends ComicSource {
     url = "https://git.nyne.dev/nyne/venera-configs/raw/branch/main/lanraragi.js"
 
     settings = {
-        api: { title: "API", type: "input", default: "http://lrr.tvc-16.science" }
+        api: { title: "API", type: "input", default: "http://lrr.tvc-16.science" },
+        apiKey: { title: "APIKEY", type: "input", default: "" }
     }
-    get baseUrl() { 
 
+    get baseUrl() { 
         const api = this.loadSetting('api') || this.settings.api.default
+
         return api.replace(/\/$/, '')
+    }
+
+    get headers() {
+        let apiKey = this.loadSetting('apiKey')
+        if (apiKey) apiKey = "Bearer " + Convert.encodeBase64(Convert.encodeUtf8(apiKey))
+
+        return {
+            "Authorization": `${apiKey}`,
+        }
     }
 
     async init() {
         try {
             const url = `${this.baseUrl}/api/categories`
-            const res = await Network.get(url)
+            const res = await Network.get(url, this.headers)
             if (res.status !== 200) { this.saveData('categories', []); return }
             let data = []
             try { data = JSON.parse(res.body) } catch (_) { data = [] }
@@ -39,7 +50,7 @@ class Lanraragi extends ComicSource {
     explore = [
         { title: "Lanraragi", type: "multiPageComicList", load: async (page = 1) => {
             const url = `${this.baseUrl}/api/archives`
-            const res = await Network.get(url)
+            const res = await Network.get(url, this.headers)
             if (res.status !== 200) throw `Invalid status code: ${res.status}`
             const data = JSON.parse(res.body)
             const list = data.slice((page-1)*50, page*50)
@@ -114,7 +125,7 @@ class Lanraragi extends ComicSource {
             add('search[regex]', 'false')
 
             const url = `${base}/search?${qp.join('&')}`
-            const res = await Network.get(url)
+            const res = await Network.get(url, this.headers)
             if (res.status !== 200) throw `Invalid status code: ${res.status}`
             const data = JSON.parse(res.body)
             const list = Array.isArray(data.data) ? data.data : []
@@ -169,7 +180,7 @@ class Lanraragi extends ComicSource {
             add('groupby_tanks', groupby)
 
             const url = `${base}/api/search?${qp.join('&')}`
-            const res = await Network.get(url)
+            const res = await Network.get(url, this.headers)
             if (res.status !== 200) throw `Invalid status code: ${res.status}`
             const data = JSON.parse(res.body)
             const all = Array.isArray(data.data) ? data.data : []
@@ -225,7 +236,7 @@ class Lanraragi extends ComicSource {
     comic = {
         loadInfo: async (id) => {
             const url = `${this.baseUrl}/api/archives/${id}/metadata`
-            const res = await Network.get(url)
+            const res = await Network.get(url, this.headers)
             if (res.status !== 200) throw `Invalid status code: ${res.status}`
             const data = JSON.parse(res.body)
             const cover = `${this.baseUrl}/api/archives/${id}/thumbnail`
@@ -237,7 +248,7 @@ class Lanraragi extends ComicSource {
         },
         loadThumbnails: async (id, next) => {
             const metaUrl = `${this.baseUrl}/api/archives/${id}/metadata`
-            const res = await Network.get(metaUrl)
+            const res = await Network.get(metaUrl, this.headers)
             if (res.status !== 200) throw `Invalid status code: ${res.status}`
             const data = JSON.parse(res.body)
             const pagecount = data.pagecount || 1
@@ -249,7 +260,7 @@ class Lanraragi extends ComicSource {
         loadEp: async (comicId, epId) => {
             const base = (this.baseUrl || '').replace(/\/$/, '')
             const url = `${base}/api/archives/${comicId}/files?force=false`
-            const res = await Network.get(url)
+            const res = await Network.get(url, this.headers)
             if (res.status !== 200) throw `Invalid status code: ${res.status}`
             const data = JSON.parse(res.body)
             const images = (data.pages || []).map(p => {
@@ -260,8 +271,16 @@ class Lanraragi extends ComicSource {
             }).filter(Boolean)
             return { images }
         },
-        // onImageLoad: (url, comicId, epId) => ({}),
-        // onThumbnailLoad: (url) => ({}),
+        onImageLoad: (url, comicId, epId) => {
+            return {
+                headers: this.headers
+            }
+        },
+        onThumbnailLoad: (url) => {
+            return {
+                headers: this.headers
+            }
+        },
         // likeComic: async (id, isLike) => {},
         // loadComments: async (comicId, subId, page, replyTo) => {},
         // sendComment: async (comicId, subId, content, replyTo) => {},
