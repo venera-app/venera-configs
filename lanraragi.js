@@ -2,7 +2,7 @@
 class Lanraragi extends ComicSource {
     name = "Lanraragi"
     key = "lanraragi"
-    version = "1.0.0"
+    version = "1.1.0"
     minAppVersion = "1.4.0"
     url = "https://git.nyne.dev/nyne/venera-configs/raw/branch/main/lanraragi.js"
 
