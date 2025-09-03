@@ -7,9 +7,9 @@ class JM extends ComicSource {
     // unique id of the source
     key = "jm"
 
-    version = "1.2.2"
+    version = "1.3.0"
 
-    minAppVersion = "1.2.5"
+    minAppVersion = "1.5.0"
 
     static jmVersion = "2.0.6"
 
@@ -371,6 +371,12 @@ class JM extends ComicSource {
         title: "禁漫天堂",
         parts: [
             {
+                name: "每週必看",
+                type: "fixed",
+                categories: ["每週必看"],
+                itemType: "category",
+            },
+            {
                 name: "成人A漫",
                 type: "fixed",
                 categories: ["最新A漫", "同人", "單本", "短篇", "其他類", "韓漫", "美漫", "Cosplay", "3D", "禁漫漢化組"],
@@ -480,33 +486,74 @@ class JM extends ComicSource {
          * @returns {Promise<{comics: Comic[], maxPage: number}>}
          */
         load: async (category, param, options, page) => {
-            param ??= category
-            param = encodeURIComponent(param)
-            let res = await this.get(`${this.baseUrl}/categories/filter?o=${options[0]}&c=${param}&page=${page}`)
-            let data = JSON.parse(res)
-            let total = data.total
-            let maxPage = Math.ceil(total / 80)
-            let comics = data.content.map((e) => this.parseComic(e))
-            return {
-                comics: comics,
-                maxPage: maxPage
+            if (category !== "每週必看") {
+                param ??= category
+                param = encodeURIComponent(param)
+                let res = await this.get(`${this.baseUrl}/categories/filter?o=${options[0]}&c=${param}&page=${page}`)
+                let data = JSON.parse(res)
+                let total = data.total
+                let maxPage = Math.ceil(total / 80)
+                let comics = data.content.map((e) => this.parseComic(e))
+                return {
+                    comics: comics,
+                    maxPage: maxPage
+                }
+            } else {
+                let res = await this.get(`${this.baseUrl}/week/filter?id=${options[0]}&page=1&type=${options[1]}&page=0`)
+                let data = JSON.parse(res)
+                let comics = data.list.map((e) => this.parseComic(e))
+                return {
+                    comics: comics,
+                    maxPage: 1
+                }
             }
         },
-        // provide options for category comic loading
-        optionList: [
-            {
-                // For a single option, use `-` to separate the value and text, left for value, right for text
-                options: [
-                    "mr-最新",
-                    "mv-總排行",
-                    "mv_m-月排行",
-                    "mv_w-周排行",
-                    "mv_t-日排行",
-                    "mp-最多圖片",
-                    "tf-最多喜歡",
-                ],
+        /**
+         * [Optional] load options dynamically. If `optionList` is provided, this will be ignored.
+         * @param category {string}
+         * @param param {string?}
+         * @return {Promise<{options: string[], label?: string}[]>} - return a list of option group, each group contains a list of options
+         */
+        optionLoader: async (category, param) => {
+            if (category !== "每週必看") {
+                return [
+                    {
+                        label: "排序",
+                        // For a single option, use `-` to separate the value and text, left for value, right for text
+                        options: [
+                            "mr-最新",
+                            "mv-總排行",
+                            "mv_m-月排行",
+                            "mv_w-周排行",
+                            "mv_t-日排行",
+                            "mp-最多圖片",
+                            "tf-最多喜歡",
+                        ],
+                    }
+                ]
+            } else {
+                let res = await this.get(`${this.baseUrl}/week`)
+                let data = JSON.parse(res)
+                let options = []
+                for (let e of data["categories"]) {
+                    options.push(`${e["id"]}-${e["time"]}`)
+                }
+                return [
+                    {
+                        label: "時間",
+                        options: options,
+                    },
+                    {
+                        label: "類型",
+                        options: [
+                          "manga-日漫",
+                          "hanman-韓漫",
+                          "another-其他",
+                        ]
+                    }
+                ]
             }
-        ],
+        },
         ranking: {
             // For a single option, use `-` to separate the value and text, left for value, right for text
             options: [
