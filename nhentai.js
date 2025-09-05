@@ -7,7 +7,7 @@ class Nhentai extends ComicSource {
     // unique id of the source
     key = "nhentai"
 
-    version = "1.0.5"
+    version = "1.0.6"
 
     minAppVersion = "1.0.0"
 
@@ -523,7 +523,7 @@ class Nhentai extends ComicSource {
                 'nhentai.net',
             ],
             linkToId: (url) => {
-                let regex = /\/g\/(\d+)\//g
+                let regex = /\/g\/(\d+)\/?$/g
                 let match = regex.exec(url)
                 if(match) {
                     return match[1]
