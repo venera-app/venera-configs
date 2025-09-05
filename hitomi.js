@@ -1004,7 +1004,7 @@ class Hitomi extends ComicSource {
 
   galleryCache = [];
   categoryResultCache = undefined;
-  searchResultCache = undefined;
+  searchResultCaches = new Map();
 
   _mapGalleryBlockInfoToComic(n) {
     return new Comic({
@@ -1099,7 +1099,14 @@ class Hitomi extends ComicSource {
         type: "fixed",
         categories: ["同人志", "漫画", "画师CG", "游戏CG", "图集", "动画"],
         itemType: "category",
-        categoryParams: ["type:doujinshi", "type:manga", "type:artistcg", "type:gamecg", "type:imageset", "type:anime"],
+        categoryParams: [
+          "type:doujinshi",
+          "type:manga",
+          "type:artistcg",
+          "type:gamecg",
+          "type:imageset",
+          "type:anime",
+        ],
       },
     ],
     // enable ranking page
@@ -1118,7 +1125,8 @@ class Hitomi extends ComicSource {
      */
     load: async (category, param, options, page) => {
       const term = param;
-      if (!term.includes(":")) throw new Error("不合法的标签，请使用namespace:tag的格式");
+      if (!term.includes(":"))
+        throw new Error("不合法的标签，请使用namespace:tag的格式");
       if (page === 1) {
         const option = parseInt(options[0]);
         const searchOptions = {
@@ -1274,6 +1282,7 @@ class Hitomi extends ComicSource {
      * @returns {Promise<{comics: Comic[], maxPage: number}>}
      */
     load: async (keyword, options, page) => {
+      const cacheKey = (keyword || "") + "|" + options.join(",");
       if (page === 1) {
         const option = parseInt(options[0]);
         const term = keyword;
@@ -1315,11 +1324,11 @@ class Hitomi extends ComicSource {
           const comics = (await get_galleryblocks(result.gids)).map((n) =>
             this._mapGalleryBlockInfoToComic(n)
           );
-          this.searchResultCache = {
+          this.searchResultCaches.set(cacheKey, {
             type: "single",
             state: result.state,
             count: result.count,
-          };
+          });
           return {
             comics,
             maxPage: Math.ceil(result.count / 25),
@@ -1330,20 +1339,21 @@ class Hitomi extends ComicSource {
               result.gids.slice(25 * page - 25, 25 * page)
             )
           ).map((n) => this._mapGalleryBlockInfoToComic(n));
-          this.searchResultCache = {
+          this.searchResultCaches.set(cacheKey, {
             type: "all",
             gids: result.gids,
             count: result.count,
-          };
+          });
           return {
             comics,
             maxPage: Math.ceil(result.count / 25),
           };
         }
       } else {
-        if (this.searchResultCache.type === "single") {
+        const searchResultCache = this.searchResultCaches.get(cacheKey);
+        if (searchResultCache.type === "single") {
           const result = await getSingleTagSearchPage({
-            state: this.searchResultCache.state,
+            state: searchResultCache.state,
             page: page - 1,
           });
           const comics = (await get_galleryblocks(result.galleryids)).map((n) =>
@@ -1351,17 +1361,17 @@ class Hitomi extends ComicSource {
           );
           return {
             comics,
-            maxPage: Math.ceil(this.searchResultCache.count / 25),
+            maxPage: Math.ceil(searchResultCache.count / 25),
           };
         } else {
           const comics = (
             await get_galleryblocks(
-              this.searchResultCache.gids.slice(25 * page - 25, 25 * page)
+              searchResultCache.gids.slice(25 * page - 25, 25 * page)
             )
           ).map((n) => this._mapGalleryBlockInfoToComic(n));
           return {
             comics,
-            maxPage: Math.ceil(this.searchResultCache.count / 25),
+            maxPage: Math.ceil(searchResultCache.count / 25),
           };
         }
       }
