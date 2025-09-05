@@ -995,7 +995,7 @@ class Hitomi extends ComicSource {
   // unique id of the source
   key = "hitomi";
 
-  version = "1.1.1";
+  version = "1.1.2";
 
   minAppVersion = "1.4.6";
 
