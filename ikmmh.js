@@ -1,13 +1,47 @@
+/** @type {import('./_venera_.js')} */
+
+function getValidatorCookie(htmlString) {
+  // 正则表达式匹配 document.cookie 设置语句
+  const cookieRegex = /document\.cookie\s*=\s*"([^"]+)"/;
+  const match = htmlString.match(cookieRegex);
+
+  if (!match) {
+    return null; // 没有找到 cookie 设置语句
+  }
+
+  const cookieSetting = match[1];
+  const cookies = cookieSetting.split(';');
+  if (cookies.length === 0) {
+    return null
+  }
+  const nameValuePart = cookies[0].trim();
+  const equalsIndex = nameValuePart.indexOf('=');
+
+  const name = nameValuePart.substring(0, equalsIndex);
+  const value = nameValuePart.substring(equalsIndex + 1);
+
+  return new Cookie({ name, value, domain: "www.ikmmh.com" })
+}
+
+function needPassValidator(htmlString) {
+  var cookie = getValidatorCookie(htmlString)
+  if (cookie != null) {
+    Network.setCookies(Ikm.baseUrl, [cookie])
+    return true
+  }
+  return false
+}
+
 class Ikm extends ComicSource {
   // 基础配置
   name = "爱看漫";
   key = "ikmmh";
-  version = "1.0.4";
+  version = "1.0.5";
   minAppVersion = "1.0.0";
   url = "https://git.nyne.dev/nyne/venera-configs/raw/branch/main/ikmmh.js";
   // 常量定义
-  static baseUrl = "https://ymcdnyfqdapp.ikmmh.com";
-  static Mobile_UA = "Mozilla/5.0 (Linux; Android) Mobile";
+  static baseUrl = "https://www.ikmmh.com";
+  static Mobile_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1 Edg/140.0.0.0";
   static webHeaders = {
     "User-Agent": Ikm.Mobile_UA,
     "Accept":
@@ -38,14 +72,26 @@ class Ikm extends ComicSource {
         );
         if (res.status !== 200)
           throw new Error(`登录失败，状态码：${res.status}`);
+
+        if (needPassValidator(res.body)) {
+          // rePost
+          res = await Network.post(
+            `${Ikm.baseUrl}/api/user/userarr/login`,
+            Ikm.jsonHead,
+            `user=${account}&pass=${pwd}`
+          );
+        }
+
         let data = JSON.parse(res.body);
-        if (data.code !== 0) throw new Error(data.msg || "登录异常");
+        if (data.code !== 0)
+          throw new Error(data.msg || "登录异常");
+
         return "ok";
       } catch (err) {
         throw new Error(`登录失败：${err.message}`);
       }
     },
-    logout: () => Network.deleteCookies("ymcdnyfqdapp.ikmmh.com"),
+    logout: () => Network.deleteCookies("www.ikmmh.com"),
     registerWebsite: `${Ikm.baseUrl}/user/register/`,
   };
   // 探索页面
@@ -58,6 +104,12 @@ class Ikm extends ComicSource {
           let res = await Network.get(`${Ikm.baseUrl}/`, Ikm.webHeaders);
           if (res.status !== 200)
             throw new Error(`加载探索页面失败，状态码：${res.status}`);
+
+          if (needPassValidator(res.body)) {
+            // rePost
+            res = await Network.get(`${Ikm.baseUrl}/`, Ikm.webHeaders);
+          }
+
           let document = new HtmlDocument(res.body);
           let parseComic = (e) => {
             let title = e.querySelector("div.title").text.split("~")[0];
@@ -176,6 +228,15 @@ class Ikm extends ComicSource {
           );
           if (res.status !== 200)
             throw new Error(`分类请求失败，状态码：${res.status}`);
+
+          if (needPassValidator(res.body)) {
+            // rePost
+            res = await Network.get(
+              `${Ikm.baseUrl}/update/${param}.html`,
+              Ikm.webHeaders
+            );
+          }
+
           let document = new HtmlDocument(res.body);
           let comics = document.querySelectorAll("li.comic-item").map((e) => ({
             title: e.querySelector("p.title").text.split("~")[0],
@@ -195,6 +256,17 @@ class Ikm extends ComicSource {
               options[0]
             }&page=${page}`
           );
+
+          if (needPassValidator(res.body)) {
+            // rePost
+            res = await Network.post(
+              `${Ikm.baseUrl}/api/comic/index/lists`,
+              Ikm.jsonHead,
+              `area=${options[1]}&tags=${encodeURIComponent(category)}&full=${options[0]
+              }&page=${page}`
+            );
+          }
+
           let resData = JSON.parse(res.body);
           return {
             comics: resData.data.map((e) => ({
@@ -260,6 +332,15 @@ class Ikm extends ComicSource {
           `${Ikm.baseUrl}/search?searchkey=${encodeURIComponent(keyword)}`,
           Ikm.webHeaders
         );
+
+        if (needPassValidator(res.body)) {
+          // rePost
+          res = await Network.get(
+            `${Ikm.baseUrl}/search?searchkey=${encodeURIComponent(keyword)}`,
+            Ikm.webHeaders
+          );
+        }
+
         let document = new HtmlDocument(res.body);
         return {
           comics: document.querySelectorAll("li.comic-item").map((e) => ({
@@ -286,6 +367,12 @@ class Ikm extends ComicSource {
         if (isAdding) {
           // 获取漫画信息
           let infoRes = await Network.get(comicId, Ikm.webHeaders);
+
+          if (needPassValidator(infoRes.body)) {
+            // rePost
+            infoRes = await Network.get(comicId, Ikm.webHeaders);
+          }
+
           let name = new HtmlDocument(infoRes.body).querySelector(
             "meta[property='og:title']"
           ).attributes["content"];
@@ -305,6 +392,16 @@ class Ikm extends ComicSource {
             Ikm.jsonHead,
             `articleid=${id}`
           );
+
+          if (needPassValidator(res.body)) {
+            // rePost
+            res = await Network.post(
+              `${Ikm.baseUrl}/api/user/bookcase/del`,
+              Ikm.jsonHead,
+              `articleid=${id}`
+            );
+          }
+
           let data = JSON.parse(res.body);
           if (data.code !== "0") throw new Error(data.msg || "取消收藏失败");
           return "ok";
@@ -322,6 +419,15 @@ class Ikm extends ComicSource {
       if (res.status !== 200) {
         throw "加载收藏失败：" + res.status;
       }
+
+      if (needPassValidator(res.body)) {
+        // rePost
+        res = await Network.get(
+          `${Ikm.baseUrl}/user/bookcase`,
+          Ikm.webHeaders
+        );
+      }
+
       let document = new HtmlDocument(res.body);
       return {
         comics: document.querySelectorAll("div.bookrack-item").map((e) => ({
@@ -347,6 +453,12 @@ class Ikm extends ComicSource {
         console.error("加载收藏页失败:", error);
       }
       let res = await Network.get(id, Ikm.webHeaders);
+
+      if (needPassValidator(res.body)) {
+        // rePost
+        res = await Network.get(id, Ikm.webHeaders);
+      }
+
       let document = new HtmlDocument(res.body);
       let comicId = id.match(/\d+/)[0];
       // 获取章节数据
@@ -410,13 +522,19 @@ class Ikm extends ComicSource {
             cover: e.querySelector("div.thumb_img").attributes["data-src"],
             id: `${Ikm.baseUrl}${e.querySelector("a").attributes["href"]}`,
           })),
-        isFavorite: isFavorite,  
+        isFavorite: isFavorite,
       };
     },
     onThumbnailLoad: Ikm.thumbConfig,
     loadEp: async (comicId, epId) => {
       try {
         let res = await Network.get(epId, Ikm.webHeaders);
+
+        if (needPassValidator(res.body)) {
+          // rePost
+          res = await Network.get(epId, Ikm.webHeaders);
+        }
+
         let document = new HtmlDocument(res.body);
         return {
           images: document
