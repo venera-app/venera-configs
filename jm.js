@@ -16,7 +16,7 @@ class JM extends ComicSource {
     static jmPkgName = "com.example.app"
 
     // update url
-    url = "https://git.nyne.dev/nyne/venera-configs/raw/branch/main/jm.js"
+    url = "https://raw.githubusercontent.com/AriaArcadia/venera-configs/refs/heads/main/jm.js"
 
     static fallbackServers = [
         "www.cdntwice.org",
@@ -369,12 +369,11 @@ class JM extends ComicSource {
             load: async (page) => {
                 let res = await this.get(`${this.baseUrl}/latest?$baseData&page=1`)
                 let Comic = []
-
                 for(let e of JSON.parse(res)) {
-                    let comic = e.content.map((e) => this.parseComic(e))
-                    for(let i of comic){
-                        Comic.push(i)
-                    }
+                    console.log(e)
+                    console.log("opt")
+                    let comic = this.parseComic(e)
+                    Comic.push(comic)
                 }
                 let result={
                     comics: Comic,
