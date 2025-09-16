@@ -362,6 +362,26 @@ class JM extends ComicSource {
 
                 return result
             },
+        },
+        {
+            title: "禁漫最新",
+            type: "multiPageComicList",
+            load: async (page) => {
+                let res = await this.get(`${this.baseUrl}/latest?$baseData&page=0`)
+                let Comic = []
+
+                for(let e of JSON.parse(res)) {
+                    let comic = e.content.map((e) => this.parseComic(e))
+                    for(let i of comic){
+                        Comic.push(i)
+                    }
+                }
+                let result={
+                    comics: Comic,
+                    maxPage: 1
+                }
+                return result
+            }
         }
     ]
 
