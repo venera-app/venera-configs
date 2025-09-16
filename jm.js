@@ -377,7 +377,7 @@ class JM extends ComicSource {
                 }
                 let result={
                     comics: Comic,
-                    maxPage: 1
+                    maxPage: 99999
                 }
                 return result
             }
