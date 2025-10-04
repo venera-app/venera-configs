@@ -7,11 +7,11 @@ class JM extends ComicSource {
     // unique id of the source
     key = "jm"
 
-    version = "1.3.0"
+    version = "1.3.1"
 
     minAppVersion = "1.5.0"
 
-    static jmVersion = "2.0.6"
+    static jmVersion = "2.0.11"
 
     static jmPkgName = "com.example.app"
 
@@ -127,11 +127,13 @@ class JM extends ComicSource {
         let message = ""
         let servers = []
         let domains = []
-        let res = await fetch(
-            url,
-            {headers: this.baseHeaders}
-        )
-        if (res.status === 200) {
+        let res = null;
+        try {
+            res = await fetch(url, { headers: this.baseHeaders });
+        } catch (error) {
+            res = null;
+        }
+        if (res && res.status === 200) {
             let data = this.convertData(await res.text(), domainSecret)
             let json = JSON.parse(data)
             if (json["Server"]) {
