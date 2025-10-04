@@ -1,7 +1,7 @@
 class ShonenJumpPlus extends ComicSource {
   name = "少年ジャンプ＋";
   key = "shonen_jump_plus";
-  version = "1.1.0";
+  version = "1.1.1";
   minAppVersion = "1.2.1";
   url =
     "https://git.nyne.dev/nyne/venera-configs/raw/branch/main/shonen_jump_plus.js";
