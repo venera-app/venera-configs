@@ -5,7 +5,7 @@ class Baozi extends ComicSource {
   // 唯一标识符
   key = "baozi";
 
-  version = "1.1.0";
+  version = "1.1.1";
 
   minAppVersion = "1.0.0";
 
@@ -484,9 +484,13 @@ class Baozi extends ComicSource {
       }
       // 代理后图片水印更少
       let mobileImages = images.map((e) => {
-        const regex = /scomic\/.*/;
+        const regex = /\/[a-z]comic\/.*/;
         const match = e.match(regex);
-        return `https://as-rsa1-usla.baozicdn.com/w640/${match[0]}`;
+        if (match) {
+          return `https://as-rsa1-usla.baozicdn.com/w640${match[0]}`;
+        } else {
+          return e;
+        }
       });
       return { images: mobileImages };
     },
