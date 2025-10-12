@@ -9,7 +9,7 @@ class Ehentai extends ComicSource {
 
     version = "1.1.5"
 
-    minAppVersion = "1.0.0"
+    minAppVersion = "1.5.3"
 
     // update url
     url = "https://git.nyne.dev/nyne/venera-configs/raw/branch/main/ehentai.js"
