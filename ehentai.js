@@ -7,7 +7,7 @@ class Ehentai extends ComicSource {
     // unique id of the source
     key = "ehentai"
 
-    version = "1.1.4"
+    version = "1.1.5"
 
     minAppVersion = "1.0.0"
 
@@ -1084,32 +1084,155 @@ class Ehentai extends ComicSource {
                 let document = new HtmlDocument(res.body)
                 let body = document.querySelector("div#db")
                 let index = this.baseUrl.includes("exhentai") ? 1 : 3
-                let origin = body.children[index].children[0];
-                let originCost = origin.querySelector("div > strong").text;
-                let originSize = origin.querySelector("p > strong").text;
-                let resample = body.children[index].children[1];
-                let resampleCost = resample.querySelector("div > strong").text;
-                let resampleSize = resample.querySelector("p > strong").text;
-                return [
-                    {
+                
+                let archives = []
+                
+                // Parse H@H Download options from the table
+                let hathTable = document.querySelector("table");
+                if (hathTable) {
+                    let hathCells = hathTable.querySelectorAll("td");
+                    for (let cell of hathCells) {
+                        let link = cell.querySelector("a");
+                        if (link) {
+                            // Extract resolution from onclick attribute
+                            let onclick = link.attributes["onclick"];
+                            let resolutionMatch = onclick.match(/do_hathdl\('([^']+)'\)/);
+                            if (resolutionMatch) {
+                                let resolution = resolutionMatch[1];
+                                let linkText = link.text;
+                                let paragraphs = cell.querySelectorAll("p");
+                                let size = paragraphs.length > 1 ? paragraphs[1].text : "Unknown";
+                                let cost = paragraphs.length > 2 ? paragraphs[2].text : "Unknown";
+                                
+                                archives.push({
+                                    id: `h@h_${resolution}`,
+                                    title: `H@H ${linkText}`,
+                                    description: `Size: ${size}, Cost: ${cost}`,
+                                });
+                            }
+                        } else {
+                            // Skip disabled options (N/A) - don't add them to the list
+                            // This prevents users from accidentally selecting unavailable options
+                            let paragraphs = cell.querySelectorAll("p");
+                            if (paragraphs.length > 0) {
+                                let size = paragraphs.length > 1 ? paragraphs[1].text : "N/A";
+                                let cost = paragraphs.length > 2 ? paragraphs[2].text : "N/A";
+                                
+                                // Only add if both size and cost are available (not "N/A")
+                                if (size !== "N/A" && cost !== "N/A") {
+                                    let resolutionText = paragraphs[0].text;
+                                    archives.push({
+                                        id: `h@h_${resolutionText.toLowerCase().replace('x', '')}`,
+                                        title: `H@H ${resolutionText}`,
+                                        description: `Size: ${size}, Cost: ${cost}`,
+                                    });
+                                }
+                                // If size or cost is "N/A", we simply skip this option
+                            }
+                        }
+                    }
+                }
+                
+                // Original Download
+                let origin = body.children[index]?.children[0];
+                if (origin) {
+                    let originCost = origin.querySelector("div > strong")?.text || "Unknown";
+                    let originSize = origin.querySelector("p > strong")?.text || "Unknown";
+                    archives.push({
                         id: '0',
                         title: 'Original',
                         description: `Cost: ${originCost}, Size: ${originSize}`,
-                    },
-                    {
+                    });
+                }
+                
+                // Resample Download
+                let resample = body.children[index]?.children[1];
+                if (resample) {
+                    let resampleCost = resample.querySelector("div > strong")?.text || "Unknown";
+                    let resampleSize = resample.querySelector("p > strong")?.text || "Unknown";
+                    archives.push({
                         id: '1',
                         title: 'Resample',
                         description: `Cost: ${resampleCost}, Size: ${resampleSize}`,
-                    }
-                ]
+                    });
+                }
+                
+                document.dispose()
+                return archives
             },
             getDownloadUrl: async (cid, aid) => {
-                let data = aid === '0'
-                    ? "dltype=org&dlcheck=Download+Original+Archive"
-                    : "dltype=res&dlcheck=Download+Resample+Archive"
                 let urlParseResult = this.parseUrl(cid)
                 let gid = urlParseResult.id
                 let token = urlParseResult.token
+                
+                // Handle H@H Download options
+                if (aid.startsWith('h@h_')) {
+                    let resolution = aid.substring(4); // Remove 'h@h_' prefix
+                    
+                    // For H@H downloads, send the command directly to archiver.php
+                    let hathRes = await Network.post(`${this.baseUrl}/archiver.php?gid=${gid}&token=${token}`, {
+                        "Content-Type": "application/x-www-form-urlencoded",
+                    }, `hathdl_xres=${resolution}`)
+                    
+                    if (hathRes.status !== 200) {
+                        throw `Failed to send H@H download command: ${hathRes.status}`
+                    }
+                    
+                    // Parse response for any error messages
+                    let hathDocument = new HtmlDocument(hathRes.body)
+                    let errorElement = hathDocument.querySelector("p.br")
+                    
+                    if (errorElement) {
+                        let errorMessage = errorElement.text
+                        hathDocument.dispose()
+                        
+                        if (errorMessage.includes("H@H client")) {
+                            throw "You need an H@H client associated with your account to use this feature"
+                        } else if (errorMessage.includes("offline")) {
+                            throw "Your H@H client appears to be offline. Please start it and try again"
+                        } else if (errorMessage.includes("resolution")) {
+                            throw "This gallery cannot be downloaded at the selected resolution"
+                        } else {
+                            throw errorMessage
+                        }
+                    }
+                    
+                    // Check for success message or assume success if no error
+                    let successMessage = hathDocument.querySelector("p")?.text
+                    hathDocument.dispose()
+                    
+                    let resolutionText = resolution === 'org' ? 'Original' : 
+                                       resolution === '800' ? '800x' :
+                                       resolution === '1280' ? '1280x' :
+                                       resolution === '1920' ? '1920x' :
+                                       resolution === '2560' ? '2560x' : resolution;
+                    
+                    // For H@H downloads, return a special value to indicate remote download
+                    // This should close the window without creating a local download task
+                    // let message = successMessage && successMessage.includes("successfully") 
+                    //     ? `H@H download command sent successfully (${resolutionText}). Check your H@H client.`
+                    //     : `H@H download command sent (${resolutionText}). Check your H@H client.`;
+                    
+                    // // Show success message to user
+                    // UI.showMessage(message);
+                    
+                    // Return empty string to avoid type error and prevent download task creation
+                    return "";
+                }
+                
+                // Handle regular downloads (Original and Resample)
+                let data;
+                switch(aid) {
+                    case '0':
+                        data = "dltype=org&dlcheck=Download+Original+Archive";
+                        break;
+                    case '1':
+                        data = "dltype=res&dlcheck=Download+Resample+Archive";
+                        break;
+                    default:
+                        throw "Invalid archive type";
+                }
+                
                 let res = await Network.post(`${this.baseUrl}/archiver.php?gid=${gid}&token=${token}`, {
                     "Content-Type": "application/x-www-form-urlencoded",
                 }, data)
@@ -1246,6 +1369,13 @@ class Ehentai extends ComicSource {
             "Category": "分类",
             "Min Stars": "最少星星",
             "Language": "语言",
+            "H@H Original": "H@H 原版",
+            "H@H 800x": "H@H 800x",
+            "H@H 1280x": "H@H 1280x", 
+            "H@H 1920x": "H@H 1920x",
+            "H@H 2560x": "H@H 2560x",
+            "Original": "原版",
+            "Resample": "重采样",
         },
         'zh_TW': {
             'domain': '域名',
@@ -1270,6 +1400,13 @@ class Ehentai extends ComicSource {
             "Category": "分類",
             "Min Stars": "最少星星",
             "Language": "語言",
+            "H@H Original": "H@H 原版",
+            "H@H 800x": "H@H 800x",
+            "H@H 1280x": "H@H 1280x",
+            "H@H 1920x": "H@H 1920x", 
+            "H@H 2560x": "H@H 2560x",
+            "Original": "原版",
+            "Resample": "重採樣",
         },
     }
 }
