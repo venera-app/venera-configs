@@ -1124,7 +1124,7 @@ class Ehentai extends ComicSource {
                                     archives.push({
                                         id: `h@h_${resolutionText.toLowerCase().replace('x', '')}`,
                                         title: `H@H ${resolutionText}`,
-                                        description: `Size: ${size}, Cost: ${cost}`,
+                                        description: `Cost: ${cost}, Size: ${size}`,
                                     });
                                 }
                                 // If size or cost is "N/A", we simply skip this option
