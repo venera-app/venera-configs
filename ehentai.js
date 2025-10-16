@@ -7,7 +7,7 @@ class Ehentai extends ComicSource {
     // unique id of the source
     key = "ehentai"
 
-    version = "1.1.5"
+    version = "1.1.6"
 
     minAppVersion = "1.5.3"
 
@@ -38,6 +38,35 @@ class Ehentai extends ComicSource {
             id: id,
             token: token
         }
+    }
+
+    async checkEHEvent() {
+        if (!this.isLogged) {
+            return;
+        }
+        if (!this.loadSetting("ehevent")) {
+            return;
+        }
+        const lastEvent = this.loadData("lastEventTime");
+        const newTime = new Date().toISOString().split("T")[0];
+        if (lastEvent == newTime) {
+            return;
+        }
+        const res = await Network.get("https://e-hentai.org/news.php", {});
+        if (res.status !== 200) {
+            return;
+        }
+        this.saveData("lastEventTime", newTime);
+        const document = new HtmlDocument(res.body);
+        const eventPane = document.getElementById("eventpane");
+        if (eventPane == null) {
+            return;
+        }
+        const dawnInfo = eventPane.querySelector("div > p:nth-child(2)");
+        if (dawnInfo == null) {
+            return;
+        }
+        UI.showMessage(dawnInfo.text);
     }
 
     // [Optional] account related
@@ -193,6 +222,9 @@ class Ehentai extends ComicSource {
      * @returns {Promise<{comics: Comic[], next: string?}>}
      */
     async getGalleries(url, isLeaderBoard) {
+        try {
+            this.checkEHEvent();
+        } catch (_) {}
         let t = isLeaderBoard ? 1 : 0;
         let res
         try {
@@ -438,6 +470,9 @@ class Ehentai extends ComicSource {
             let stars = options[1];
             let language = options[2];
             let fcats = 1023
+            if (!Array.isArray(category)) {
+                category = [category];
+            }
             for(let c of category) {
                 fcats -= 1 << Number(c)
             }
@@ -566,6 +601,9 @@ class Ehentai extends ComicSource {
          * @returns {Promise<{folders: {[p: string]: string}, favorited: string[]}>} - `folders` is a map of folder id to folder name, `favorited` is a list of folder id which contains the comic
          */
         loadFolders: async (comicId) => {
+            try {
+                this.checkEHEvent();
+            } catch (_) {}
             let res = await Network.get(`${this.baseUrl}/favorites.php`, {});
             if (res.status !== 200) {
                 throw `Invalid status code: ${res.status}`
@@ -615,6 +653,9 @@ class Ehentai extends ComicSource {
          * @returns {Promise<ComicDetails>}
          */
         loadInfo: async (id) => {
+            try {
+                this.checkEHEvent();
+            } catch (_) {}
             let res = await Network.get(id, {
                 'cookie': 'nw=1'
             });
@@ -625,6 +666,31 @@ class Ehentai extends ComicSource {
                 throw `Exception: empty data\nYou may not have permission to access this page.`
             }
             let document = new HtmlDocument(res.body);
+
+            if (this.isLogged && this.loadSetting("hvevent")) {
+                const eventPane = document.getElementById("eventpane");
+                if (eventPane != null) {
+                    const hvUrl = eventPane.querySelector('div > a')?.attributes['href'];
+                    if (hvUrl != null) {
+                        UI.showDialog(
+                            "HentaiVerse",
+                            this.translate("hentaiverse"),
+                            [
+                                {
+                                    text: this.translate("cancel"),
+                                    callback: () => {}
+                                },
+                                {
+                                    text: this.translate("fight"),
+                                    callback: () => {
+                                        UI.launchUrl(hvUrl);
+                                    }
+                                }
+                            ]
+                        );
+                    }
+                }
+            }
 
             let tags = new Map();
             for(let tr of document.querySelectorAll("div#taglist > table > tbody > tr")) {
@@ -865,7 +931,6 @@ class Ehentai extends ComicSource {
          */
         onImageLoad: async (image, comicId, epId, nl) => {
             let first = await this.comic.loadThumbnails(comicId)
-            console.log(first)
             let key = await this.comic.getKey(first.urls[0])
             let page = Number(image)
 
@@ -1274,6 +1339,16 @@ class Ehentai extends ComicSource {
          * @returns {{action: string, keyword: string, param: string?}}
          */
         onClickTag: (namespace, tag) => {
+            if (namespace == "Category") {
+                const categories = ["misc", "doujinshi", "manga", "artist cg", "game cg", "image set", "cosplay", "asian porn", "non-h", "western"];
+                return {
+                    page: "search",
+                    attributes: {
+                        'keyword': "",
+                        'options': [categories.indexOf(tag.toLowerCase()).toString(), "", ""]
+                    }
+                };
+            }
             if(tag.includes(' ')) {
                 tag = `"${tag}"`
             }
@@ -1342,12 +1417,27 @@ class Ehentai extends ComicSource {
             ],
             default: 'e-hentai.org',
         },
+        ehevent: {
+            title: "ehevent",
+            type: "switch",
+            default: false
+        },
+        hvevent: {
+            title: "hvevent",
+            type: "switch",
+            default: false
+        },
     }
 
     // [Optional] translations for the strings in this config
     translation = {
         'zh_CN': {
             "domain": "域名",
+            "ehevent": "触发黎明事件",
+            "hvevent": "提示HV遭遇战",
+            "hentaiverse": "你遇到了怪物！",
+            "fight":"战斗",
+            "cancel":"取消",
             "language": "语言",
             "artist": "画师",
             "male": "男性",
@@ -1379,6 +1469,11 @@ class Ehentai extends ComicSource {
         },
         'zh_TW': {
             'domain': '域名',
+            "ehevent": "觸發黎明事件",
+            "hvevent": "提示HV遭遇戰",
+            "hentaiverse": "你遇到了怪物！",
+            "fight":"戰鬥",
+            "cancel":"取消",
             "language": "語言",
             "artist": "畫師",
             "male": "男性",
@@ -1407,6 +1502,42 @@ class Ehentai extends ComicSource {
             "H@H 2560x": "H@H 2560x",
             "Original": "原版",
             "Resample": "重採樣",
+        },
+        'en_US': {
+            "domain": "Domain",
+            "ehevent": "Trigger Dawn Event",
+            "hvevent": "HV Encounter Alert",
+            "hentaiverse": "You have encountered a monster!",
+            "fight": "Fight",
+            "cancel": "Cancel",
+            "language": "Language",
+            "artist": "Artist",
+            "male": "Male",
+            "female": "Female",
+            "mixed": "Mixed",
+            "other": "Other",
+            "parody": "Parody",
+            "character": "Character",
+            "group": "Group",
+            "cosplayer": "Cosplayer",
+            "reclass": "Reclass",
+            "Languages": "Languages",
+            "Artists": "Artists",
+            "Characters": "Characters",
+            "Groups": "Groups",
+            "Tags": "Tags",
+            "Parodies": "Parodies",
+            "Categories": "Categories",
+            "Category": "Category",
+            "Min Stars": "Min Stars",
+            "Language": "Language",
+            "H@H Original": "H@H Original",
+            "H@H 800x": "H@H 800x",
+            "H@H 1280x": "H@H 1280x",
+            "H@H 1920x": "H@H 1920x",
+            "H@H 2560x": "H@H 2560x",
+            "Original": "Original",
+            "Resample": "Resample"
         },
     }
 }
