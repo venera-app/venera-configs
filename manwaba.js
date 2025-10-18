@@ -89,9 +89,9 @@ class ManWaBa extends ComicSource {
         );
         let magnaList = {
           热门: data.comicList,
-          古风: data.gufengList,
-          玄幻: data.xuanhuanList,
-          校园: data.xiaoyuanList,
+          最新完整版: data.gufengList,
+          最新更新: data.xuanhuanList,
+          热门收藏: data.xiaoyuanList,
         };
         function parseComic(comic) {
           return new Comic({
@@ -198,7 +198,7 @@ class ManWaBa extends ComicSource {
      */
     load: async (category, param, options, page) => {
       let pathMap = {
-        "全部": "/cate",
+        "": "/cate",
         "热血": "/cate/hotblooded",
         "玄幻": "/cate/xuanhuan",
         "恋爱": "/cate/romance",
