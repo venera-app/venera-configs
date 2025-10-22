@@ -8,14 +8,15 @@ class ManWaBa extends ComicSource {
   // unique id of the source
   key = "manwaba";
 
-  version = "1.0.0";
+  version = "1.0.1";
 
   minAppVersion = "1.4.0";
 
   // update url
   url = "https://git.nyne.dev/nyne/venera-configs/raw/branch/main/manwaba.js";
 
-  api = "https://www.manwaba.com/api/v1";
+  //api = "https://www.manwaba.com/api"; //重定向之前的地址无法使用分类
+  api = "https://www.mhtmh.org/api";
 
   init() {
     /**
@@ -82,15 +83,15 @@ class ManWaBa extends ComicSource {
           type: "",
           flag: false,
         };
-        const url = `${this.api}/json/home`;
+        const url = `${this.api}/home`;
         const data = await this.fetchJson(url, { params }).then(
           (res) => res.data
         );
         let magnaList = {
           热门: data.comicList,
-          古风: data.gufengList,
-          玄幻: data.xuanhuanList,
-          校园: data.xiaoyuanList,
+          最新完整版: data.gufengList,
+          最新更新: data.xuanhuanList,
+          热门收藏: data.xiaoyuanList,
         };
         function parseComic(comic) {
           return new Comic({
@@ -196,7 +197,31 @@ class ManWaBa extends ComicSource {
      * @returns {Promise<{comics: Comic[], maxPage: number}>}
      */
     load: async (category, param, options, page) => {
-      let url = `${this.api}/json/cate`;
+      let pathMap = {
+        "": "/cate",
+        "热血": "/cate/hotblooded",
+        "玄幻": "/cate/xuanhuan",
+        "恋爱": "/cate/romance",
+        "冒险": "/cate/adventure",
+        "古风": "/cate/historical",
+        "都市": "/cate/urban",
+        "穿越": "/cate/transmigration",
+        "奇幻": "/cate/fantasy",
+        "搞笑": "/cate/comedy",
+        "少男": "/cate/shounen",
+        "战斗": "/cate/action",
+        "重生": "/cate/rebirth",
+        "逆袭": "/cate/counterattack",
+        "爆笑": "/cate/hilarious",
+        "少年": "/cate/youth",
+        "系统": "/cate/system",
+        "BL": "/cate/bl",
+        "韩漫": "/cate/manhwa",
+        "完整版": "/cate/fullversion",
+        "19r": "/cate/19plus",
+        "台版": "/cate/taiwanver",
+      };
+      let url = this.api + pathMap[param] || "/cate";
       let payload = JSON.stringify({
         page: {
           page: page,
@@ -228,7 +253,7 @@ class ManWaBa extends ComicSource {
       let data = await this.fetchJson(url, {
         method: "POST",
         payload,
-      }).then((res) => res.data);
+      }).then((res) => res.data.list);
 
       function parseComic(comic) {
         return new Comic({
@@ -280,7 +305,7 @@ class ManWaBa extends ComicSource {
      */
     load: async (keyword, options, page) => {
       const pageSize = 20;
-      let url = `${this.api}/json/search`;
+      let url = `${this.api}/search`;
       let params = {
         keyword,
         type: "mh",
@@ -316,13 +341,13 @@ class ManWaBa extends ComicSource {
      * @returns {Promise<ComicDetails>}s
      */
     loadInfo: async (id) => {
-      let url = `${this.api}/json/comic/${id}`;
+      let url = `${this.api}/comic/${id}`;
       let data = await this.fetchJson(url, { payload: undefined }).then(
         (res) => res.data
       );
       this.logger.warn(`loadInfo: ${data}`);
       let chapterId = data.id;
-      let chapterApi = `${this.api}/json/comic/chapter`;
+      let chapterApi = `${this.api}/comic/chapter`;
       let params = {
         comicId: chapterId,
         page: 1,
