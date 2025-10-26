@@ -357,6 +357,7 @@ class Wnacg extends ComicSource {
     favorites = {
         // whether support multi folders
         multiFolder: true,
+        isOldToNewSort: true,
         /**
          * add or delete favorite.
          * throw `Login expired` to indicate login expired, App will automatically re-login and re-add/delete favorite
