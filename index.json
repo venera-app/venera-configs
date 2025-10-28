@@ -109,5 +109,11 @@
         "fileName": "lanraragi.js",
         "key": "lanraragi",
         "version": "1.1.0"
+    },
+    {
+        "name": "Komga",
+        "fileName": "komga.js",
+        "key": "komga",
+        "version": "1.0.0"
     }
 ]
