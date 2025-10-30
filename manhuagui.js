@@ -4,7 +4,7 @@ class ManHuaGui extends ComicSource {
 
   key = "ManHuaGui";
 
-  version = "1.1.0";
+  version = "1.1.1";
 
   minAppVersion = "1.4.0";
 
@@ -1169,6 +1169,63 @@ class ManHuaGui extends ComicSource {
         comments: commentList,
         maxPage: replyTo ? 1 : (Math.ceil(data.total / 10) || 1)
       };
+    },
+
+    sendComment: async (comicId, subId, content, replyTo) => {
+      let mhg_cookie = this.loadData("mhg_cookie");
+      if (!mhg_cookie) {
+          throw "请先登录漫画柜账号";
+      }
+      let url = `${this.baseUrl}/tools/submit_ajax.ashx?action=comment_add`;
+
+      let headers = {
+        accept: "application/json, text/javascript, */*; q=0.01",
+        "accept-language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
+        "cache-control": "no-cache",
+        pragma: "no-cache",
+        "sec-ch-ua": '"Microsoft Edge";v="137", "Chromium";v="137", "Not/A)Brand";v="24"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"Windows"',
+        "sec-fetch-dest": "empty",
+        "sec-fetch-mode": "cors",
+        "sec-fetch-site": "same-origin",
+        "x-requested-with": "XMLHttpRequest",
+        Referer: `${this.baseUrl}/comic/${comicId}/`,
+        "Referrer-Policy": "strict-origin-when-cross-origin", 
+        cookie: mhg_cookie,
+        dnt:1,
+        origin: 'https://www.manhuagui.com',
+        'content-type': 'application/x-www-form-urlencoded; charset=UTF-8'
+      };
+
+      let bodyParams = ''
+      bodyParams += `book_id=${comicId}&`;
+      // double-encode to match site submission behaviour
+      bodyParams += `txtContent=${encodeURIComponent(encodeURIComponent(content))}&`;
+      if (replyTo) {
+          bodyParams += `to_comment_id=${replyTo.split('//')[0]}`;
+      }else{
+          bodyParams += `to_comment_id=0`;
+      }
+
+      let res = await Network.post(url, headers, bodyParams);
+
+      if (res.status === 401) {
+          error(`Login expired`);
+          return;
+      }
+      if (res.status !== 200) {
+        throw `发送评论失败，状态码: ${res.status}`;
+      }
+
+
+      // 获取post请求的响应的json
+      let data = JSON.parse(res.body);
+      if (data.status !== 1) {
+        throw `发送评论失败: ${data.msg}`;
+      }
+
+      return 'ok';
     },
     
     /**
