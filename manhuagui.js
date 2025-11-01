@@ -4,7 +4,7 @@ class ManHuaGui extends ComicSource {
 
   key = "ManHuaGui";
 
-  version = "1.1.1";
+  version = "1.2.0";
 
   minAppVersion = "1.4.0";
 
@@ -453,6 +453,14 @@ class ManHuaGui extends ComicSource {
       let imgInfos = extractFields(imgData);
       return imgInfos;
     };
+
+    this.decodeViewState = function (viewState) {
+      if (!viewState) {
+        return null;
+      }
+      let decoded = LZString.decompressFromBase64(viewState);
+      return decoded;
+    };
   }
 
   // explore page list
@@ -848,6 +856,7 @@ class ManHuaGui extends ComicSource {
     loadInfo: async (id) => {
       let url = `${this.baseUrl}/comic/${id}/`;
       let document = await this.getHtml(url);
+
       // ANCHOR 基本信息
       let book = document.querySelector(".book-cont");
       let title = book
@@ -896,19 +905,45 @@ class ManHuaGui extends ComicSource {
       };
       let updateTime = detail_list[8].text.trim();
 
-      // ANCHOR 章节信息
+      let chapterDocument = document;
+      let isAdultWarning = document.querySelector("#checkAdult");
+      let viewStateElement = document.querySelector("#__VIEWSTATE");
+      if (isAdultWarning && viewStateElement) {
+        let viewStateValue = viewStateElement.attributes["value"];
+        if (viewStateValue) {
+          let decodedViewState = this.decodeViewState(viewStateValue);
+          if (decodedViewState) {
+            let sanitized = decodedViewState.trim();
+            sanitized = sanitized.replace(/^\/\/+/, "").trim();
+            if (!/class=['"]chapter['"]/.test(sanitized)) {
+              sanitized = `<div class="chapter">${sanitized}</div>`;
+            }
+            try {
+              chapterDocument = new HtmlDocument(sanitized);
+            } catch (error) {
+              console.error("解析成人章节列表失败:", error);
+              chapterDocument = document;
+            }
+          }
+        }
+      }
+
       // 支持多分组
       let chaptersMap = new Map();
       
       // 查找所有章节分组标题
-      let chapterGroups = document.querySelectorAll(".chapter h4 span");
+      let chapterGroups = chapterDocument.querySelectorAll(".chapter h4 span");
+      if (chapterGroups.length === 0) {
+        chapterDocument = document;
+        chapterGroups = chapterDocument.querySelectorAll(".chapter h4 span");
+      }
       
       // 处理每个分组
       for (let i = 0; i < chapterGroups.length; i++) {
         let groupName = chapterGroups[i].text.trim();
         let groupChapters = new Map();
         
-        let chapterList = document.querySelectorAll(".chapter-list")[i];
+        let chapterList = chapterDocument.querySelectorAll(".chapter-list")[i];
         if (chapterList) {
           let lis = chapterList.querySelectorAll("li");
           for (let li of lis) {
