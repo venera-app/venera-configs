@@ -4,9 +4,9 @@ class CopyManga extends ComicSource {
 
     key = "copy_manga"
 
-    version = "1.3.8"
+    version = "1.4.0"
 
-    minAppVersion = "1.2.1"
+    minAppVersion = "1.6.0"
 
     url = "https://git.nyne.dev/nyne/venera-configs/raw/branch/main/copy_manga.js"
 
@@ -859,6 +859,62 @@ class CopyManga extends ComicSource {
             }
 
             if (res.status !== 200) {
+                throw `Invalid status code: ${res.status}`;
+            } else {
+                return "ok"
+            }
+        },
+        loadChapterComments: async (comicId, epId, page, replyTo) => {
+            let url = `${this.apiUrl}/api/v3/roasts?chapter_id=${epId}&limit=20&offset=${(page - 1) * 20}`;
+            let res = await Network.get(
+                url,
+                this.headers,
+            );
+
+            if (res.status !== 200) {
+                throw `Invalid status code: ${res.status}`;
+            }
+
+            let data = JSON.parse(res.body);
+
+            let total = data.results.total;
+
+            return {
+                comments: data.results.list.map(e => {
+                    return {
+                        userName: e.user_name,
+                        avatar: e.user_avatar,
+                        content: e.comment,
+                        time: e.create_at,
+                        replyCount: null,
+                        id: null,
+                    }
+                }),
+                maxPage: (total - (total % 20)) / 20 + 1,
+            }
+        },
+        sendChapterComment: async (comicId, epId, content, replyTo) => {
+            let token = this.loadData("token");
+            if (!token) {
+                throw "未登录"
+            }
+            let res = await Network.post(
+                `${this.apiUrl}/api/v3/member/roast`,
+                {
+                    ...this.headers,
+                    "Content-Type": "application/x-www-form-urlencoded;charset=utf-8",
+                },
+                `chapter_id=${epId}&roast=${encodeURIComponent(content)}`,
+            );
+
+            if (res.status === 401) {
+                throw `Login expired`;
+            }
+
+            if (res.status !== 200) {
+                if(res.status === 210) {
+                    throw `210:评论过于频繁或评论内容过短过长`;
+                }
                 throw `Invalid status code: ${res.status}`;
             } else {
                 return "ok"
