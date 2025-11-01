@@ -8,7 +8,7 @@ class ManWaBa extends ComicSource {
   // unique id of the source
   key = "manwaba";
 
-  version = "1.0.1";
+  version = "1.0.2";
 
   minAppVersion = "1.4.0";
 
@@ -400,7 +400,7 @@ class ManWaBa extends ComicSource {
       let imageRes = await this.fetchJson(imgApi, {
         params: {
           ...params,
-          pageSize: pageNum,
+          page_size: pageNum,
         },
       }).then((res) => res.data.images);
       let images = imageRes.map((item) => item.url);
