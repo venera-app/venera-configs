@@ -115,5 +115,11 @@
         "fileName": "komga.js",
         "key": "komga",
         "version": "1.0.0"
+    },
+    {
+        "name": "カドコミ",
+        "fileName": "comic_walker.js",
+        "key": "comic_walker",
+        "version": "1.0.0"
     }
 ]
