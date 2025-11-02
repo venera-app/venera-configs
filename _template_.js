@@ -73,7 +73,8 @@ class NewComicSource extends ComicSource {
         loginWithWebview: {
             url: "",
             /**
-             * check login status
+             * check login status.
+             * After successful login, the cookie will be automatically saved, and the localstorage can be retrieved using this.loadData("_localStorage").
              * @param url {string} - current url
              * @param title {string} - current title
              * @returns {boolean} - return true if login success
