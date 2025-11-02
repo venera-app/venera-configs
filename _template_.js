@@ -25,7 +25,7 @@ class NewComicSource extends ComicSource {
 
     version = "1.0.0"
 
-    minAppVersion = "1.4.0"
+    minAppVersion = "1.6.0"
 
     // update url
     url = ""
