@@ -2,7 +2,7 @@ class Zaimanhua extends ComicSource {
   // 基础信息
   name = "再漫画";
   key = "zaimanhua";
-  version = "1.0.1";
+  version = "1.0.2";
   minAppVersion = "1.0.0";
   url =
     "https://git.nyne.dev/nyne/venera-configs/raw/branch/main/zaimanhua.js";
@@ -16,7 +16,30 @@ class Zaimanhua extends ComicSource {
   }
   // 构建 URL
   buildUrl(path) {
+    this.signTask();
     return `https://v4api.zaimanhua.com/app/v1/${path}`;
+  }
+  // 每日签到
+  async signTask() {
+    if (!this.isLogged) {
+      return;
+    }
+    if (!this.loadSetting("signTask")) {
+      return;
+    }
+    const lastSign = this.loadData("lastSign");
+    const newTime = new Date().toISOString().split("T")[0];
+    if (lastSign == newTime) {
+      return;
+    }
+    const res = await Network.post("https://i.zaimanhua.com/lpi/v1/task/sign_in", this.headers);
+    if (res.status !== 200) {
+      return;
+    }
+    this.saveData("lastSign", newTime);
+    if (JSON.parse(res.body)["errno"] == 0) {
+      UI.showMessage("签到成功");
+    }
   }
 
   //账户管理
@@ -368,7 +391,8 @@ class Zaimanhua extends ComicSource {
     },
     loadEp: async (comicId, epId) => {
       const res = await Network.get(
-        this.buildUrl(`comic/chapter/${comicId}/${epId}`)
+        this.buildUrl(`comic/chapter/${comicId}/${epId}`),
+        this.headers
       );
       const data = JSON.parse(res.body).data.data;
       return { images: data.page_url_hd || data.page_url };
@@ -486,5 +510,13 @@ class Zaimanhua extends ComicSource {
       this.checkResponseStatus(res);
       return "ok";
     },
+  };
+
+  settings = {
+    signTask: {
+      title: "每日签到",
+      type: "switch",
+      default: false
+    }
   };
 }

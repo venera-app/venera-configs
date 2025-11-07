@@ -7,7 +7,7 @@ class Ehentai extends ComicSource {
     // unique id of the source
     key = "ehentai"
 
-    version = "1.1.6"
+    version = "1.1.7"
 
     minAppVersion = "1.5.3"
 
@@ -554,6 +554,7 @@ class Ehentai extends ComicSource {
     favorites = {
         // whether support multi folders
         multiFolder: true,
+        singleFolderForSingleComic: true,
         /**
          * add or delete favorite.
          * throw `Login expired` to indicate login expired, App will automatically re-login and re-add/delete favorite
