@@ -40,7 +40,7 @@
         "name": "ehentai",
         "fileName": "ehentai.js",
         "key": "ehentai",
-        "version": "1.1.6"
+        "version": "1.1.7"
     },
     {
         "name": "禁漫天堂",
@@ -90,7 +90,7 @@
         "name": "再漫画",
         "fileName": "zaimanhua.js",
         "key": "zaimanhua",
-        "version": "1.0.1"
+        "version": "1.0.2"
     },
     {
       "name": "漫画柜",
@@ -120,6 +120,18 @@
         "name": "カドコミ",
         "fileName": "comic_walker.js",
         "key": "comic_walker",
+        "version": "1.0.0"
+    },
+    {
+        "name": "漫画1234",
+        "fileName": "mh1234.js",
+        "key": "mh1234",
+        "version": "1.0.0"
+    },
+    {
+        "name": "CCC追漫台",
+        "fileName": "ccc.js",
+        "key": "ccc",
         "version": "1.0.0"
     }
 ]
