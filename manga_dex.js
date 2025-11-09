@@ -8,7 +8,7 @@ class MangaDex extends ComicSource {
     // unique id of the source
     key = "manga_dex"
 
-    version = "1.0.0"
+    version = "1.1.0"
 
     minAppVersion = "1.4.0"
 
@@ -239,16 +239,15 @@ class MangaDex extends ComicSource {
                 // randomNumber: 5,
 
                 // load function for dynamic type
-                loader: () => {
+                        loader: () => {
                     let categories = []
                     for (let tag of Object.keys(this.tags)) {
                         categories.push({
                             label: tag,
                             target: {
-                                page: "search",
-                                attributes: {
-                                    keyword: `tag:${tag}`,
-                                },
+                                        action: "category",
+                                        keyword: tag,
+                                        param: this.tags[tag],
                             }
                         })
                     }
@@ -258,6 +257,113 @@ class MangaDex extends ComicSource {
         ],
         // enable ranking page
         enableRankingPage: false,
+    }
+
+    categoryComics = {
+        load: async (category, param, options = [], page = 1) => {
+            if (!param) {
+                throw new Error("No tag id provided for category comics")
+            }
+
+            const parseOption = (option, fallback) => {
+                if (option === undefined || option === null || option === "") {
+                    return fallback
+                }
+                let value = option.split("-")[0]
+                return value || fallback
+            }
+
+            const sortOption = parseOption(options[0], "popular")
+            const ratingOption = parseOption(options[1], "any")
+            const statusOption = parseOption(options[2], "any")
+
+            let params = [
+                "includes[]=cover_art",
+                "includes[]=artist",
+                "includes[]=author",
+                "hasAvailableChapters=true",
+                `limit=${this.comicsPerPage}`,
+                `includedTags[]=${encodeURIComponent(param)}`
+            ]
+
+            if (page && page > 1) {
+                params.push(`offset=${(page - 1) * this.comicsPerPage}`)
+            }
+
+            if (sortOption !== "any") {
+                const orderMap = {
+                    popular: "followedCount",
+                    follows: "followedCount",
+                    recent: "createdAt",
+                    updated: "latestUploadedChapter",
+                    rating: "rating"
+                }
+                const orderKey = orderMap[sortOption]
+                if (orderKey) {
+                    params.push(`order[${orderKey}]=desc`)
+                }
+            }
+
+            let ratingList
+            if (ratingOption === "any") {
+                ratingList = ["safe", "suggestive", "erotica"]
+            } else {
+                ratingList = [ratingOption]
+            }
+            for (let rating of ratingList) {
+                params.push(`contentRating[]=${encodeURIComponent(rating)}`)
+            }
+
+            if (statusOption !== "any") {
+                params.push(`status[]=${encodeURIComponent(statusOption)}`)
+            }
+
+            let url = `https://api.mangadex.org/manga?${params.join("&")}`
+            let res = await fetch(url)
+            if (!res.ok) {
+                throw new Error("Network response was not ok")
+            }
+            let data = await res.json()
+            let total = data['total'] || 0
+            let comics = []
+            for (let comic of data['data'] || []) {
+                comics.push(this.api.parseComic(comic))
+            }
+            let maxPage = total ? Math.ceil(total / this.comicsPerPage) : (comics.length < this.comicsPerPage ? page : page + 1)
+            return {
+                comics: comics,
+                maxPage: maxPage
+            }
+        },
+        optionList: [
+            {
+                options: [
+                    "any-Any",
+                    "popular-Popular",
+                    "recent-Recent",
+                    "updated-Updated",
+                    "rating-Rating",
+                    "follows-Follows"
+                ]
+            },
+            {
+                options: [
+                    "any-Any",
+                    "safe-Safe",
+                    "suggestive-Suggestive",
+                    "erotica-Erotica"
+                ]
+            },
+            {
+                options: [
+                    "any-Any",
+                    "ongoing-Ongoing",
+                    "completed-Completed",
+                    "hiatus-Hiatus",
+                    "cancelled-Cancelled"
+                ]
+            }
+        ]
     }
 
     /// search related
