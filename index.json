@@ -133,5 +133,17 @@
         "fileName": "ccc.js",
         "key": "ccc",
         "version": "1.0.0"
+    },
+    {
+        "name": "GoDa漫画",
+        "fileName": "goda.js",
+        "key": "goda",
+        "version": "1.0.0"
+    },
+    {
+        "name": "18漫画",
+        "fileName": "mh18.js",
+        "key": "mh18",
+        "version": "1.0.0"
     }
 ]
