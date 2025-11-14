@@ -6,7 +6,7 @@ class Komiic extends ComicSource {
     // 唯一标识符
     key = "Komiic"
 
-    version = "1.0.2"
+    version = "1.0.3"
 
     minAppVersion = "1.0.0"
 
@@ -27,8 +27,6 @@ class Komiic extends ComicSource {
     }
 
     async queryJson(query) {
-        let operationName = query["operationName"]
-
         let res = await Network.post(
             'https://komiic.com/api/query',
             this.headers,
@@ -42,8 +40,11 @@ class Komiic extends ComicSource {
         let json = JSON.parse(res.body)
 
         if (json.errors != undefined) {
-            if(json.errors[0].message.toString().indexOf('token is expired') >= 0){
-                throw 'Login expired'
+            const errorInfo = json.errors[0].message.toString();
+            if ((errorInfo.indexOf('token is expired') >= 0) || (errorInfo.indexOf('no token') >= 0)) {
+                const accountData = this.loadData("account");
+                await this.account.login(accountData[0], accountData[1]);
+                return await this.queryJson(query);
             }
             throw json.errors[0].message
         }
