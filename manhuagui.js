@@ -4,7 +4,7 @@ class ManHuaGui extends ComicSource {
 
   key = "ManHuaGui";
 
-  version = "1.2.0";
+  version = "1.2.1";
 
   minAppVersion = "1.4.0";
 
@@ -934,27 +934,59 @@ class ManHuaGui extends ComicSource {
       // 查找所有章节分组标题
       let chapterGroups = chapterDocument.querySelectorAll(".chapter h4 span");
       if (chapterGroups.length === 0) {
-        chapterDocument = document;
-        chapterGroups = chapterDocument.querySelectorAll(".chapter h4 span");
+        let docGroups = document.querySelectorAll(".chapter h4 span");
+        if (docGroups.length > 0) {
+          chapterDocument = document;
+          chapterGroups = docGroups;
+        }
       }
       
-      // 处理每个分组
-      for (let i = 0; i < chapterGroups.length; i++) {
-        let groupName = chapterGroups[i].text.trim();
-        let groupChapters = new Map();
-        
-        let chapterList = chapterDocument.querySelectorAll(".chapter-list")[i];
-        if (chapterList) {
-          let lis = chapterList.querySelectorAll("li");
-          for (let li of lis) {
-            let a = li.querySelector("a");
-            let id = a.attributes["href"].split("/").pop().replace(".html", "");
-            let title = a.querySelector("span").text.trim();
-            groupChapters.set(id, title);
+      if (chapterGroups.length > 0) {
+        // 处理每个分组
+        for (let i = 0; i < chapterGroups.length; i++) {
+          let groupName = chapterGroups[i].text.trim();
+          let groupChapters = new Map();
+          
+          let chapterList = chapterDocument.querySelectorAll(".chapter-list")[i];
+          if (chapterList) {
+            let lis = chapterList.querySelectorAll("li");
+            for (let li of lis) {
+              let a = li.querySelector("a");
+              let id = a.attributes["href"].split("/").pop().replace(".html", "");
+              let title = a.querySelector("span").text.trim();
+              groupChapters.set(id, title);
+            }
+            
+            groupChapters = new Map([...groupChapters].sort((a, b) => a[0] - b[0]));
+            
+            chaptersMap.set(groupName, groupChapters);
+          }
+        }
+      } else {
+        // 没有分组标题的情况，直接查找章节列表
+        let chapterLists = chapterDocument.querySelectorAll(".chapter-list");
+        if (chapterLists.length === 0 && chapterDocument !== document) {
+          chapterDocument = document;
+          chapterLists = chapterDocument.querySelectorAll(".chapter-list");
+        }
+
+        if (chapterLists.length > 0) {
+          let groupName = "连载";
+          let groupChapters = new Map();
+          
+          for (let chapterList of chapterLists) {
+            let lis = chapterList.querySelectorAll("li");
+            for (let li of lis) {
+              let a = li.querySelector("a");
+              if (a) {
+                let id = a.attributes["href"].split("/").pop().replace(".html", "");
+                let title = a.querySelector("span").text.trim();
+                groupChapters.set(id, title);
+              }
+            }
           }
           
           groupChapters = new Map([...groupChapters].sort((a, b) => a[0] - b[0]));
-          
           chaptersMap.set(groupName, groupChapters);
         }
       }
