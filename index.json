@@ -151,5 +151,11 @@
         "fileName": "mxs.js",
         "key": "mxs",
         "version": "1.0.0"
+    },
+    {
+        "name": "漫画人",
+        "fileName": "manhuaren.js",
+        "key": "manhuaren",
+        "version": "1.0.0"
     }
 ]
