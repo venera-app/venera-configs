@@ -301,7 +301,7 @@ class ManHuaRen extends ComicSource {
             let url = `${this.baseUrl}/${path}/dm5.ashx`;
                 // POST body: use site form-data fields
                 // action=getclasscomics&pageindex=3&pagesize=21&categoryid=0&tagid=0&status=1&usergroup=0&pay=-1&areaid=0&sort=2&iscopyright=0
-                let pageIndex = Math.max(0, (parseInt(page) || 1) - 1);
+                let pageIndex = Math.max(0, (parseInt(page) || 1));
                 let pageSize = 21;
                 // map status option like 'st1' -> 1, 'st2' -> 2
                 let statusNum = 0;
@@ -397,11 +397,11 @@ class ManHuaRen extends ComicSource {
                 type: 'select',
                 label: '排序',
                 options: [
-                    's10-人气最旺',
                     's2-最近更新',
+                    's10-人气最旺',
                     's18-最近上架'
                 ],
-                default: 's10'
+                default: 's2'
             }
         ],
     }
