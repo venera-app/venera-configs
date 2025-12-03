@@ -7,7 +7,7 @@ class Wnacg extends ComicSource {
     // unique id of the source
     key = "wnacg"
 
-    version = "1.0.4"
+    version = "1.0.5"
 
     minAppVersion = "1.0.0"
 
@@ -382,7 +382,7 @@ class Wnacg extends ComicSource {
             },
         ],
         // enable ranking page
-        enableRankingPage: false,
+        enableRankingPage: true,
     }
 
     /// category comic loading related
@@ -425,6 +425,43 @@ class Wnacg extends ComicSource {
                 maxPage: pages,
             }
         },
+        ranking: {
+            options: [
+                "day-Day",
+                "week-Week",
+                "month-Month",
+            ],
+            load: async (option, page) => {
+                let url = `${this.baseUrl}/albums-favorite_ranking-type-${option}.html`
+                if (page !== 0) {
+                    url = `${this.baseUrl}/albums-favorite_ranking-page-${page}-type-${option}.html`
+                }
+
+                let res = await Network.get(url, {})
+                if (res.status !== 200) {
+                    throw `Invalid Status Code ${res.status}`
+                }
+
+                let document = new HtmlDocument(res.body)
+                let comicElements = document.querySelectorAll("div.grid div.gallary_wrap > ul.cc > li")
+                let comics = []
+                for (let comicElement of comicElements) {
+                    comics.push(this.parseComic(comicElement))
+                }
+
+                let pagesLink = document.querySelectorAll("div.f_left.paginator > a")
+                let pages = 1
+                if (pagesLink.length > 0) {
+                    pages = Number(pagesLink[pagesLink.length - 1].text)
+                }
+
+                document.dispose()
+                return {
+                    comics: comics,
+                    maxPage: pages,
+                }
+            }
+        }
     }
 
     /// search related
@@ -726,6 +763,9 @@ class Wnacg extends ComicSource {
             'Custom Domain': '自定义域名',
             'Custom domain is not set': '未设置自定义域名',
             'Selected domain is unavailable': '所选域名不可用，请先刷新域名列表',
+            'Day': '日',
+            'Week': '周',
+            'Month': '月',
         },
         'zh_TW': {
             'Refresh Domain List': '刷新域名列表',
@@ -735,6 +775,9 @@ class Wnacg extends ComicSource {
             'Custom Domain': '自定義域名',
             'Custom domain is not set': '未設置自定義域名',
             'Selected domain is unavailable': '所選域名不可用，請先刷新域名列表',
+            'Day': '日',
+            'Week': '周',
+            'Month': '月',
         },
     }
 }
