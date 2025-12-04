@@ -93,10 +93,10 @@
         "version": "1.0.2"
     },
     {
-      "name": "漫画柜",
-      "fileName": "manhuagui.js",
-      "key": "ManHuaGui",
-      "version": "1.2.1"
+        "name": "漫画柜",
+        "fileName": "manhuagui.js",
+        "key": "ManHuaGui",
+        "version": "1.2.1"
     },
     {
         "name": "漫蛙吧",
