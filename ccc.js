@@ -40,7 +40,7 @@ class CCC extends ComicSource {
                     "client_secret": "9eAhsCX3VWtyqTmkUo5EEaoH4MNPxrn6ZRwse7tE",
                     "refresh_token": this.loadData("refreshToken")
                 });
-                if (res.body.search("") == -1) {
+                if (res.body.search("Token has been revoked") == -1) {
                     this.processToken(res.body);
                 } else {
                     const accountData = this.loadData("account");
@@ -764,4 +764,5 @@ class CCC extends ComicSource {
             }
         },
     }
+
 }
