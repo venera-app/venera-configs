@@ -8,7 +8,7 @@ class CCC extends ComicSource {
     // unique id of the source
     key = "ccc"
 
-    version = "1.0.0"
+    version = "1.0.1"
 
     minAppVersion = "1.6.0"
 
@@ -40,7 +40,16 @@ class CCC extends ComicSource {
                     "client_secret": "9eAhsCX3VWtyqTmkUo5EEaoH4MNPxrn6ZRwse7tE",
                     "refresh_token": this.loadData("refreshToken")
                 });
-                this.processToken(res.body);
+                if (res.body.search("Token has been revoked") == -1) {
+                    this.processToken(res.body);
+                } else {
+                    const accountData = this.loadData("account");
+                    if (accountData) {
+                        await this.account.login(accountData[0], accountData[1]);
+                    } else {
+                        throw "請重新登錄";
+                    }
+                }
                 token = this.loadData("token");
             }
             return {
@@ -76,7 +85,7 @@ class CCC extends ComicSource {
                 title: c["name"],
                 subtitle: c["brief"],
                 description: c["description"],
-                cover: c["image1"],
+                cover: c["image1"]??c["image2"]??c["image3"],
                 tags: tags
             });
         }
@@ -185,7 +194,7 @@ class CCC extends ComicSource {
                 const jsonData = JSON.parse(res.body)["data"];
                 let curTitle = null;
                 for (let data of jsonData["templates"]) {
-                    if (data["type"] == 4) {
+                    if ([4, 5].indexOf(data["type"]) != -1) {
                         continue;
                     }
                     const comics = [];
@@ -193,7 +202,7 @@ class CCC extends ComicSource {
                         comics.push({
                             id: c["value"],
                             title: c["name"],
-                            cover: c["image1"],
+                            cover: c["image1"]??c["image2"]??c["image3"],
                             tags: [c["book_type"]["name"]],
                             subtitle: c["brief"]
                         });
@@ -539,7 +548,7 @@ class CCC extends ComicSource {
             for (let r of recommendData["hot"]) {
                 recommends.push({
                     title: r["name"],
-                    cover: r["image1"],
+                    cover: r["image1"]??r["image2"]??r["image3"],
                     id: r["id"].toString(),
                     subtitle: r["brief"]
                 });
@@ -547,21 +556,21 @@ class CCC extends ComicSource {
             for (let r of recommendData["history"]) {
                 recommends.push({
                     title: r["name"],
-                    cover: r["image1"],
+                    cover: r["image1"]??r["image2"]??r["image3"],
                     id: r["id"].toString()
                 });
             }
             for (let r of recommendData["also_buy"]) {
                 recommends.push({
                     title: r["name"],
-                    cover: r["image1"],
+                    cover: r["image1"]??r["image2"]??r["image3"],
                     id: r["id"].toString()
                 });
             }
             return new ComicDetails({
                 title: jsonData["name"],
                 subtitle: jsonData["brief"],
-                cover: jsonData["image1"],
+                cover: jsonData["image1"]??jsonData["image2"]??jsonData["image3"],
                 description: jsonData["description"],
                 likesCount: jsonData["like_count_only_uuid"],
                 chapters: chapters,
@@ -755,4 +764,5 @@ class CCC extends ComicSource {
             }
         },
     }
+
 }
