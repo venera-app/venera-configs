@@ -557,8 +557,9 @@ class CopyManga extends ComicSource {
             return "ok"
         },
         loadComics: async (page, folder) => {
+            let ordering = this.loadSetting('favorites_ordering') || '-datetime_updated';
             var res = await Network.get(
-                `${this.apiUrl}/api/v3/member/collect/comics?limit=30&offset=${(page - 1) * 30}&free_type=1&ordering=-datetime_updated`,
+                `${this.apiUrl}/api/v3/member/collect/comics?limit=30&offset=${(page - 1) * 30}&free_type=1&ordering=${ordering}`,
                 this.headers
             )
 
@@ -944,6 +945,25 @@ class CopyManga extends ComicSource {
     }
 
     settings = {
+        favorites_ordering: {
+            title: "收藏排序方式",
+            type: "select",
+            options: [
+                {
+                    value: '-datetime_updated',
+                    text: '更新时间'
+                },
+                {
+                    value: '-datetime_modifier',
+                    text: '收藏时间'
+                },
+                {
+                    value: '-datetime_browse',
+                    text: '阅读时间'
+                }
+            ],
+            default: '-datetime_updated',
+        },
         region: {
             title: "CDN线路",
             type: "select",
