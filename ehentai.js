@@ -7,7 +7,7 @@ class Ehentai extends ComicSource {
     // unique id of the source
     key = "ehentai"
 
-    version = "1.1.7"
+    version = "1.1.8"
 
     minAppVersion = "1.5.3"
 
@@ -738,6 +738,10 @@ class Ehentai extends ComicSource {
             let category = document.querySelector("div.cs").text;
             tags.set("Category", [category])
 
+            if (uploader) {
+                tags.set("uploader", [uploader]);
+            }
+            
             let time = document.querySelector("div#gdd > table > tbody > tr > td.gdt2").text
 
             let script = document.querySelectorAll("script").find((e) => e.text.includes("var token"));
@@ -763,7 +767,7 @@ class Ehentai extends ComicSource {
                 stars: stars,
                 maxPage: Number(maxPage),
                 isFavorite: isFavorited,
-                uploader: uploader,
+               // uploader: uploader,
                 uploadTime: time,
                 url: id,
                 comments: comments.comments,
@@ -1450,6 +1454,7 @@ class Ehentai extends ComicSource {
             "group": "团队",
             "cosplayer": "Coser",
             "reclass": "重新分类",
+            "uploader": "上传者",
             "Languages": "语言",
             "Artists": "画师",
             "Characters": "角色",
@@ -1486,6 +1491,7 @@ class Ehentai extends ComicSource {
             "group": "團隊",
             "cosplayer": "Coser",
             "reclass": "重新分類",
+            "uploader": "上傳者",
             "Languages": "語言",
             "Artists": "畫師",
             "Characters": "角色",
@@ -1522,6 +1528,7 @@ class Ehentai extends ComicSource {
             "group": "Group",
             "cosplayer": "Cosplayer",
             "reclass": "Reclass",
+            "uploader": "Uploader",
             "Languages": "Languages",
             "Artists": "Artists",
             "Characters": "Characters",
