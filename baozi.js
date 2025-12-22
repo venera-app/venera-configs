@@ -487,15 +487,14 @@ class Baozi extends ComicSource {
       // 解析当前页图片(App 版)
       const imageNodes = doc.querySelectorAll(".comic-contain > .chapter-img");
       imageNodes.forEach((imgNode) => {
-        const imgUrl = imgNode.querySelector(".comic-contain__item")?.attributes?.["data-src"];
+        let imgUrl = imgNode.querySelector(".comic-contain__item")?.attributes?.["data-src"];
         if (imgUrl) {
-          let appImages = imgUrl;
           const regex = /\/[a-z]comic\/.*/;
-          const match = appImages.match(regex);
+          const match = imgUrl.match(regex);
           if (match) {
-            appImages = "https://as.baozimh.com" + this.loadSetting("image_quality") + match[0];
+            imgUrl = "https://as.baozimh.com" + this.loadSetting("image_quality") + match[0];
           }
-          images.push(appImages);
+          images.push(imgUrl);
         }
       });
       return { images: images };
