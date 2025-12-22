@@ -7,7 +7,7 @@ class JM extends ComicSource {
     // unique id of the source
     key = "jm"
 
-    version = "1.3.1"
+    version = "1.3.2"
 
     minAppVersion = "1.5.0"
 
@@ -231,11 +231,15 @@ class JM extends ComicSource {
         let data = Convert.decodeBase64(input)
         let decrypted = Convert.decryptAesEcb(data, key)
         let res = Convert.decodeUtf8(decrypted)
-        let i = res.length - 1
-        while(res[i] !== '}' && res[i] !== ']' && i > 0) {
-            i--
+        let start = 0
+        while (start < res.length && res[start] !== '{' && res[start] !== '[') {
+            start++
         }
-        return res.substring(0, i + 1)
+        let end = res.length - 1
+        while(end > start && res[end] !== '}' && res[end] !== ']') {
+            end--
+        }
+        return res.substring(start, end + 1)
     }
 
     /**
