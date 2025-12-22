@@ -5,7 +5,7 @@ class Baozi extends ComicSource {
   // 唯一标识符
   key = "baozi";
 
-  version = "1.1.1";
+  version = "1.1.3";
 
   minAppVersion = "1.0.0";
 
@@ -26,13 +26,14 @@ class Baozi extends ComicSource {
       title: "主域名",
       type: "select",
       options: [
+        { value: "bzmgcn.com" },
         { value: "baozimhcn.com" },
         { value: "webmota.com" },
         { value: "kukuc.co" },
         { value: "twmanga.com" },
         { value: "dinnerku.com" },
       ],
-      default: "baozimhcn.com",
+      default: "bzmgcn.com",
     },
   };
 
@@ -58,10 +59,10 @@ class Baozi extends ComicSource {
             "multipart/form-data; boundary=----WebKitFormBoundaryFUNUxpOwyUaDop8s",
         },
         '------WebKitFormBoundaryFUNUxpOwyUaDop8s\r\nContent-Disposition: form-data; name="username"\r\n\r\n' +
-          account +
-          '\r\n------WebKitFormBoundaryFUNUxpOwyUaDop8s\r\nContent-Disposition: form-data; name="password"\r\n\r\n' +
-          pwd +
-          "\r\n------WebKitFormBoundaryFUNUxpOwyUaDop8s--\r\n"
+        account +
+        '\r\n------WebKitFormBoundaryFUNUxpOwyUaDop8s\r\nContent-Disposition: form-data; name="password"\r\n\r\n' +
+        pwd +
+        "\r\n------WebKitFormBoundaryFUNUxpOwyUaDop8s--\r\n"
       );
       if (res.status !== 200) {
         throw "Invalid status code: " + res.status;
@@ -457,42 +458,40 @@ class Baozi extends ComicSource {
     },
     loadEp: async (comicId, epId) => {
       const images = [];
-      let currentPageUrl = `${this.baseUrl}/comic/chapter/${comicId}/0_${epId}.html`;
-      let maxAttempts = 100;
 
-      while (maxAttempts > 0) {
-        const res = await Network.get(currentPageUrl);
-        if (res.status !== 200) break;
+      // App版链接
+      let currentPageUrl = `https://appcn.baozimh.com/baozimhapp/comic/chapter/${comicId}/0_${epId}.html`;
 
-        // 解析当前页图片
-        const doc = new HtmlDocument(res.body);
-        doc
-          .querySelectorAll("ul.comic-contain > div > amp-img")
-          .forEach((img) => {
-            const src = img?.attributes?.["src"];
-            if (typeof src === "string") images.push(src);
-          });
-
-        // 查找下一页链接
-        const nextLink = doc.querySelector("a#next-chapter");
-        if (nextLink?.text?.match(/下一页|下一頁/)) {
-          currentPageUrl = nextLink.attributes["href"];
-        } else {
-          break;
-        }
-        maxAttempts--;
+      const res = await Network.get(currentPageUrl);
+      if (res.status !== 200) {
+        throw `Invalid status code: ${res.status}`;
       }
-      // 代理后图片水印更少
-      let mobileImages = images.map((e) => {
-        const regex = /\/[a-z]comic\/.*/;
-        const match = e.match(regex);
-        if (match) {
-          return `https://as-rsa1-usla.baozicdn.com/w640${match[0]}`;
-        } else {
-          return e;
+
+      const doc = new HtmlDocument(res.body);
+
+      // 解析当前页图片(App 版)
+      const imageNodes = doc.querySelectorAll(".comic-contain > .chapter-img");
+      imageNodes.forEach((imgNode) => {
+        const imgUrl = imgNode.querySelector(".comic-contain__item")?.attributes?.["data-src"];
+        if (imgUrl) {
+
+          // 替换 /w640/ 为 /，使用原图而不是压缩图
+          // TODO: 可以添加配置选项让用户选择使用略缩图或者原图
+          let processedUrl = imgUrl.replace("/w640/", "/");
+
+          // 提取域名并替换
+          const regex = /^(https?:\/\/)?([^/\s:]+)(:\d+)?/;
+          const match = processedUrl.match(regex);
+          if (match && match[2]) {
+            const domain = match[2];
+            processedUrl = processedUrl.replace(domain, "as.baozimh.com");
+          }
+
+          images.push(processedUrl);
         }
       });
-      return { images: mobileImages };
+
+      return { images: images };
     },
   };
 }
