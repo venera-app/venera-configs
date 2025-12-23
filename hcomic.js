@@ -123,8 +123,8 @@ class HComic extends ComicSource {
                 categories: [
                     { label: "全部", target: { page: "category", attributes: { category: "全部" } } },
                     { label: "全彩", target: { page: "category", attributes: { category: "全彩", param: "全彩" } } },
-                    { label: "无修正", target: { page: "category", attributes: { category: "无修正", param: "无修正" } } },
-                    { label: "萝莉", target: { page: "category", attributes: { category: "萝莉", param: "萝莉" } } },
+                    { label: "無修正", target: { page: "category", attributes: { category: "無修正", param: "無修正" } } },
+                    { label: "蘿莉", target: { page: "category", attributes: { category: "蘿莉", param: "蘿莉" } } },
                     { label: "制服", target: { page: "category", attributes: { category: "制服", param: "制服" } } },
                     { label: "巨乳", target: { page: "category", attributes: { category: "巨乳", param: "巨乳" } } },
                     { label: "黑絲 / 白襪", target: { page: "category", attributes: { category: "黑絲 / 白襪", param: "黑絲 / 白襪" } } },
