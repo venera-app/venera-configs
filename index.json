@@ -157,5 +157,11 @@
         "fileName": "manhuaren.js",
         "key": "manhuaren",
         "version": "1.0.0"
+    },
+    {
+        "name": "H-Comic",
+        "fileName": "hcomic.js",
+        "key": "hcomic",
+        "version": "1.0.0"
     }
 ]
