@@ -4,7 +4,7 @@ class CopyManga extends ComicSource {
 
     key = "copy_manga"
 
-    version = "1.4.0"
+    version = "1.4.1"
 
     minAppVersion = "1.6.0"
 
@@ -33,13 +33,13 @@ class CopyManga extends ComicSource {
         )
 
         return {
-            "User-Agent": "COPY/3.0.0",
+            "User-Agent": `COPY/${this.copyVersion}`,
             "source": "copyApp",
             "deviceinfo": this.deviceinfo,
             "dt": `${year}.${month}.${day}`,
             "platform": "3",
-            "referer": `com.copymanga.app-3.0.0`,
-            "version": "3.0.0",
+            "referer": `com.copymanga.app-${this.copyVersion}`,
+            "version": this.copyVersion,
             "device": this.device,
             "pseudoid": this.pseudoid,
             "Accept": "application/json",
@@ -51,7 +51,7 @@ class CopyManga extends ComicSource {
         }
     }
 
-    // static defaultCopyVersion = "2.2.9-dev"
+    static defaultCopyVersion = "3.0.6"
 
     // static defaultCopyPlatform = "2"
 
@@ -90,9 +90,9 @@ class CopyManga extends ComicSource {
         return pid;
     }
 
-    // get copyVersion() {
-    // return this.loadSetting('version')
-    // }
+    get copyVersion() {
+        return this.loadSetting('version')
+    }
 
     // get copyPlatform()
     // return this.loadSetting('platform')
@@ -813,7 +813,7 @@ class CopyManga extends ComicSource {
             );
 
             if (res.status !== 200) {
-                if(res.status === 210){
+                if (res.status === 210) {
                     throw "210：注冊用戶一天可以發5條評論"
                 }
                 throw `Invalid status code: ${res.status}`;
@@ -913,7 +913,7 @@ class CopyManga extends ComicSource {
             }
 
             if (res.status !== 200) {
-                if(res.status === 210) {
+                if (res.status === 210) {
                     throw `210:评论过于频繁或评论内容过短过长`;
                 }
                 throw `Invalid status code: ${res.status}`;
@@ -1002,14 +1002,14 @@ class CopyManga extends ComicSource {
             title: "搜索方式",
             type: "select",
             options: [
-               {
-                   value: 'baseAPI',
-                   text: '基础API'
-               },
-               {
-                   value: 'webAPI',
-                   text: '网页端API'
-               }
+                {
+                    value: 'baseAPI',
+                    text: '基础API'
+                },
+                {
+                    value: 'webAPI',
+                    text: '网页端API'
+                }
             ],
             default: 'baseAPI'
         },
@@ -1022,19 +1022,19 @@ class CopyManga extends ComicSource {
         clear_device_info: {
             title: "清除设备信息",
             type: "callback",
-            buttonText:  "点击清除设备信息",
+            buttonText: "点击清除设备信息",
             callback: () => {
                 this.deleteData("_deviceinfo");
                 this.deleteData("_device");
                 this.deleteData("_pseudoid");
                 this.refreshAppApi();
             }
-        }
-        // version: {
-        //     title: "拷贝版本（重启APP生效）",
-        //     type: "input",
-        //     default: CopyManga.defaultCopyVersion,
-        // },
+        },
+        version: {
+            title: "拷贝版本（重启APP生效）",
+            type: "input",
+            default: CopyManga.defaultCopyVersion,
+        },
         // platform: {
         //     title: "平台代号（重启APP生效）",
         //     type: "input",
@@ -1078,7 +1078,7 @@ class CopyManga extends ComicSource {
         const res = await fetch(url, { headers: this.headers });
         if (res.status === 200) {
             let data = await res.json();
-            this.settings.base_url= data.results.api[0][0];
+            this.settings.base_url = data.results.api[0][0];
         }
     }
 }
