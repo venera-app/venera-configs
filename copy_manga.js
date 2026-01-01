@@ -17,7 +17,14 @@ class CopyManga extends ComicSource {
         const reqIdUrl = "https://marketing.aiacgn.com/api/v2/adopr/query3/?format=json&ident=200100001";
         let reqId = "";
         try {
-            const response = await Network.get(reqIdUrl, this.headers);
+            const response = await Network.get(reqIdUrl,
+                {
+                    ...this.headers,
+                    "Content-Type": "application/x-www-form-urlencoded;charset=utf-8",
+                    "accept": "application/json",
+                    "accept-encoding": "gzip",
+                }
+            );
 
             if (response.status === 200) {
                 const data = JSON.parse(response.body);
@@ -625,9 +632,9 @@ class CopyManga extends ComicSource {
 
     comic = {
         loadInfo: async (id) => {
+            let reqId = await this.getReqID();
             let getChapters = async (id, groups) => {
                 let fetchSingle = async (id, path) => {
-                    let reqId = await this.getReqID();
                     let res = await Network.get(
                         `${this.apiUrl}/api/v3/comic/${id}/group/${path}/chapters?limit=100&offset=0&in_mainland=true&request_id=${reqId}`,
                         this.headers
@@ -701,7 +708,7 @@ class CopyManga extends ComicSource {
                 }
                 return JSON.parse(res.body).results.collect != null;
             }
-            let reqId = await this.getReqID();
+
             let results = await Promise.all([
                 Network.get(
                     `${this.apiUrl}/api/v3/comic2/${id}?in_mainland=true&request_id=${reqId}&platform=3`,
