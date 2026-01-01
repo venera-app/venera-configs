@@ -5,7 +5,7 @@ class Zaimanhua extends ComicSource {
   version = "1.0.2";
   minAppVersion = "1.0.0";
   url =
-    "https://git.nyne.dev/nyne/venera-configs/raw/branch/main/zaimanhua.js";
+    "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/zaimanhua.js";
 
   // 初始化请求头
   init() {

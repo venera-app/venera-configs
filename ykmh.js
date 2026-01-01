@@ -4,7 +4,7 @@ class YKMHSource extends ComicSource {
     key = "ykmh"
     version = "1.0.0"
     minAppVersion = "1.4.0"
-    url = "https://git.nyne.dev/nyne/venera-configs/raw/branch/main/ykmh.js"
+    url = "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/ykmh.js"
 
     get baseUrl() {
         return "https://www.ykmh.net";

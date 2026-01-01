@@ -1,0 +1,71 @@
+name: Purge jsDelivr CDN
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  purge-cdn:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Get changed .js and .json files
+        id: changed-files
+        run: |
+          BEFORE="${{ github.event.before }}"
+          AFTER="${{ github.sha }}"
+          
+          # Initial commit check or new branch
+          if [ "$BEFORE" == "0000000000000000000000000000000000000000" ]; then
+             if git rev-parse --verify HEAD^ >/dev/null 2>&1; then
+               DIFF_CMD="git diff --name-only HEAD^ HEAD"
+             else
+               DIFF_CMD="git ls-tree -r HEAD --name-only"
+             fi
+          else
+             DIFF_CMD="git diff --name-only $BEFORE $AFTER"
+          fi
+          
+          CHANGED_FILES=$($DIFF_CMD | grep -E '\.(js|json)$' || true)
+          
+          if [ -z "$CHANGED_FILES" ]; then
+            echo "No .js or .json files changed"
+            echo "files=" >> $GITHUB_OUTPUT
+          else
+            echo "Changed files:"
+            echo "$CHANGED_FILES"
+            FILES_LIST=$(echo "$CHANGED_FILES" | tr '\n' ' ')
+            echo "files=$FILES_LIST" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Purge jsDelivr CDN
+        if: steps.changed-files.outputs.files != ''
+        run: |
+          REPO_FULL="${GITHUB_REPOSITORY}"
+          
+          echo "Purging jsDelivr CDN for repository: $REPO_FULL"
+          
+          for file in ${{ steps.changed-files.outputs.files }}; do
+            if [ -z "$file" ]; then continue; fi
+            PURGE_URL="https://purge.jsdelivr.net/gh/${REPO_FULL}@main/${file}"
+            
+            echo "Purging: $PURGE_URL"
+            
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$PURGE_URL")
+            
+            if [ "$HTTP_CODE" -eq 200 ] || [ "$HTTP_CODE" -eq 201 ] || [ "$HTTP_CODE" -eq 303 ]; then
+              echo "✓ Successfully purged: $file (HTTP $HTTP_CODE)"
+            else
+              echo "✗ Failed to purge: $file (HTTP $HTTP_CODE)"
+            fi
+            
+            sleep 0.5
+          done
+          
+          echo "CDN purge completed!"

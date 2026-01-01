@@ -13,7 +13,7 @@ class MangaDex extends ComicSource {
     minAppVersion = "1.4.0"
 
     // update url
-    url = "https://git.nyne.dev/nyne/venera-configs/raw/branch/main/manga_dex.js"
+    url = "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/manga_dex.js"
 
     comicsPerPage = 20
 

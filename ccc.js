@@ -13,7 +13,7 @@ class CCC extends ComicSource {
     minAppVersion = "1.6.0"
 
     // update url
-    url = "https://git.nyne.dev/nyne/venera-configs/raw/branch/main/ccc.js"
+    url = "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/ccc.js"
 
     apiUrl = "https://api.creative-comic.tw"
 

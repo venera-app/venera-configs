@@ -8,7 +8,7 @@ class CopyManga extends ComicSource {
 
     minAppVersion = "1.6.0"
 
-    url = "https://git.nyne.dev/nyne/venera-configs/raw/branch/main/copy_manga.js"
+    url = "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/copy_manga.js"
 
     async getReqID() {
         if (this.copyRegion === "0") {
