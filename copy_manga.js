@@ -24,9 +24,7 @@ class CopyManga extends ComicSource {
                 reqId = data.results.request_id;
             }
         } catch (e) {
-
         }
-
         return reqId;
     }
 
@@ -53,13 +51,13 @@ class CopyManga extends ComicSource {
         )
 
         return {
-            "User-Agent": `COPY/${this.copyVersion}`,
+            "User-Agent": `COPY/3.0.6`,
             "source": "copyApp",
             "deviceinfo": this.deviceinfo,
             "dt": `${year}.${month}.${day}`,
             "platform": "3",
-            "referer": `com.copymanga.app-${this.copyVersion}`,
-            "version": this.copyVersion,
+            "referer": `com.copymanga.app-3.0.6`,
+            "version": "3.0.6",
             "device": this.device,
             "pseudoid": this.pseudoid,
             "Accept": "application/json",
@@ -71,11 +69,11 @@ class CopyManga extends ComicSource {
         }
     }
 
-    static defaultCopyVersion = "3.0.6"
+    // static defaultCopyVersion = "3.0.6"
 
     // static defaultCopyPlatform = "2"
 
-    static defaultCopyRegion = "1"
+    static defaultCopyRegion = "0"
 
     static defaultImageQuality = "1500"
 
@@ -110,9 +108,9 @@ class CopyManga extends ComicSource {
         return pid;
     }
 
-    get copyVersion() {
-        return this.loadSetting('version')
-    }
+    // get copyVersion() {
+    //     return this.loadSetting('version')
+    // }
 
     // get copyPlatform()
     // return this.loadSetting('platform')
@@ -1053,11 +1051,11 @@ class CopyManga extends ComicSource {
                 this.refreshAppApi();
             }
         },
-        version: {
-            title: "拷贝版本（重启APP生效）",
-            type: "input",
-            default: CopyManga.defaultCopyVersion,
-        },
+        // version: {
+        //     title: "拷贝版本（重启APP生效）",
+        //     type: "input",
+        //     default: CopyManga.defaultCopyVersion,
+        // },
         // platform: {
         //     title: "平台代号（重启APP生效）",
         //     type: "input",
