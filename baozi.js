@@ -5,7 +5,7 @@ class Baozi extends ComicSource {
   // 唯一标识符
   key = "baozi";
 
-  version = "1.1.3";
+  version = "1.1.4";
 
   minAppVersion = "1.0.0";
 
@@ -34,6 +34,21 @@ class Baozi extends ComicSource {
         { value: "dinnerku.com" },
       ],
       default: "bzmgcn.com",
+    },
+    image_quality: {
+      title: "图片质量",
+      type: "select",
+      options: [
+        {
+          value: "/w640",
+          text: "640p"
+        },
+        {
+          value: "",
+          text: "原图"
+        }
+      ],
+      default: "/w640",
     },
   };
 
@@ -472,25 +487,17 @@ class Baozi extends ComicSource {
       // 解析当前页图片(App 版)
       const imageNodes = doc.querySelectorAll(".comic-contain > .chapter-img");
       imageNodes.forEach((imgNode) => {
-        const imgUrl = imgNode.querySelector(".comic-contain__item")?.attributes?.["data-src"];
+        let imgUrl = imgNode.querySelector(".comic-contain__item")?.attributes?.["data-src"];
         if (imgUrl) {
-
-          // 替换 /w640/ 为 /，使用原图而不是压缩图
-          // TODO: 可以添加配置选项让用户选择使用略缩图或者原图
-          let processedUrl = imgUrl.replace("/w640/", "/");
-
-          // 提取域名并替换
-          const regex = /^(https?:\/\/)?([^/\s:]+)(:\d+)?/;
-          const match = processedUrl.match(regex);
-          if (match && match[2]) {
-            const domain = match[2];
-            processedUrl = processedUrl.replace(domain, "as.baozimh.com");
+          const regex = /\/[a-z]comic\/.*/;
+          const match = imgUrl.match(regex);
+          if (match) {
+            // imgUrl = "https://as.baozimh.com" + this.loadSetting("image_quality") + match[0];
+            imgUrl = `https://as.baozimh.com${this.loadSetting("image_quality")}${match[0]}`;
           }
-
-          images.push(processedUrl);
+          images.push(imgUrl);
         }
       });
-
       return { images: images };
     },
   };
