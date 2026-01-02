@@ -14,8 +14,25 @@ class CopyManga extends ComicSource {
         if (this.copyRegion === "0") {
             return "";
         }
+
+        const cacheKey = '_reqId_cache';
+        const timestampKey = '_reqId_timestamp';
+
+        const cachedReqId = this.loadData(cacheKey);
+        const cachedTimestamp = this.loadData(timestampKey);
+
+        if (cachedTimestamp && cachedReqId) {
+            const now = Date.now();
+            const oneHour = 60 * 60 * 1000; // 1小时的毫秒数
+
+            if (now - cachedTimestamp < oneHour) {
+                return cachedReqId;
+            }
+        }
+
         const reqIdUrl = "https://marketing.aiacgn.com/api/v2/adopr/query3/?format=json&ident=200100001";
         let reqId = "";
+
         try {
             const response = await Network.get(reqIdUrl,
                 {
@@ -29,9 +46,16 @@ class CopyManga extends ComicSource {
             if (response.status === 200) {
                 const data = JSON.parse(response.body);
                 reqId = data.results.request_id;
+
+                this.saveData(cacheKey, reqId);
+                this.saveData(timestampKey, Date.now());
             }
         } catch (e) {
+            if (cachedReqId) {
+                return cachedReqId;
+            }
         }
+
         return reqId;
     }
 
