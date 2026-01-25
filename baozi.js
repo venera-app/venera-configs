@@ -5,7 +5,7 @@ class Baozi extends ComicSource {
   // 唯一标识符
   key = "baozi";
 
-  version = "1.1.4";
+  version = "1.1.5";
 
   minAppVersion = "1.0.0";
 
@@ -489,11 +489,10 @@ class Baozi extends ComicSource {
       imageNodes.forEach((imgNode) => {
         let imgUrl = imgNode.querySelector(".comic-contain__item")?.attributes?.["data-src"];
         if (imgUrl) {
-          const regex = /\/[a-z]comic\/.*/;
-          const match = imgUrl.match(regex);
+          const match = imgUrl.match(/^(https?:\/\/)?([^/\s:]+)(:\d+)?(\/[a-z]comic\/.*)/);
           if (match) {
-            // imgUrl = "https://as.baozimh.com" + this.loadSetting("image_quality") + match[0];
-            imgUrl = `https://as.baozimh.com${this.loadSetting("image_quality")}${match[0]}`;
+            const domain = match[2];
+            imgUrl = `${match[1]}${domain}${this.loadSetting("image_quality")}${match[4]}`;
           }
           images.push(imgUrl);
         }
