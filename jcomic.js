@@ -347,10 +347,15 @@ class JComic extends ComicSource {
         throw new Error("failed to parse comic info");
       }
 
-      // 标题
+      // 标题和总页数
       const titleEl = infoBlock.querySelector("p.comic-title");
       const rawTitle = titleEl ? titleEl.text.trim() : id;
       const title = trimTitle(rawTitle);
+      let totalPages = 1;
+      const pageMatch = /\((\d+)\)/.exec(rawTitle);
+      if (pageMatch) {
+        totalPages = parseInt(pageMatch[1], 10) || 1;
+      }
 
       // 封面
       const img = infoBlock.querySelector("img.comic-thumb");
@@ -419,7 +424,7 @@ class JComic extends ComicSource {
         cover,
         tags,
         chapters,
-        maxPage: eps.length || 1,
+        maxPage: totalPages,
         thumbnails: [cover],
         uploadTime,
         url: url,
