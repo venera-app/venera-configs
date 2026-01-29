@@ -1,7 +1,7 @@
 class JM extends ComicSource {
     name = "禁漫天堂"
     key = "jm"
-    version = "1.3.4" // 建议提升版本号
+    version = "1.3.4"
     minAppVersion = "1.5.0"
 
     static jmVersion = "2.0.11"
@@ -134,9 +134,6 @@ class JM extends ComicSource {
         } catch (e) { console.log("Refresh Image URL Error: " + e); }
     }
 
-    /**
-     * 核心优化：增加可选链保护，防止 category 缺失导致崩溃
-     */
     parseComic(comic) {
         if (!comic) return null;
         const id = (comic.id || "").toString();
@@ -417,7 +414,7 @@ class JM extends ComicSource {
                     avatar: this.getAvatarUrl(e.photo),
                     userName: e.username,
                     time: e.addtime,
-                    content: e.content.replace(/<[^>]*>/g, ''), // 简单的 HTML 清洗
+                    content: e.content.replace(/<[^>]*>/g, ''),
                 })),
                 maxPage: Math.floor((json.total || 0) / 6) + 1
             };
