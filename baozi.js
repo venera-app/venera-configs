@@ -3,7 +3,7 @@ class Baozi extends ComicSource {
   key = "baozi";
   version = "1.1.6";
   minAppVersion = "1.0.0";
-  url = "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/baozi.js";
+  url = "https://cdn.jsdelivr.net/gh/rksk102/venera-configs@main/baozi.js";
 
   settings = {
     language: {
