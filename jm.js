@@ -6,7 +6,7 @@ class JM extends ComicSource {
 
     static jmVersion = "2.0.11"
     static jmPkgName = "com.example.app"
-    url = "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/jm.js"
+    url = "https://cdn.jsdelivr.net/gh/rksk102/venera-configs@main/jm.js"
 
     static fallbackServers = [
         "www.cdntwice.org",
