@@ -1,7 +1,7 @@
 class Baozi extends ComicSource {
   name = "包子漫画";
   key = "baozi";
-  version = "1.1.5";
+  version = "1.1.6";
   minAppVersion = "1.0.0";
   url = "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/baozi.js";
 
@@ -31,24 +31,23 @@ class Baozi extends ComicSource {
     let domain = this.loadSetting("domains") || "bzmgcn.com";
     return `https://${this.lang}.${domain}`;
   }
+
   parseComic(e) {
     try {
       let a = e.querySelector("a");
       let h3 = e.querySelector("h3");
       let img = e.querySelector("amp-img");
       if (!a || !h3) return null;
-
       let id = (a.attributes["href"] || "").split("/").pop() || "";
       let title = h3.text.trim() || "未知标题";
       let cover = img?.attributes["src"] || "";
       let tags = e.querySelectorAll("div.tabs > span").map((t) => t.text.trim()).filter(Boolean);
       let description = e.querySelector("small")?.text?.trim() || "";
-
       if (!id) return null;
-
       return new Comic({
         id: id,
         title: title,
+        subTitle: description, 
         cover: cover,
         tags: tags,
         description: description,
@@ -75,20 +74,13 @@ class Baozi extends ComicSource {
         if (res.status !== 200) throw "网络错误: " + res.status;
         let document = new HtmlDocument(res.body);
         let parts = document.querySelectorAll("div.index-recommend-items");
-        
         let result = {};
         for (let part of parts) {
           let titleNode = part.querySelector("div.catalog-title");
           if (!titleNode) continue;
-          
           let title = titleNode.text.trim();
-          let comics = part.querySelectorAll("div.comics-card")
-                           .map((e) => this.parseComic(e))
-                           .filter(Boolean); // 彻底过滤掉 null
-          
-          if (comics.length > 0) {
-            result[title] = comics;
-          }
+          let comics = part.querySelectorAll("div.comics-card").map((e) => this.parseComic(e)).filter(Boolean);
+          if (comics.length > 0) result[title] = comics;
         }
         return result;
       },
@@ -111,29 +103,19 @@ class Baozi extends ComicSource {
 
   categoryComics = {
     load: async (category, param, options, page) => {
-      let res = await Network.get(
-        `${this.baseUrl}/api/bzmhq/amp_comic_list?type=${param}&region=${options[0]}&state=${options[1]}&filter=%2a&page=${page}&limit=36&language=${this.lang}&__amp_source_origin=${this.baseUrl}`
-      );
+      let res = await Network.get(`${this.baseUrl}/api/bzmhq/amp_comic_list?type=${param}&region=${options[0]}&state=${options[1]}&filter=%2a&page=${page}&limit=36&language=${this.lang}&__amp_source_origin=${this.baseUrl}`);
       let json = JSON.parse(res.body);
       let items = (json.items || []).map((e) => this.parseJsonComic(e)).filter(Boolean);
-      return {
-        comics: items,
-        maxPage: json.next ? null : page,
-      };
+      return { comics: items, maxPage: json.next ? null : page };
     },
-    optionList: [
-      { options: ["all-全部", "cn-国漫", "jp-日本", "kr-韩国", "en-欧美"] },
-      { options: ["all-全部", "serial-连载中", "pub-已完结"] },
-    ],
+    optionList: [{ options: ["all-全部", "cn-国漫", "jp-日本", "kr-韩国", "en-欧美"] }, { options: ["all-全部", "serial-连载中", "pub-已完结"] }],
   };
 
   search = {
     load: async (keyword) => {
       let res = await Network.get(`${this.baseUrl}/search?q=${encodeURIComponent(keyword)}`);
       let document = new HtmlDocument(res.body);
-      let comics = document.querySelectorAll("div.comics-card")
-                           .map((e) => this.parseComic(e))
-                           .filter(Boolean);
+      let comics = document.querySelectorAll("div.comics-card").map((e) => this.parseComic(e)).filter(Boolean);
       return { comics: comics, maxPage: 1 };
     },
     optionList: [],
@@ -167,16 +149,47 @@ class Baozi extends ComicSource {
     loadInfo: async (id) => {
       let res = await Network.get(`${this.baseUrl}/comic/${id}`);
       let document = new HtmlDocument(res.body);
-
       let title = document.querySelector("h1.comics-detail__title")?.text?.trim() || "未知标题";
       let cover = document.querySelector("div.l-content amp-img")?.attributes["src"] || "";
       let author = document.querySelector("h2.comics-detail__author")?.text?.trim() || "未知作者";
       let description = document.querySelector("p.comics-detail__desc")?.text?.trim() || "";
       
       let chapters = new Map();
-      let spans = document.querySelectorAll(".comics-chapters > a > div > span");
-      if (spans.length > 0) {
-        spans.forEach((s, i) => chapters.set(i.toString(), s.text.trim()));
+      let seen = new Set();
+      let allSpans = [];
+
+      const containers = ["div#chapter-items", "div#chapters_other_list"];
+      
+      containers.forEach(selector => {
+        let container = document.querySelector(selector);
+        if (container) {
+          let spans = container.querySelectorAll(".comics-chapters > a > div > span");
+          spans.forEach(s => {
+            let txt = s.text.trim();
+            if (txt && !seen.has(txt)) {
+              allSpans.push(txt);
+              seen.add(txt);
+            }
+          });
+        }
+      });
+
+      if (allSpans.length === 0) {
+        document.querySelectorAll(".comics-chapters > a > div > span").forEach(s => {
+          let txt = s.text.trim();
+          if (txt && !seen.has(txt)) {
+            allSpans.push(txt);
+            seen.add(txt);
+          }
+        });
+      }
+
+      if (allSpans.length > 1) {
+        if (/(第[2-9]|\d{2,})/.test(allSpans[0])) allSpans.reverse();
+      }
+
+      if (allSpans.length > 0) {
+        allSpans.forEach((txt, i) => chapters.set(i.toString(), txt));
       } else {
         chapters.set("0", "开始阅读");
       }
@@ -187,6 +200,7 @@ class Baozi extends ComicSource {
         return new Comic({
           id: a.attributes["href"].split("/").pop(),
           title: c.querySelector("span")?.text?.trim() || "推荐",
+          subTitle: "",
           cover: c.querySelector("amp-img")?.attributes["src"] || "",
         });
       }).filter(Boolean);
@@ -212,4 +226,4 @@ class Baozi extends ComicSource {
       return { images };
     },
   };
-        }
+  }
