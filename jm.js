@@ -198,18 +198,24 @@ class JM extends ComicSource {
      * @returns {Comic}
      */
     parseComic(comic) {
+    try {
+        if (!comic || !comic.id) return null; // 如果数据完全不对，跳过
+
         let id = comic.id.toString()
-        let author = comic.author
-        let title = comic.name
+        let author = comic.author || ""
+        let title = comic.name || ""
         let description = comic.description ?? ""
         let cover = this.getCoverUrl(id)
-        let tags =[]
+        let tags = []
+
+        // 增加逻辑判断保护
         if (comic["category"] && comic["category"]["title"]) {
             tags.push(comic["category"]["title"])
         }
         if (comic["category_sub"] && comic["category_sub"]["title"]) {
             tags.push(comic["category_sub"]["title"])
         }
+
         return new Comic({
             id: id,
             title: title,
@@ -218,6 +224,10 @@ class JM extends ComicSource {
             tags: tags,
             description: description
         })
+    } catch (e) {
+        console.log("解析漫画失败一条，已跳过: " + e);
+        return null;
+    }
     }
 
     /**
