@@ -7,7 +7,7 @@ class JM extends ComicSource {
     // unique id of the source
     key = "jm"
 
-    version = "1.3.2"
+    version = "1.3.3"
 
     minAppVersion = "1.5.0"
 
@@ -204,10 +204,10 @@ class JM extends ComicSource {
         let description = comic.description ?? ""
         let cover = this.getCoverUrl(id)
         let tags =[]
-        if(comic["category"]["title"]) {
+        if (comic["category"] && comic["category"]["title"]) {
             tags.push(comic["category"]["title"])
         }
-        if(comic["category_sub"]["title"]) {
+        if (comic["category_sub"] && comic["category_sub"]["title"]) {
             tags.push(comic["category_sub"]["title"])
         }
         return new Comic({
@@ -358,7 +358,7 @@ class JM extends ComicSource {
                     if (type === 'library') {
                         continue
                     }
-                    let comics = e.content.map((e) => this.parseComic(e))
+                    let comics = e.content.map((e) => this.parseComic(e)).filter(c => c !== null)
                     result.push({
                         title: e.title,
                         comics: comics,
