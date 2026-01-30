@@ -7,11 +7,11 @@ class JM extends ComicSource {
     // unique id of the source
     key = "jm"
 
-    version = "1.3.2"
+    version = "1.3.3"
 
     minAppVersion = "1.5.0"
 
-    static jmVersion = "2.0.11"
+    static jmVersion = "2.0.16"
 
     static jmPkgName = "com.example.app"
 
@@ -355,7 +355,7 @@ class JM extends ComicSource {
                     if (type === 'category_id') {
                         id = e.slug
                     }
-                    if (type === 'library') {
+                    if (['library', 'novels'].includes(type)) {
                         continue
                     }
                     let comics = e.content.map((e) => this.parseComic(e))
