@@ -163,5 +163,11 @@
         "fileName": "hcomic.js",
         "key": "hcomic",
         "version": "1.0.0"
+    },
+    {
+        "name": "jcomic.net",
+        "fileName": "jcomic.js",
+        "key": "jcomic",
+        "version": "1.0.0"
     }
 ]
