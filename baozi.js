@@ -5,7 +5,7 @@ class Baozi extends ComicSource {
   // 唯一标识符
   key = "baozi";
 
-  version = "1.1.5";
+  version = "1.1.6";
 
   minAppVersion = "1.0.0";
 
@@ -34,6 +34,19 @@ class Baozi extends ComicSource {
         { value: "dinnerku.com" },
       ],
       default: "bzmgcn.com",
+    },
+    cdn_domains: {
+      title: "图片资源站域名",
+      type: "select",
+      options: [
+        { value: "as-rsa1-usla.baozicdn.com" },
+        { value: "ascn-a3.bzcdn.net" },
+        { value: "asgb-a3.bzcdn.net" },
+        { value: "as.baozimh.com" },
+        { value: "s1.baozicdn.com" },
+        { value: "", text: "默认" },
+      ],
+      default: "",
     },
     image_quality: {
       title: "图片质量",
@@ -491,7 +504,7 @@ class Baozi extends ComicSource {
         if (imgUrl) {
           const match = imgUrl.match(/^(https?:\/\/)?([^/\s:]+)(:\d+)?(\/[a-z]comic\/.*)/);
           if (match) {
-            const domain = match[2];
+            const domain = this.loadSetting("cdn_domains") === "" ? match[2] : this.loadSetting("cdn_domains");
             imgUrl = `${match[1]}${domain}${this.loadSetting("image_quality")}${match[4]}`;
           }
           images.push(imgUrl);

@@ -15,7 +15,7 @@
         "name": "包子漫画",
         "fileName": "baozi.js",
         "key": "baozi",
-        "version": "1.1.5"
+        "version": "1.1.6"
     },
     {
         "name": "Picacg",
@@ -168,6 +168,12 @@
         "name": "jcomic.net",
         "fileName": "jcomic.js",
         "key": "jcomic",
+        "version": "1.0.0"
+    },
+    {
+        "name": "热辣漫画",
+        "fileName": "hot_manga.js",
+        "key": "hot_manga",
         "version": "1.0.0"
     }
 ]
