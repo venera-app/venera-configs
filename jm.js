@@ -7,7 +7,7 @@ class JM extends ComicSource {
     // unique id of the source
     key = "jm"
 
-    version = "1.3.3"
+    version = "1.3.4"
 
     minAppVersion = "1.5.0"
 
@@ -181,7 +181,7 @@ class JM extends ComicSource {
     async refreshImgUrl(showMessage) {
         let index = this.loadSetting('imageStream')
         let res = await this.get(
-            `${this.baseUrl}/setting?app_img_shunt=${index}?express=`
+            `${this.baseUrl}/setting?app_img_shunt=${index}&express=`
         )
         let setting = JSON.parse(res)
         if (setting["img_host"]) {
@@ -345,7 +345,7 @@ class JM extends ComicSource {
              * - for `mixed` type, use param `page` as index. for each index(0-based), return {data: [], maxPage: number?}, data is an array contains Comic[] or {title: string, comics: Comic[], viewMore: string?}
              */
             load: async (page) => {
-                let res = await this.get(`${this.baseUrl}/promote?$baseData&page=0`)
+                let res = await this.get(`${this.baseUrl}/promote?page=0`)
                 let result = []
 
                 for(let e of JSON.parse(res)) {
@@ -505,7 +505,7 @@ class JM extends ComicSource {
                     maxPage: maxPage
                 }
             } else {
-                let res = await this.get(`${this.baseUrl}/week/filter?id=${options[0]}&page=1&type=${options[1]}&page=0`)
+                let res = await this.get(`${this.baseUrl}/week/filter?id=${options[0]}&type=${options[1]}&page=0`)
                 let data = JSON.parse(res)
                 let comics = data.list.map((e) => this.parseComic(e))
                 return {
@@ -769,7 +769,7 @@ class JM extends ComicSource {
          * @returns {Promise<{images: string[]}>}
          */
         loadEp: async (comicId, epId) => {
-            let res = await this.get(`${this.baseUrl}/chapter?&id=${epId}`);
+            let res = await this.get(`${this.baseUrl}/chapter?id=${epId}`);
             let data = JSON.parse(res)
             let images = data.images.map((e) => this.getImageUrl(epId, e))
             return {
