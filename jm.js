@@ -760,6 +760,7 @@ class JM extends ComicSource {
                     "Tag": tags,
                     "Work": works,
                     "Actor": actors,
+                    "View": data.total_views ? [data.total_views] : [],
                 },
                 recommend: related,
                 isFavorite: data.is_favorite ?? false,
@@ -1023,6 +1024,7 @@ class JM extends ComicSource {
             'Tag': '标签',
             'Work': '作品',
             'Actor': '角色',
+            'View': '浏览量',
         },
         'zh_TW': {
             'Refresh Domain List': '刷新域名列表',
@@ -1038,6 +1040,7 @@ class JM extends ComicSource {
             'Tag': '標籤',
             'Work': '作品',
             'Actor': '角色',
+            'View': '瀏覽量',
         },
     }
 }
