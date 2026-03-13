@@ -1,5 +1,5 @@
 /** @type {import('./_venera_.js')} */
-class Komga extends ComicSource {
+class Kavita extends ComicSource {
     name = "Kavita"
 
     key = "kavita"
@@ -188,12 +188,12 @@ class Komga extends ComicSource {
                 loader: () => (
                     [
                         {
-                            label: "all",
+                            label: "全部",
                             target: {
                                 page: 'category',
                                 attributes: {
                                     category: '全部',
-                                    param: null,
+                                    param: 'all',
                                 },
                             },
                         }
@@ -327,7 +327,7 @@ class Komga extends ComicSource {
                 })
             }
 
-            const allowedCategories = ['全部', 'library', 'genre', 'author']
+            const allowedCategories = ['all', 'library', 'genre', 'author']
             if (allowedCategories.includes(params[0])) {
                 const { comics, totalPages } = await this.fetchSeriesList(`/api/Series/v2`, { PageNumber: page, PageSize: pageSize }, data)
                 return {
