@@ -192,7 +192,7 @@ class Komga extends ComicSource {
                             target: {
                                 page: 'category',
                                 attributes: {
-                                    category: 'all',
+                                    category: '全部',
                                     param: null,
                                 },
                             },
@@ -213,8 +213,8 @@ class Komga extends ComicSource {
                         target: {
                             page: 'category',
                             attributes: {
-                                category: 'library',
-                                param: `${library.id}`,
+                                category: library.name,
+                                param: `library:${library.id}`,
                             },
                         },
                     }))
@@ -233,8 +233,8 @@ class Komga extends ComicSource {
                         target: {
                             page: 'category',
                             attributes: {
-                                category: 'author',
-                                param: `${author.id}`,
+                                category: author.name,
+                                param: `author:${author.id}`,
                             },
                         },
                     }))
@@ -253,8 +253,8 @@ class Komga extends ComicSource {
                         target: {
                             page: 'category',
                             attributes: {
-                                category: 'genre',
-                                param: `${genre.id}`,
+                                category: genre.title,
+                                param: `genre:${genre.id}`,
                             },
                         },
                     }))
@@ -279,8 +279,6 @@ class Komga extends ComicSource {
             await this.refreshReferenceData(false)
             const pageSize = 30
             const data = {
-                id: 0,
-                name: "",
                 statements: [],
                 combination: 0,
                 sortOptions: {
@@ -291,7 +289,6 @@ class Komga extends ComicSource {
             }
 
             /*
-            * https://github.com/Kareadita/Kavita/blob/8880a590e61544440c837870b72f7ea113d42969/Kavita.Models/DTOs/Filtering/SortField.cs
             * sortField : 排序枚举类型：
             * 1 按系列名称排序,2 创建时间,3 最后修改时间,4 最近添加章节时间,5 阅读时长,6 发布年份,7 阅读进度,8 平均评分,9 随机,10 用户评分
             */
@@ -302,46 +299,36 @@ class Komga extends ComicSource {
                 data.sortOptions.isAscending = isAscending === 'true'
             }
 
-            if (category === 'all') {
-                const { comics, totalPages } = await this.fetchSeriesList(`/api/Series/v2`, { PageNumber: page, PageSize: pageSize }, data)
-                return {
-                    comics: comics,
-                    maxPage: totalPages
-                }
+            const params = param.split(":")
+            if (params[0] === 'library' && params[1]) {
+                const libraryId = params[1]
+                data.statements.push({
+                    comparison: this.FilterComparison.Equals,
+                    field: this.FilterField.Libraries,
+                    value: libraryId
+                })
             }
 
-            if (category === 'library' && param) {
-                data.id = parseInt(param)
-                const { comics, totalPages } = await this.fetchSeriesList(`/api/Series/v2`, { PageNumber: page, PageSize: pageSize }, data)
-                return {
-                    comics: comics,
-                    maxPage: totalPages
-                }
-            }
-
-            if (category === 'genre' && param) {
-                const genreId = param
-                data.combination = 1
+            if (params[0] === 'genre' && params[1]) {
+                const genreId = params[1]
                 data.statements.push({
                     comparison: this.FilterComparison.Equals,
                     field: this.FilterField.Genres,
                     value: genreId
                 })
-                const { comics, totalPages } = await this.fetchSeriesList(`/api/Series/v2`, { PageNumber: page, PageSize: pageSize }, data)
-                return {
-                    comics: comics,
-                    maxPage: totalPages
-                }
             }
 
-            if (category === 'author' && param) {
-                const authorId = param
-                data.combination = 1
+            if (params[0] === 'author' && params[1]) {
+                const authorId = params[1]
                 data.statements.push({
                     comparison: this.FilterComparison.Equals,
                     field: this.FilterField.Writers,
                     value: authorId
                 })
+            }
+
+            const allowedCategories = ['全部', 'library', 'genre', 'author']
+            if (allowedCategories.includes(params[0])) {
                 const { comics, totalPages } = await this.fetchSeriesList(`/api/Series/v2`, { PageNumber: page, PageSize: pageSize }, data)
                 return {
                     comics: comics,
@@ -378,8 +365,6 @@ class Komga extends ComicSource {
         load: async (keyword, options, page) => {
             const pageSize = 30
             const data = {
-                id: 0,
-                name: "",
                 statements: [],
                 combination: 0,
                 sortOptions: {
@@ -448,7 +433,6 @@ class Komga extends ComicSource {
             }
         ],
 
-        // enable tags suggestions
         enableTagsSuggestions: false,
         // [Optional] handle tag suggestion click
         onTagSuggestionSelected: (namespace, tag) => {
@@ -481,10 +465,12 @@ class Komga extends ComicSource {
             const authors = metadata.writers.map(item => item.name)
             const apiKey = this.loadData('apiKey')
             const tagSections = {}
+            const isReadable = this.isReadable(data.format)
+            console.log(data)
             if (authors.length) tagSections['作者'] = authors
             if (metadata.genres.length) tagSections['类型'] = metadata.genres.map(item => item.title)
             if (metadata.tags.length) tagSections['标签'] = metadata.tags.map(item => item.title)
-
+            if (!isReadable) tagSections['提示'] = ['该系列包含的项目暂不支持阅读']
             const info = new ComicDetails({
                 title: data.name,
                 subtitle: authors.join(', '),
@@ -499,6 +485,17 @@ class Komga extends ComicSource {
             return info
         },
 
+
+        /**
+         * rate a comic
+         * @param id
+         * @param rating {number} - [0-10] app use 5 stars, 1 rating = 0.5 stars,
+         * @returns {Promise<any>} - return any value to indicate success
+         */
+        starRating: async (id, rating) => {
+
+        },
+
         /**
          * load images of a chapter
          * @param comicId {string}
@@ -508,31 +505,13 @@ class Komga extends ComicSource {
         loadEp: async (comicId, epId) => {
             const data = await this.getJson(`/api/Series/chapter`, { chapterId: epId })
             const page = data.pages
+            const isReadable = this.isReadable(data.format)
+            if (!isReadable) {
+                throw '该项目暂不支持阅读'
+            }
             const apiKey = this.loadData('apiKey')
-            return { images: Array.from({ length: page }, (_, i) => this.buildUrl(`/api/Reader/image`, { chapterId: epId, page: i, apiKey: apiKey })) }
-        },
-
-        /**
-         * [Optional] provide configs for an image loading
-         * @param url
-         * @param comicId
-         * @param epId
-         * @returns {ImageLoadingConfig | Promise<ImageLoadingConfig>}
-         */
-        onImageLoad: (url, comicId, epId) => {
-            return {}
-        },
-
-        /**
-         * [Optional] provide configs for a thumbnail loading
-         * @param url {string}
-         * @returns {ImageLoadingConfig | Promise<ImageLoadingConfig>}
-         *
-         * `ImageLoadingConfig.modifyImage` and `ImageLoadingConfig.onLoadFailed` will be ignored.
-         * They are not supported for thumbnails.
-         */
-        onThumbnailLoad: (url) => {
-            return {}
+            const extractPdf = data.format === 4
+            return { images: Array.from({ length: page }, (_, i) => this.buildUrl(`/api/Reader/image`, { chapterId: epId, page: i, apiKey: apiKey, extractPdf })) }
         },
 
         /**
@@ -548,8 +527,8 @@ class Komga extends ComicSource {
                 if (genreId) {
                     return {
                         action: 'category',
-                        keyword: `genre`,
-                        param: `${genreId}`
+                        keyword: tag,
+                        param: `genre:${genreId}`
                     }
                 }
             }
@@ -559,8 +538,8 @@ class Komga extends ComicSource {
                 if (authorId) {
                     return {
                         action: 'category',
-                        keyword: `author`,
-                        param: `${authorId}`
+                        keyword: tag,
+                        param: `author:${authorId}`
                     }
                 }
             }
@@ -621,6 +600,11 @@ class Komga extends ComicSource {
             title,
             cover: this.buildUrl(`/api/Image/series-cover`, { seriesId: id, apiKey: apiKey }),
         })
+    }
+
+    isReadable(format) {
+        const readableFormats = [0, 1, 4] // 0 图片, 1 档案, 2 Epub, 4 PDF 
+        return readableFormats.includes(format)
     }
 
     async getJson(path, query) {
