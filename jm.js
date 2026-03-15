@@ -7,7 +7,7 @@ class JM extends ComicSource {
     // unique id of the source
     key = "jm"
 
-    version = "1.3.4"
+    version = "1.3.5"
 
     minAppVersion = "1.5.0"
 
@@ -721,6 +721,8 @@ class JM extends ComicSource {
             let res = await this.get(`${this.baseUrl}/album?id=${id}`);
             let data = JSON.parse(res)
             let author = data.author ?? []
+            let works = data.works ?? []
+            let actors = data.actors ?? []
             let chapters = new Map()
             let series = (data.series ?? []).sort((a, b) => a.sort - b.sort)
             for(let e of series) {
@@ -754,11 +756,15 @@ class JM extends ComicSource {
                 likesCount: Number(data.likes),
                 chapters: chapters,
                 tags: {
-                    "作者": author,
-                    "標籤": tags,
+                    "Author": author,
+                    "Tag": tags,
+                    "Work": works,
+                    "Actor": actors,
+                    "View": data.total_views ? [data.total_views] : [],
                 },
-                related: related,
+                recommend: related,
                 isFavorite: data.is_favorite ?? false,
+                isLiked: data.liked ?? false,
                 updateTime: updateDate,
             })
         },
@@ -857,6 +863,20 @@ class JM extends ComicSource {
             return {
                 headers: this.getImgHeaders()
             }
+        },
+        /**
+         * [Optional] like or unlike a comic
+         * @param id {string}
+         * @param isLike {boolean} - true for like, false for unlike
+         * @returns {Promise<void>}
+         */
+        likeComic: async (id, isLike) => {
+            let res = await this.post(`${this.baseUrl}/like`, `id=${id}`)
+            let json = JSON.parse(res)
+            if (json.code !== 200 || json.status === 'error') {
+                throw json.msg ?? 'Failed to like/unlike comic'
+            }
+            return "ok"
         },
         /**
          * [Optional] load comments
@@ -1000,6 +1020,11 @@ class JM extends ComicSource {
             'Add Time': '添加时间',
             'Update Time': '更新时间',
             'All': '全部',
+            'Author': '作者',
+            'Tag': '标签',
+            'Work': '作品',
+            'Actor': '角色',
+            'View': '浏览量',
         },
         'zh_TW': {
             'Refresh Domain List': '刷新域名列表',
@@ -1011,6 +1036,11 @@ class JM extends ComicSource {
             'Add Time': '添加時間',
             'Update Time': '更新時間',
             'All': '全部',
+            'Author': '作者',
+            'Tag': '標籤',
+            'Work': '作品',
+            'Actor': '角色',
+            'View': '瀏覽量',
         },
     }
 }
