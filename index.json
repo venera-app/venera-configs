@@ -181,5 +181,12 @@
         "fileName": "kavita.js",
         "key": "kavita",
         "version": "1.0.0"
+    },
+    {
+        "name": "嗨皮漫画",
+        "fileName": "happy.js",
+        "key": "happy",
+        "version": "1.0.0",
+        "description": "中国大陆及日韩IP无法访问，遇到403可以尝试切换其他地区网络"
     }
 ]
