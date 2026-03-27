@@ -791,6 +791,29 @@ class MangaDex extends ComicSource {
                 },
             }
         },
+        /**
+         * [Optional] Handle links
+         */
+        link: {
+            /**
+             * set accepted domains
+             */
+            domains: [
+                'mangadex.org'
+            ],
+            /**
+             * parse url to comic id
+             * @param url {string}
+             * @returns {string | null}
+             */
+            linkToId: (url) => {
+                if (url.includes('?')) {
+                    url = url.split('?')[0];
+                }
+                let match = url.match(/\/(title|manga)\/([a-f0-9-]{36})/i); 
+                return match ? match[2] : null;
+            }
+        },
     }
 
     settings = {
