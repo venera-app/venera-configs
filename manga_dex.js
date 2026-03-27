@@ -688,6 +688,8 @@ class MangaDex extends ComicSource {
 
                     // Remove "Click to expand" button
                     content = content.replace(/<div class="bbCodeBlock-expandLink[^>]*>.*?<\/div>/gi, '');
+                    // Remove the script block
+                    content = content.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
 
                     // Quote Style
                     // TODO: Modify font color/size when venera supports it
@@ -697,12 +699,24 @@ class MangaDex extends ComicSource {
                     // Spoiler Style
                     content = content.replace(/<button[^>]*class="[^"]*bbCodeSpoiler-button[^"]*"[^>]*>([\s\S]*?)<\/button>/gi, '<span style="font-weight:bold">[$1]</span>');
 
-                    // Process Smilie Image
+                    // Process Image
                     content = content.replace(/<img([^>]*)>/gi, (match, attrs) => {
+                        // Smilie Image
                         if (attrs.includes('smilie')) {
                             let altMatch = attrs.match(/alt="([^"]+)"/i);
                             return altMatch ? altMatch[1] : ''; 
                         }
+                        
+                        let srcMatch = attrs.match(/src="([^"]+)"/i);
+                        if (srcMatch) {
+                            let imgUrl = srcMatch[1];
+                            // Relative Path
+                            if (imgUrl.startsWith('/')) {
+                                imgUrl = "https://forums.mangadex.org" + imgUrl;
+                                return `<img${attrs.replace(srcMatch[0], `src="${imgUrl}"`)}>`;
+                            }
+                        }
+
                         return match; 
                     });
 
