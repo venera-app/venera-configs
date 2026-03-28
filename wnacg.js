@@ -126,23 +126,23 @@ class Wnacg extends ComicSource {
 
                 if (domains.length > 0) {
                     title = "Update Success"
-                    message = "New domains:\n\n"
+                    message = "Fetched: \n\n"
                 }
             }
         } catch (e) {
-            // 获取失败，使用内置域名
+            // 获取失败，使用自定义域名
         }
 
         if (domains.length == 0) {
             title = "Update Failed"
-            message = `Using built-in domains:\n\n`
+            message = "Using Custom: \n\n"
             domains = Wnacg.domains
         }
 
         for (let i = 0; i < domains.length; i++) {
-            message = message + `Fetched Domain ${i + 1}: ${domains[i]}\n`
+            message = message + `URL ${i + 1}: ${domains[i]}\n`
         }
-        message = message + `\nTotal: ${domains.length} domain(s)`
+        message = message + `\n Total: ${domains.length} URLs\n\n Re-enter page to refresh`
 
         if (showConfirmDialog) {
             UI.showDialog(
