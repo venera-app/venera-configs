@@ -723,35 +723,41 @@ class Wnacg extends ComicSource {
         },
     }
 
-    settings = {
-        refreshDomains: {
-            title: "Refresh Domain List",
-            type: "callback",
-            buttonText: "Refresh",
-            callback: () => this.refreshDomains(true)
-        },
-        refreshDomainsOnStart: {
-            title: "Refresh Domain List on Startup",
-            type: "switch",
-            default: true,
-        },
-        domainSelection: {
-            title: "Domain Selection",
-            type: "select",
-            options: [
-                { value: '0', text: 'Custom Domain' },
-                { value: '1', text: 'Domain 1' },
-                { value: '2', text: 'Domain 2' },
-                { value: '3', text: 'Domain 3' }
-            ],
-            default: "0",
-        },
-        domain0: {
-            title: "Custom Domain",
-            type: "input",
-            validator: String.raw`^(?!:\/\/)(?=.{1,253})([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$`,
-            default: 'wnacg.com',
-        },
+    get settings() {
+        // 动态生成选项，总是保留 Custom Domain (0)，然后根据 Wnacg.domains 数量添加选项
+        let domainOptions = [{ value: '0', text: 'Custom Domain' }]
+        for (let i = 0; i < Wnacg.domains.length; i++) {
+            domainOptions.push({
+                value: String(i + 1),
+                text: Wnacg.domains[i]
+            })
+        }
+
+        return {
+            refreshDomains: {
+                title: "Refresh Domain List",
+                type: "callback",
+                buttonText: "Refresh",
+                callback: () => this.refreshDomains(true)
+            },
+            refreshDomainsOnStart: {
+                title: "Refresh Domain List on Startup",
+                type: "switch",
+                default: true,
+            },
+            domainSelection: {
+                title: "Domain Selection",
+                type: "select",
+                options: domainOptions,
+                default: "0",
+            },
+            domain0: {
+                title: "Custom Domain",
+                type: "input",
+                validator: String.raw`^(?!:\/\/)(?=.{1,253})([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$`,
+                default: 'wnacg.com',
+            },
+        }
     }
 
     translation = {
