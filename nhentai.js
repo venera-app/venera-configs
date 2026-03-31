@@ -7,7 +7,7 @@ class Nhentai extends ComicSource {
     // unique id of the source
     key = "nhentai"
 
-    version = "1.0.6"
+    version = "1.0.8"
 
     minAppVersion = "1.0.0"
 
@@ -15,6 +15,9 @@ class Nhentai extends ComicSource {
     url = "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/nhentai.js"
 
     baseUrl = "https://nhentai.net"
+    apiBaseUrl = "https://nhentai.net/api/v2"
+    imageServer = "https://i3.nhentai.net"
+    thumbServer = "https://t3.nhentai.net"
 
     // [Optional] account related
     account = {
@@ -42,10 +45,13 @@ class Nhentai extends ComicSource {
      * @returns {Comic}
      */
     parseComic(element) {
-        let img = element.querySelector("a > img").attributes["data-src"];
-        let name = element.querySelector("div.caption").text;
+        let imgEl = element.querySelector("a > img");
+        let img = imgEl?.attributes?.["data-src"] || imgEl?.attributes?.["src"] || "";
+        let name = element.querySelector("div.caption")?.text || "";
         const regex = /\d+/g;
-        let id = element.querySelector("a").attributes["href"].match(regex).join('');
+        let href = element.querySelector("a")?.attributes?.["href"] || "";
+        let idMatch = href.match(regex);
+        let id = idMatch ? idMatch.join('') : "";
         let lang = "Unknown";
         let tags = element.attributes["data-tags"] || "";
         if (tags.includes("12227")) {
@@ -72,16 +78,120 @@ class Nhentai extends ComicSource {
         })
     }
 
+    normalizeComicId(id) {
+        if (id.startsWith("nhentai")) {
+            return id.replace("nhentai", "")
+        }
+        if (id.startsWith("nh")) {
+            return id.replace("nh", "")
+        }
+        return id
+    }
+
+    toAbsoluteMediaUrl(path, isThumb = false) {
+        if (!path) {
+            return path
+        }
+        if (path.startsWith("http")) {
+            return path
+        }
+        if (path.startsWith("//")) {
+            return "https:" + path
+        }
+        if (path.startsWith("/")) {
+            path = path.slice(1)
+        }
+        return `${isThumb ? this.thumbServer : this.imageServer}/${path}`
+    }
+
+    parseComicFromApi(item) {
+        let lang = "Unknown";
+        let tagIds = item.tag_ids || [];
+        if (tagIds.includes(12227)) {
+            lang = "English";
+        } else if (tagIds.includes(6346)) {
+            lang = "日本語";
+        } else if (tagIds.includes(29963)) {
+            lang = "中文";
+        }
+        let tagsRes = [];
+        for (let tagId of tagIds) {
+            let tag = Nhentai.nhentaiTags[String(tagId)];
+            if (tag != null) {
+                tagsRes.push(tag);
+            }
+        }
+        return new Comic({
+            id: String(item.id),
+            title: item.english_title || item.japanese_title || String(item.id),
+            subtitle: "",
+            cover: this.toAbsoluteMediaUrl(item.thumbnail, true),
+            tags: tagsRes,
+            description: String(item.id),
+            language: lang
+        })
+    }
+
+    parseComicListFromApi(data) {
+        return {
+            comics: (data.result || []).map(e => this.parseComicFromApi(e)),
+            maxPage: data.num_pages || 1
+        }
+    }
+
+    formatTimestamp(timestampSec) {
+        let time = new Date(Number(timestampSec) * 1000)
+        if (Number.isNaN(time.getTime())) {
+            return ""
+        }
+        const year = time.getFullYear()
+        const month = time.getMonth() + 1
+        const day = time.getDate()
+        const hour = time.getHours()
+        const minute = time.getMinutes()
+        return `${year}-${month}-${day} ${hour}:${minute}`
+    }
+
+    tagNamespace(tagType) {
+        switch ((tagType || "").toLowerCase()) {
+            case "language": return "Languages"
+            case "artist": return "Artists"
+            case "character": return "Characters"
+            case "group": return "Groups"
+            case "parody": return "Parodies"
+            case "category": return "Categories"
+            case "tag": return "Tags"
+            default:
+                if (!tagType) return "Tags"
+                return tagType.charAt(0).toUpperCase() + tagType.slice(1)
+        }
+    }
+
+    async deleteWithFallback(url, headers) {
+        if (typeof Network.delete === "function") {
+            return await Network.delete(url, headers, null)
+        }
+        if (typeof Network.request === "function") {
+            return await Network.request(url, "DELETE", headers, null)
+        }
+        let h = {
+            ...headers,
+            "X-HTTP-Method-Override": "DELETE",
+        }
+        return await Network.post(url, h, null)
+    }
+
     async parseComicList(html, type='search') {
         let document = new HtmlDocument(html)
         let comicElements = document.querySelectorAll("div.gallery")
 
         let numbers = '0'
         let total = comicElements.length;
+        let maxPageFromApi = null;
 
         switch(type) {
             case 'search':
-                let h1 = document.querySelector("div#content > h1").text
+                let h1 = document.querySelector("div#content > h1")?.text || ""
                 numbers = h1.match(/\d+/g)
 
                 if(numbers) {
@@ -92,11 +202,19 @@ class Nhentai extends ComicSource {
                 let tagEl = document.querySelector("div#content > h1 > a");
                 let classAttr = tagEl?.attributes?.["class"];
                 let tagId = classAttr?.match(/tag-(\d+)/)?.[1];
+                if (!tagId) {
+                    let h1 = document.querySelector("div#content > h1")?.text || ""
+                    numbers = h1.match(/\d+/g)
+                    if(numbers) {
+                        total = parseInt(numbers.join(''))
+                    }
+                    break;
+                }
 
-                // temp solution, some tags return error = true
-                let res = await Network.get(`https://nhentai.net/api/galleries/tagged?tag_id=${tagId}`, {})
+                // Prefer v2 API to get accurate pagination for tag pages.
+                let res = await Network.get(`${this.apiBaseUrl}/galleries/tagged?tag_id=${tagId}`, {})
                 if(res.status !== 200) {
-                    let h1 = document.querySelector("div#content > h1").text
+                    let h1 = document.querySelector("div#content > h1")?.text || ""
                     numbers = h1.match(/\d+/g)
 
                     if(numbers) {
@@ -104,19 +222,18 @@ class Nhentai extends ComicSource {
                     }
                 } else {
                     let resBody = JSON.parse(res.body);
-                    var item = resBody.result[0];
-                    var tag = item?.tags?.find(t => t.id === Number(tagId));
-                    numbers = tag?.count ?? null;
-
-                    if(numbers) {
-                        total = numbers
+                    if (resBody?.num_pages != null) {
+                        maxPageFromApi = resBody.num_pages;
+                    }
+                    if (resBody?.total != null) {
+                        total = resBody.total;
                     }
                 }
         }
 
         return {
             comics: comicElements.map(e => this.parseComic(e)),
-            maxPage: Math.ceil(total / 25)
+            maxPage: maxPageFromApi || Math.ceil(total / 25)
         }
     }
 
@@ -251,14 +368,13 @@ class Nhentai extends ComicSource {
          * @returns {Promise<{comics: Comic[], maxPage: number}>}
          */
         load: async (keyword, options, page) => {
-            let sort = options[0] || "popular"
-            sort = sort.replaceAll("@", "-")
-            let url = `${this.baseUrl}/search/?q=${keyword}&page=${page}&sort=${sort}`
-            let res = await Network.get(url);
+            let sort = options[0] || "date"
+            let url = `${this.apiBaseUrl}/search?query=${encodeURIComponent(keyword)}&page=${page}&sort=${sort}`
+            let res = await Network.get(url, {});
             if(res.status !== 200) {
                 throw "Invalid Status Code: " + res.status
             }
-            return this.parseComicList(res.body)
+            return this.parseComicListFromApi(JSON.parse(res.body))
         },
 
         // provide options for search
@@ -266,11 +382,11 @@ class Nhentai extends ComicSource {
             {
                 // For a single option, use `-` to separate the value and text, left for value, right for text
                 options: [
-                    "&-Recent",
-                    "&sort=popular@today-Popular Today",
-                    "&sort=popular@week-Popular Week",
-                    "&sort=popular@month-Popular Month",
-                    "&sort=popular-Popular All",
+                    "date-Recent",
+                    "popular-today-Popular Today",
+                    "popular-week-Popular Week",
+                    "popular-month-Popular Month",
+                    "popular-Popular All",
                 ],
                 // option label
                 label: "sort"
@@ -293,16 +409,31 @@ class Nhentai extends ComicSource {
          * @returns {Promise<any>} - return any value to indicate success
          */
         addOrDelFavorite: async (comicId, folderId, isAdding) => {
-            let info = await this.comic.loadInfo(comicId)
-            let token = info.csrfToken
-            let url = `${this.baseUrl}/api/gallery/${comicId}/${isAdding ? "favorite" : "unfavorite"}`
-            let res = await Network.post(url, {
-                "X-CSRFToken": token,
-                "Referer": `${this.baseUrl}/g/${comicId}/`,
+            comicId = this.normalizeComicId(comicId)
+            let v2Url = `${this.apiBaseUrl}/galleries/${comicId}/favorite`
+            let headers = {
                 "X-Requested-With": "XMLHttpRequest"
-            }, null)
+            }
+            let res = isAdding
+                ? await Network.post(v2Url, headers, null)
+                : await this.deleteWithFallback(v2Url, headers)
             if(res.status !== 200) {
-                throw "Invalid Status Code: " + res.status
+                // Fallback to legacy endpoint for cookie-based auth compatibility.
+                let info = await this.comic.loadInfo(comicId)
+                let token = info.csrfToken
+                let legacyUrl = `${this.baseUrl}/api/gallery/${comicId}/${isAdding ? "favorite" : "unfavorite"}`
+                let legacyRes = await Network.post(legacyUrl, {
+                    "X-CSRFToken": token,
+                    "Referer": `${this.baseUrl}/g/${comicId}/`,
+                    "X-Requested-With": "XMLHttpRequest"
+                }, null)
+                if (legacyRes.status === 200) {
+                    return true
+                }
+                if (legacyRes.status === 401) {
+                    throw "Login expired"
+                }
+                throw "Invalid Status Code: " + legacyRes.status
             }
             if(res.status === 200) {
                 return true
@@ -317,12 +448,21 @@ class Nhentai extends ComicSource {
          * @returns {Promise<{comics: Comic[], maxPage: number}>}
          */
         loadComics: async (page, folder) => {
-            let url = `${this.baseUrl}/favorites?page=${page}`
-            let res = await Network.get(url, {})
-            if(res.status !== 200) {
-                throw "Invalid Status Code: " + res.status
+            let apiUrl = `${this.apiBaseUrl}/favorites?page=${page}`
+            let apiRes = await Network.get(apiUrl, {})
+            if (apiRes.status === 200) {
+                return this.parseComicListFromApi(JSON.parse(apiRes.body))
             }
-            return this.parseComicList(res.body)
+
+            let url = `${this.baseUrl}/favorites?page=${page}`
+            let webRes = await Network.get(url, {})
+            if(webRes.status !== 200) {
+                if (apiRes.status === 401 || webRes.status === 401) {
+                    throw "Login expired"
+                }
+                throw "Invalid Status Code: " + webRes.status
+            }
+            return this.parseComicList(webRes.body)
         }
     }
 
@@ -337,6 +477,11 @@ class Nhentai extends ComicSource {
          * They are not supported for thumbnails.
          */
         onThumbnailLoad: (url) => {
+            if(!url) {
+                return {
+                    url: "",
+                }
+            }
             if(url.startsWith("//")) {
                 url = "https:" + url
             } else if(!url.startsWith("http")) {
@@ -353,33 +498,85 @@ class Nhentai extends ComicSource {
          * @returns {Promise<ComicDetails>}
          */
         loadInfo: async (id) => {
-            if(id.startsWith("nh")) {
-                id = id.replace("nhentai", "")
-                id = id.replace("nh", "")
+            id = this.normalizeComicId(id)
+
+            let apiRes = await Network.get(`${this.apiBaseUrl}/galleries/${id}?include=related,favorite`, {})
+            if (apiRes.status === 200) {
+                let data = JSON.parse(apiRes.body)
+
+                let title = data?.title?.pretty || data?.title?.english || String(id)
+                let englishTitle = data?.title?.english || ""
+                let subtitle = englishTitle && englishTitle !== title ? englishTitle : ""
+                let cover = this.toAbsoluteMediaUrl(data?.cover?.path || data?.thumbnail?.path || "", false)
+
+                let tags = new Map();
+                for (let tag of (data.tags || [])) {
+                    let namespace = this.tagNamespace(tag.type)
+                    if (!tags.has(namespace)) {
+                        tags.set(namespace, [])
+                    }
+                    tags.get(namespace).push(tag.name)
+                }
+
+                let thumbnails = (data.pages || [])
+                    .map(p => this.toAbsoluteMediaUrl(p.thumbnail, true))
+                    .filter(Boolean)
+                if (thumbnails.length === 0) {
+                    let pagesRes = await Network.get(`${this.apiBaseUrl}/galleries/${id}/pages`, {})
+                    if (pagesRes.status === 200) {
+                        let pagesData = JSON.parse(pagesRes.body)
+                        thumbnails = (pagesData.pages || [])
+                            .map(p => this.toAbsoluteMediaUrl(p.thumbnail, true))
+                            .filter(Boolean)
+                    }
+                }
+
+                let related = (data.related || []).map(e => this.parseComicFromApi(e))
+
+                let comic = new ComicDetails({
+                    id: String(id),
+                    title: title || String(id),
+                    subtitle: subtitle || "",
+                    cover: cover || "",
+                    tags: tags,
+                    uploadTime: this.formatTimestamp(data?.upload_date),
+                    isFavorite: !!data?.is_favorited,
+                    thumbnails: thumbnails,
+                    related: related,
+                    url: `${this.baseUrl}/g/${id}/`,
+                })
+                comic.csrfToken = ""
+                return comic
             }
+
             let res = await Network.get(`${this.baseUrl}/g/${id}/`, {})
             if(res.status !== 200) {
                 throw "Invalid Status Code: " + res.status
             }
             let document = new HtmlDocument(res.body)
-            let cover = document.querySelector("div#cover > a > img").attributes["data-src"];
-            let title = document.querySelector("h2.title")?.text;
-            let subtitle = document.querySelector("h1.title").text;
-            if(!title) {
-                title = subtitle
-                subtitle = null
+            let coverEl = document.querySelector("div#cover > a > img")
+            let cover = coverEl?.attributes?.["data-src"] || coverEl?.attributes?.["src"] || "";
+            let mainTitle = document.querySelector("h1.title")?.text || "";
+            let secondaryTitle = document.querySelector("h2.title")?.text || "";
+            let title = secondaryTitle || mainTitle || String(id)
+            let subtitle = mainTitle && mainTitle !== title ? mainTitle : ""
+            if (!subtitle) {
+                subtitle = ""
             }
             let tags = new Map();
-            let uploadTime = new Date(Date.parse(document.querySelector("time")?.attributes["datetime"]))
-            let formatTime = (time) => {
-                const year = time.getFullYear()
-                const month = time.getMonth() + 1
-                const day = time.getDate()
-                const hour = time.getHours()
-                const minute = time.getMinutes()
-                return `${year}-${month}-${day} ${hour}:${minute}`
+            let uploadTimeRaw = document.querySelector("time")?.attributes?.["datetime"] || ""
+            let uploadTime = ""
+            if (uploadTimeRaw) {
+                let parsed = new Date(Date.parse(uploadTimeRaw))
+                if (!Number.isNaN(parsed.getTime())) {
+                    const year = parsed.getFullYear()
+                    const month = parsed.getMonth() + 1
+                    const day = parsed.getDate()
+                    const hour = parsed.getHours()
+                    const minute = parsed.getMinutes()
+                    uploadTime = `${year}-${month}-${day} ${hour}:${minute}`
+                }
             }
-            uploadTime = formatTime(uploadTime)
             for (let field of document.querySelectorAll("div.tag-container")) {
                 let name = field.nodes[0].text.trim().replaceAll(':', '')
                 if(name === "Uploaded") {
@@ -391,7 +588,9 @@ class Nhentai extends ComicSource {
                 }
             }
             let isFavorite = this.isLogged && document.querySelector("button#favorite > span.text")?.text !== "Favorite"
-            let thumbs = document.querySelectorAll("a.gallerythumb > img").map(e => e.attributes["data-src"])
+            let thumbs = document.querySelectorAll("a.gallerythumb > img")
+                .map(e => e.attributes?.["data-src"] || e.attributes?.["src"] || "")
+                .filter(Boolean)
             let related = document.querySelectorAll("div.gallery").map(e => {
                 return this.parseComic(e)
             })
@@ -406,12 +605,12 @@ class Nhentai extends ComicSource {
                 // pass
             }
             let comic = new ComicDetails({
-                id: id,
-                title: title,
-                subtitle: subtitle,
-                cover: cover,
+                id: String(id),
+                title: title || String(id),
+                subtitle: subtitle || "",
+                cover: cover || "",
                 tags: tags,
-                uploadTime: uploadTime,
+                uploadTime: uploadTime || "",
                 isFavorite: isFavorite,
                 thumbnails: thumbs,
                 related: related,
@@ -427,11 +626,17 @@ class Nhentai extends ComicSource {
          * @returns {Promise<{images: string[]}>}
          */
         loadEp: async (comicId, epId) => {
-            if(comicId.startsWith("nhentai")) {
-                comicId = comicId.replace("nhentai", "")
-            } else if (comicId.startsWith("nh")) {
-                comicId = comicId.replace("nh", "")
+            comicId = this.normalizeComicId(comicId)
+
+            let apiRes = await Network.get(`${this.apiBaseUrl}/galleries/${comicId}/pages`, {})
+            if (apiRes.status === 200) {
+                let apiData = JSON.parse(apiRes.body)
+                let images = (apiData.pages || []).map(p => this.toAbsoluteMediaUrl(p.path, false))
+                if (images.length > 0) {
+                    return { images: images }
+                }
             }
+
             let res = await Network.get(`${this.baseUrl}/g/${comicId}/1/`, {})
             if(res.status !== 200) {
                 throw "Invalid Status Code: " + res.status
@@ -474,7 +679,8 @@ class Nhentai extends ComicSource {
          * @returns {Promise<{comments: Comment[], maxPage: number?}>}
          */
         loadComments: async (comicId, subId, page, replyTo) => {
-            let res = await Network.get(`${this.baseUrl}/api/gallery/${comicId}/comments`, {})
+            comicId = this.normalizeComicId(comicId)
+            let res = await Network.get(`${this.apiBaseUrl}/galleries/${comicId}/comments`, {})
             if(res.status !== 200) {
                 throw "Invalid Status Code: " + res.status
             }
@@ -482,9 +688,11 @@ class Nhentai extends ComicSource {
             let comments = data.map(c => {
                 return new Comment({
                     userName: c.poster.username,
-                    avatar: `https://i3.nhentai.net/${c.poster.avatar_url}`,
+                    avatar: this.toAbsoluteMediaUrl(c.poster.avatar_url, false),
                     content: c.body,
-                    time: c.post_date,
+                    time: typeof c.post_date === "number"
+                        ? new Date(c.post_date * 1000).toISOString()
+                        : String(c.post_date),
                 })
             })
             return {
