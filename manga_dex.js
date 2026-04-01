@@ -8,9 +8,9 @@ class MangaDex extends ComicSource {
     // unique id of the source
     key = "manga_dex"
 
-    version = "1.1.0"
+    version = "1.1.1"
 
-    minAppVersion = "1.4.0"
+    minAppVersion = "1.6.0"
 
     // update url
     url = "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/manga_dex.js"
@@ -526,7 +526,7 @@ class MangaDex extends ComicSource {
             let chapters = new Map()
             for (let chapter of data['data']) {
                 let id = chapter['id']
-                let chapterId = chapter['attributes']['chapter']
+                let chapterId = chapter['attributes']['chapter'] ?? "Oneshot"
                 let title = chapter['attributes']['title']
                 if (title) {
                     title = `${chapterId}: ${title}`
@@ -554,6 +554,7 @@ class MangaDex extends ComicSource {
             let data = await res.json()
             return {
                 comments: data['statistics'][id]['comments']?.['repliesCount'] || 0,
+                threadId: data['statistics'][id]['comments']?.['threadId'],
                 follows: data['statistics'][id]['follows'] || 0,
                 rating: data['statistics'][id]['rating']['average'] || 0,
             }
@@ -619,10 +620,16 @@ class MangaDex extends ComicSource {
                 throw new Error("Network response was not ok")
             }
             let data = await res.json()
-            let baseUrl = data['baseUrl']
             let images = []
-            for (let image of data['chapter']['data']) {
-                images.push(`${baseUrl}/data/${data['chapter']['hash']}/${image}`)
+            let image_quality = this.loadSetting('image_quality')
+            if (image_quality == "Original"){
+                for (let image of data['chapter']['data']) {
+                    images.push(`https://uploads.mangadex.org/data/${data['chapter']['hash']}/${image}`)
+                }          
+            }else{
+                for (let image of data['chapter']['dataSaver']) {
+                    images.push(`https://uploads.mangadex.org/data-saver/${data['chapter']['hash']}/${image}`)
+                }
             }
             return {
                 images: images
@@ -643,7 +650,112 @@ class MangaDex extends ComicSource {
          * @returns {Promise<{comments: Comment[], maxPage: number?}>}
          */
         loadComments: async (comicId, subId, page, replyTo) => {
-            throw new Error("Not implemented")
+            let stats = await this.comic.getStats(comicId);
+            let threadId = stats.threadId;
+            if (!threadId) {
+                return { comments: [], maxPage: 1 };
+            }
+            let url = `https://forums.mangadex.org/threads/${threadId}/page-${page}`;
+            let res = await fetch(url);
+            if (!res.ok) {
+                throw new Error(`Failed to load forum page: ${res.status}`);
+            }
+            let htmlText = await res.text();
+            let document = new HtmlDocument(htmlText);
+            let comments = [];
+            
+            let messageElements = document.querySelectorAll("article.message");
+            for(let msg of messageElements){
+                let id = msg.attributes['id'] || ""
+
+                let userNameElement = msg.querySelector(".message-name");
+                let userName = userNameElement ? userNameElement.text : "Unknown";
+
+                let avatarElement = msg.querySelector(".avatar img");
+                let avatar = avatarElement ? avatarElement.attributes['src'] : null;
+                if (avatar) {
+                    avatar = "https://forums.mangadex.org" + avatar;
+                }
+
+                let timeElement = msg.querySelector("time");
+                let time = timeElement ? timeElement.text : "Unknown";
+
+                let contentElement = msg.querySelector(".bbWrapper");
+                let content = "";
+                if (contentElement) {
+                    content = contentElement.innerHTML;
+                    content = contentElement.innerHTML.replace(/[\r\n\t]+/g, '');
+
+                    // Remove "Click to expand" button
+                    content = content.replace(/<div class="bbCodeBlock-expandLink[^>]*>.*?<\/div>/gi, '');
+                    // Remove the script block
+                    content = content.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
+
+                    // Quote Style
+                    // TODO: Modify font color/size when venera supports it
+                    content = content.replace(/<blockquote[^>]*>/gi, '<span style="font-style:italic;font-weight:lighter">');
+                    content = content.replace(/<\/blockquote>/gi, '</span>');
+
+                    // Spoiler Style
+                    content = content.replace(/<button[^>]*class="[^"]*bbCodeSpoiler-button[^"]*"[^>]*>([\s\S]*?)<\/button>/gi, '<span style="font-weight:bold">[$1]</span>');
+
+                    // Process Image
+                    content = content.replace(/<img([^>]*)>/gi, (match, attrs) => {
+                        // Smilie Image
+                        if (attrs.includes('smilie')) {
+                            let altMatch = attrs.match(/alt="([^"]+)"/i);
+                            return altMatch ? altMatch[1] : ''; 
+                        }
+                        
+                        let srcMatch = attrs.match(/src="([^"]+)"/i);
+                        if (srcMatch) {
+                            let imgUrl = srcMatch[1];
+                            // Relative Path
+                            if (imgUrl.startsWith('/')) {
+                                imgUrl = "https://forums.mangadex.org" + imgUrl;
+                                return `<img${attrs.replace(srcMatch[0], `src="${imgUrl}"`)}>`;
+                            }
+                        }
+
+                        return match; 
+                    });
+
+                    // Process other tags
+                    content = content.replace(/<\/?([a-z0-9]+)[^>]*>/gi, (match, tag) => {
+                        const allowed = ['img', 'a', 'b', 'i', 'u', 's', 'br', 'span', 'strong'];
+                        if (allowed.includes(tag.toLowerCase())) {
+                            return match;
+                        }
+                        if (['div', 'p'].includes(tag.toLowerCase()) && match.startsWith('</')) {
+                            return '<br>';
+                        }
+                        return '';
+                    });
+                }
+
+                comments.push(new Comment({
+                    id: id,
+                    userName: userName,
+                    avatar: avatar,
+                    content: content,
+                    time: time
+                }));
+            }
+
+            let maxPage = page;
+            let pageNavItems = document.querySelectorAll(".pageNav-page > a");
+            if (pageNavItems && pageNavItems.length > 0) {
+                let lastPageText = pageNavItems[pageNavItems.length - 1].text;
+                let parsedMax = parseInt(lastPageText);
+                if (!isNaN(parsedMax)) {
+                    maxPage = Math.max(maxPage, parsedMax);
+                }
+            }
+            document.dispose();
+            return {
+                comments: comments,
+                maxPage: maxPage
+            };
         },
         /**
          * [Optional] send a comment, return any value to indicate success
@@ -679,9 +791,48 @@ class MangaDex extends ComicSource {
                 },
             }
         },
+        /**
+         * [Optional] Handle links
+         */
+        link: {
+            /**
+             * set accepted domains
+             */
+            domains: [
+                'mangadex.org'
+            ],
+            /**
+             * parse url to comic id
+             * @param url {string}
+             * @returns {string | null}
+             */
+            linkToId: (url) => {
+                if (url.includes('?')) {
+                    url = url.split('?')[0];
+                }
+                let match = url.match(/\/(title|manga)\/([a-f0-9-]{36})/i); 
+                return match ? match[2] : null;
+            }
+        },
     }
 
-    settings = {}
+    settings = {
+        image_quality: {
+            title: "Image Quality",
+            type: "select",
+            options: [
+                {
+                    value: 'Original',
+                    text: 'Original'
+                },
+                {
+                    value: 'Compressed',
+                    text: 'Compressed'
+                }
+            ],
+            default: "Original"
+        }
+    }
 
     // [Optional] translations for the strings in this config
     translation = {
