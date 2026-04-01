@@ -7,7 +7,7 @@ class Ehentai extends ComicSource {
     // unique id of the source
     key = "ehentai"
 
-    version = "1.1.8"
+    version = "1.1.9"
 
     minAppVersion = "1.5.3"
 
@@ -411,6 +411,25 @@ class Ehentai extends ComicSource {
 
             loadNext: (next) => {
                 return this.getGalleries(next ?? `${this.baseUrl}/popular`, false);
+            }
+        },
+        {
+            // title of the page.
+            // title is used to identify the page, it should be unique
+            title: "eh watched",
+
+            /// multiPartPage or multiPageComicList or mixed
+            type: "multiPageComicList",
+
+            loadNext: async (next) => {
+                if (!this.isLogged) {
+                    UI.showMessage("Need login first");
+                    return {
+                        comics: [],
+                        next: null
+                    };
+                }
+                return this.getGalleries(next ?? `{this.baseUrl}/watched`, false);
             }
         },
     ]
