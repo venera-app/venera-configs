@@ -71,7 +71,7 @@ class Nhentai extends ComicSource {
             id: id,
             title: name,
             subtitle: "",
-            cover: img,
+            cover: this.toAbsoluteMediaUrl(img, true),
             tags: tagsRes,
             description: id,
             language: lang
@@ -86,6 +86,47 @@ class Nhentai extends ComicSource {
             return id.replace("nh", "")
         }
         return id
+    }
+
+    fixImageUrl(url) {
+        if (!url) return url
+
+    // 🔥 1. 清掉重複副檔名
+        url = url.replace(/(\.(jpg|png|webp|gif))+/g, (match) => {
+            const ext = match.match(/\.(jpg|png|webp|gif)/g).pop()
+            return ext
+        })
+
+    // 🔥 2. 如果是 cover → 強制 t3
+        if (url.includes("/cover.")) {
+            url = url.replace(/https?:\/\/i\d\.nhentai\.net/, "https://t3.nhentai.net")
+            url = url.replace(/https?:\/\/t\d\.nhentai\.net/, "https://t3.nhentai.net")
+        }
+
+    // 🔥 3. 補 protocol
+        if (url.startsWith("//")) {
+            url = "https:" + url
+        }
+
+        return url
+    }
+
+    _fixAndWrap(url) {
+        if (!url) return { url: "" }
+
+        url = this.fixImageUrl(url)
+
+        if (!url.startsWith("http")) {
+            url = "https://" + url.replace(/^\/+/, "")
+        }
+
+        return {
+            url: url,
+            headers: {
+                "Referer": "https://nhentai.net/",
+                "User-Agent": "Mozilla/5.0"
+            }
+        }
     }
 
     toAbsoluteMediaUrl(path, isThumb = false) {
@@ -482,20 +523,10 @@ class Nhentai extends ComicSource {
          * They are not supported for thumbnails.
          */
         onThumbnailLoad: (url) => {
-            if(!url) {
-                return {
-                    url: "",
-                }
-            }
-            if(url.startsWith("//")) {
-                url = "https:" + url
-            } else if(!url.startsWith("http")) {
-                url = "https://" + url
-            }
-
-            return {
-                url: url,
-            }
+            return this._fixAndWrap(url)
+        },
+        onImageLoad: (url) => {
+            return this._fixAndWrap(url)
         },
         /**
          * load comic info
@@ -512,8 +543,9 @@ class Nhentai extends ComicSource {
                 let title = data?.title?.pretty || data?.title?.english || String(id)
                 let englishTitle = data?.title?.english || ""
                 let subtitle = englishTitle && englishTitle !== title ? englishTitle : ""
-                let cover = this.toAbsoluteMediaUrl(data?.cover?.path || data?.thumbnail?.path || "", false)
-
+                let cover = this.toAbsoluteMediaUrl(data?.cover?.path || data?.thumbnail?.path || "", true)
+                cover = this.fixImageUrl(this.toAbsoluteMediaUrl(cover, true))
+                
                 let tags = new Map();
                 for (let tag of (data.tags || [])) {
                     let namespace = this.tagNamespace(tag.type)
