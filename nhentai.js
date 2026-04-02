@@ -101,6 +101,11 @@ class Nhentai extends ComicSource {
         if (path.startsWith("/")) {
             path = path.slice(1)
         }
+        if (path.includes("cover") || path.includes("thumb")) {
+            isThumb = true
+        }
+
+        path = path.replace(/(\.jpg|\.png|\.webp|\.gif)\1+$/, "$1")
         return `${isThumb ? this.thumbServer : this.imageServer}/${path}`
     }
 
