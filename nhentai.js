@@ -92,7 +92,7 @@ class Nhentai extends ComicSource {
         if (!url) return { url: "" }
 
         url = url.replace(/(\.(jpg|png|webp|gif))+/g, (m) => {
-            return m.match(/\.(jpg|png|webp|gif)/g).pop()
+            return m.match(/\.(jpg|png|webp|gif)/g)[0]
         })
 
         if (url.includes("/cover.")) {
