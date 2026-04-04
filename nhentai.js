@@ -88,42 +88,29 @@ class Nhentai extends ComicSource {
         return id
     }
 
-    fixImageUrl(url) {
-        if (!url) return url
-
-    // 🔥 1. 清掉重複副檔名
-        url = url.replace(/(\.(jpg|png|webp|gif))+/g, (match) => {
-            const ext = match.match(/\.(jpg|png|webp|gif)/g).pop()
-            return ext
-        })
-
-    // 🔥 2. 如果是 cover → 強制 t3
-        if (url.includes("/cover.")) {
-            url = url.replace(/https?:\/\/i\d\.nhentai\.net/, "https://t3.nhentai.net")
-            url = url.replace(/https?:\/\/t\d\.nhentai\.net/, "https://t3.nhentai.net")
-        }
-
-    // 🔥 3. 補 protocol
-        if (url.startsWith("//")) {
-            url = "https:" + url
-        }
-
-        return url
-    }
-
     _fixAndWrap(url) {
         if (!url) return { url: "" }
 
-        url = this.fixImageUrl(url)
+        url = url.replace(/(\.(jpg|png|webp|gif))+/g, (m) => {
+            return m.match(/\.(jpg|png|webp|gif)/g)[0]
+        })
+
+        if (url.includes("/cover.")) {
+            url = url.replace(/https?:\/\/[it]\d\.nhentai\.net/, "https://t3.nhentai.net")
+        }
+
+        if (url.startsWith("//")) {
+            url = "https:" + url
+        }
 
         if (!url.startsWith("http")) {
             url = "https://" + url.replace(/^\/+/, "")
         }
 
         return {
-            url: url,
+            url,
             headers: {
-                "Referer": "https://nhentai.net/",
+                Referer: "https://nhentai.net/",
                 "User-Agent": "Mozilla/5.0"
             }
         }
@@ -146,7 +133,6 @@ class Nhentai extends ComicSource {
             isThumb = true
         }
 
-        path = path.replace(/(\.jpg|\.png|\.webp|\.gif)\1+$/, "$1")
         return `${isThumb ? this.thumbServer : this.imageServer}/${path}`
     }
 
@@ -544,7 +530,6 @@ class Nhentai extends ComicSource {
                 let englishTitle = data?.title?.english || ""
                 let subtitle = englishTitle && englishTitle !== title ? englishTitle : ""
                 let cover = this.toAbsoluteMediaUrl(data?.cover?.path || data?.thumbnail?.path || "", true)
-                cover = this.fixImageUrl(this.toAbsoluteMediaUrl(cover, true))
                 
                 let tags = new Map();
                 for (let tag of (data.tags || [])) {
