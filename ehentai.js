@@ -7,7 +7,7 @@ class Ehentai extends ComicSource {
     // unique id of the source
     key = "ehentai"
 
-    version = "1.1.9"
+    version = "1.2.0"
 
     minAppVersion = "1.5.3"
 
@@ -429,7 +429,7 @@ class Ehentai extends ComicSource {
                         next: null
                     };
                 }
-                return this.getGalleries(next ?? `{this.baseUrl}/watched`, false);
+                return this.getGalleries(next ?? `${this.baseUrl}/watched`, false);
             }
         },
     ]
