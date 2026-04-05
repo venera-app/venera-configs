@@ -7,7 +7,7 @@ class Nhentai extends ComicSource {
     // unique id of the source
     key = "nhentai"
 
-    version = "1.0.8"
+    version = "1.0.10"
 
     minAppVersion = "1.0.0"
 
@@ -22,9 +22,9 @@ class Nhentai extends ComicSource {
     // [Optional] account related
     account = {
         loginWithWebview: {
-            url: "https://nhentai.net/login/?next=/",
+            url: "https://nhentai.net/login/?next=/favorites/",
             checkStatus: (url, title) => {
-                return url === "https://nhentai.net/"
+                return this.evaluateWebviewLoginStatus(url, title).success
             },
         },
 
@@ -39,6 +39,345 @@ class Nhentai extends ComicSource {
         registerWebsite: "https://nhentai.net/register/"
     }
 
+    parseWebviewUrl(rawUrl) {
+        let url = String(rawUrl || "")
+        let match = url.match(/^https?:\/\/([^\/?#]+)([^?#]*)?(\?[^#]*)?/i)
+        let host = ""
+        let path = "/"
+        let query = ""
+        if (match) {
+            host = (match[1] || "").toLowerCase()
+            path = match[2] || "/"
+            query = match[3] || ""
+        }
+        return {
+            url: url,
+            host: host,
+            path: path || "/",
+            query: query || "",
+        }
+    }
+
+    evaluateWebviewLoginStatus(url, title) {
+        let parsed = this.parseWebviewUrl(url)
+        let host = parsed.host
+        let path = (parsed.path || "/").toLowerCase()
+        let query = (parsed.query || "").toLowerCase()
+        let titleText = String(title || "")
+        let titleLower = titleText.toLowerCase()
+        let isNhentaiHost = host === "nhentai.net" || host.endsWith(".nhentai.net")
+        let isAuthPage = path.startsWith("/login") || path.startsWith("/register") || path.startsWith("/reset")
+        let isFavoritePage = path === "/favorites" || path === "/favorites/" || path.startsWith("/favorites/")
+        let isHomePage = path === "/" || path === ""
+        let titleLooksLikeLogin = titleLower.includes("login") || titleLower.includes("sign in") || titleLower.includes("log in")
+        let titleLooksLikeRegister = titleLower.includes("register") || titleLower.includes("sign up")
+        let titleLooksLikeHome = titleLower.includes("nhentai: hentai doujinshi and manga")
+        let hasNextQuery = query.includes("next=")
+
+        if (!isNhentaiHost) {
+            return {
+                host: host,
+                path: path,
+                query: query,
+                success: false,
+                reason: "not_nhentai_host",
+            }
+        }
+        if (isFavoritePage) {
+            return {
+                host: host,
+                path: path,
+                query: query,
+                success: true,
+                reason: "favorites_redirect",
+            }
+        }
+        if (isAuthPage) {
+            // nhentai may keep /login?next=... while the document is already switched to logged-in home title.
+            if (!titleLooksLikeLogin && !titleLooksLikeRegister && titleLooksLikeHome) {
+                return {
+                    host: host,
+                    path: path,
+                    query: query,
+                    success: true,
+                    reason: "auth_url_but_home_title",
+                }
+            }
+            return {
+                host: host,
+                path: path,
+                query: query,
+                success: false,
+                reason: "still_on_auth_page",
+            }
+        }
+        if (isHomePage && !titleLooksLikeLogin && !hasNextQuery) {
+            return {
+                host: host,
+                path: path,
+                query: query,
+                success: true,
+                reason: "home_redirect",
+            }
+        }
+        return {
+            host: host,
+            path: path,
+            query: query,
+            success: false,
+            reason: "waiting_redirect",
+        }
+    }
+
+    decodeHtmlAttribute(text) {
+        return String(text || "")
+            .replace(/&amp;/g, "&")
+            .replace(/&quot;/g, "\"")
+            .replace(/&#39;/g, "'")
+            .replace(/&lt;/g, "<")
+            .replace(/&gt;/g, ">")
+    }
+
+    extractEmbeddedGalleryPayload(html, type) {
+        let scriptRegex = /<script[^>]*type="application\/json"[^>]*data-sveltekit-fetched[^>]*data-url="([^"]+)"[^>]*>([\s\S]*?)<\/script>/gi
+        let best = null
+        let match = null
+
+        while ((match = scriptRegex.exec(String(html || ""))) != null) {
+            let dataUrl = this.decodeHtmlAttribute(match[1] || "")
+            if (!dataUrl.includes("/api/v2/")) {
+                continue
+            }
+            let wrapper = null
+            try {
+                wrapper = JSON.parse(match[2] || "")
+            } catch (e) {
+                continue
+            }
+
+            let payload = null
+            try {
+                payload = typeof wrapper?.body === "string" ? JSON.parse(wrapper.body) : wrapper?.body
+            } catch (e) {
+                payload = null
+            }
+            if (payload == null) {
+                continue
+            }
+
+            let list = Array.isArray(payload) ? payload : (Array.isArray(payload.result) ? payload.result : null)
+            if (!Array.isArray(list)) {
+                continue
+            }
+
+            let score = 0
+            if (dataUrl.includes("/api/v2/galleries/tagged")) score += 120
+            if (dataUrl.includes("/api/v2/favorites")) score += 110
+            if (dataUrl.includes("/api/v2/galleries?page=")) score += 100
+            if (dataUrl.includes("/api/v2/galleries/popular")) score += 90
+            if (dataUrl.includes("/api/v2/search")) score += 80
+            if (type === "category" && dataUrl.includes("/api/v2/galleries/tagged")) score += 100
+            if (type === "favorites" && dataUrl.includes("/api/v2/favorites")) score += 100
+            score += Math.min(list.length, 30)
+
+            if (best == null || score > best.score) {
+                best = {
+                    score: score,
+                    dataUrl: dataUrl,
+                    payload: payload,
+                    list: list,
+                }
+            }
+        }
+
+        return best
+    }
+
+    extractImagesFromGalleryPayload(payload) {
+        let pages = Array.isArray(payload?.pages) ? payload.pages : []
+        let images = pages
+            .map((p) => this.toAbsoluteMediaUrl(p?.path || "", false))
+            .filter(Boolean)
+        if (images.length > 0) {
+            return images
+        }
+
+        // Legacy payload fallback.
+        let mediaId = payload?.media_id || payload?.mediaId
+        let legacyPages = payload?.images?.pages
+        if (mediaId && Array.isArray(legacyPages)) {
+            let result = []
+            for (let page of legacyPages) {
+                let ext = "jpg"
+                switch (page?.t) {
+                    case "p":
+                        ext = "png"
+                        break
+                    case "g":
+                        ext = "gif"
+                        break
+                    case "w":
+                        ext = "webp"
+                        break
+                }
+                result.push(`${this.imageServer}/galleries/${mediaId}/${result.length + 1}.${ext}`)
+            }
+            return result
+        }
+        return []
+    }
+
+    extractEmbeddedGalleryDetail(html, comicId) {
+        let id = String(comicId || "")
+        let scriptRegex = /<script[^>]*type="application\/json"[^>]*data-sveltekit-fetched[^>]*data-url="([^"]+)"[^>]*>([\s\S]*?)<\/script>/gi
+        let best = null
+        let match = null
+
+        while ((match = scriptRegex.exec(String(html || ""))) != null) {
+            let dataUrl = this.decodeHtmlAttribute(match[1] || "")
+            if (!dataUrl.includes(`/api/v2/galleries/${id}`)) {
+                continue
+            }
+            let wrapper = null
+            try {
+                wrapper = JSON.parse(match[2] || "")
+            } catch (e) {
+                continue
+            }
+            let payload = null
+            try {
+                payload = typeof wrapper?.body === "string" ? JSON.parse(wrapper.body) : wrapper?.body
+            } catch (e) {
+                payload = null
+            }
+            if (!payload || typeof payload !== "object") {
+                continue
+            }
+            let score = 0
+            if (String(payload.id || "") === id) score += 120
+            if (Array.isArray(payload.pages)) score += 100
+            if (payload.media_id != null) score += 30
+            if (best == null || score > best.score) {
+                best = { score: score, payload: payload }
+            }
+        }
+
+        return best?.payload || null
+    }
+
+    normalizeTagIds(tagIds) {
+        let parts = []
+        if (Array.isArray(tagIds)) {
+            parts = tagIds.map((id) => String(id))
+        } else if (typeof tagIds === "string") {
+            parts = tagIds.split(/[\s,]+/).map((id) => id.trim())
+        } else if (tagIds != null && typeof tagIds === "object") {
+            if (Array.isArray(tagIds.ids)) {
+                parts = tagIds.ids.map((id) => String(id))
+            } else {
+                parts = Object.keys(tagIds).map((id) => String(id))
+            }
+        }
+        let ids = []
+        for (let raw of parts) {
+            let value = String(raw || "").trim()
+            if (!value) {
+                continue
+            }
+            if (/^\d+$/.test(value)) {
+                ids.push(value)
+                continue
+            }
+            let matches = value.match(/\d+/g)
+            if (matches && matches.length > 0) {
+                ids.push(...matches)
+                continue
+            }
+            ids.push(value.toLowerCase())
+        }
+        return Array.from(new Set(ids))
+    }
+
+    mapLanguageToken(token) {
+        if (token == null) {
+            return null
+        }
+        let text = String(token).trim().toLowerCase()
+        if (!text) {
+            return null
+        }
+        if (text.includes("english") || text === "en") {
+            return "English"
+        }
+        if (text.includes("japanese") || text.includes("日本語") || text === "ja") {
+            return "日本語"
+        }
+        if (text.includes("chinese") || text.includes("中文") || text === "zh" || text.includes("traditional chinese") || text.includes("simplified chinese")) {
+            return "中文"
+        }
+        return null
+    }
+
+    resolveLanguageFromTagIds(tagIds) {
+        let ids = this.normalizeTagIds(tagIds)
+        if (ids.includes("12227")) {
+            return "English"
+        }
+        if (ids.includes("6346")) {
+            return "日本語"
+        }
+        if (ids.includes("29963")) {
+            return "中文"
+        }
+        return null
+    }
+
+    resolveLanguage({ tagIds, tagNames, apiTags, directLanguage, directLanguages }) {
+        let lang = this.resolveLanguageFromTagIds(tagIds)
+        if (lang) {
+            return lang
+        }
+
+        if (Array.isArray(apiTags)) {
+            for (let tag of apiTags) {
+                if (!tag || typeof tag !== "object") {
+                    continue
+                }
+                let tagType = String(tag.type || "").toLowerCase()
+                let mapped = this.mapLanguageToken(tag.name || tag.tag || tag.slug || tag.value)
+                if (mapped && (tagType === "language" || tagType === "languages")) {
+                    return mapped
+                }
+            }
+        }
+
+        if (Array.isArray(tagNames)) {
+            for (let tagName of tagNames) {
+                let mapped = this.mapLanguageToken(tagName)
+                if (mapped) {
+                    return mapped
+                }
+            }
+        }
+
+        let direct = this.mapLanguageToken(directLanguage)
+        if (direct) {
+            return direct
+        }
+
+        if (Array.isArray(directLanguages)) {
+            for (let value of directLanguages) {
+                let mapped = this.mapLanguageToken(value)
+                if (mapped) {
+                    return mapped
+                }
+            }
+        }
+
+        return "Unknown"
+    }
+
+
     /**
      * parse comic from html element
      * @param element {HtmlElement}
@@ -52,19 +391,31 @@ class Nhentai extends ComicSource {
         let href = element.querySelector("a")?.attributes?.["href"] || "";
         let idMatch = href.match(regex);
         let id = idMatch ? idMatch.join('') : "";
-        let lang = "Unknown";
-        let tags = element.attributes["data-tags"] || "";
-        if (tags.includes("12227")) {
-            lang = "English";
-        } else if (tags.includes("6346")) {
-            lang = "日本語";
-        } else if (tags.includes("29963")) {
-            lang = "中文";
-        }
+        let anchorEl = element.querySelector("a")
+        let tags = element.attributes["data-tags"]
+            || anchorEl?.attributes?.["data-tags"]
+            || anchorEl?.attributes?.["data-tag-ids"]
+            || "";
+        let tagIds = this.normalizeTagIds(tags)
         let tagsRes = [];
-        for (let tag of tags.split(" ")) {
-            if (Nhentai.nhentaiTags[tag] != null) {
-                tagsRes.push(Nhentai.nhentaiTags[tag]);
+        for (let tagId of tagIds) {
+            if (Nhentai.nhentaiTags[tagId] != null) {
+                tagsRes.push(Nhentai.nhentaiTags[tagId]);
+            }
+        }
+        let lang = this.resolveLanguage({
+            tagIds: tagIds,
+            tagNames: tagsRes,
+            directLanguage: element.attributes?.["data-language"] || anchorEl?.attributes?.["data-language"],
+        })
+        if (lang === "Unknown") {
+            let className = String(element.attributes?.["class"] || "").toLowerCase()
+            if (className.includes("lang-cn")) {
+                lang = "中文"
+            } else if (className.includes("lang-jp")) {
+                lang = "日本語"
+            } else if (className.includes("lang-en")) {
+                lang = "English"
             }
         }
         return new Comic({
@@ -137,15 +488,8 @@ class Nhentai extends ComicSource {
     }
 
     parseComicFromApi(item) {
-        let lang = "Unknown";
-        let tagIds = item.tag_ids || [];
-        if (tagIds.includes(12227)) {
-            lang = "English";
-        } else if (tagIds.includes(6346)) {
-            lang = "日本語";
-        } else if (tagIds.includes(29963)) {
-            lang = "中文";
-        }
+        let rawTagIds = item.tag_ids || item.tagIds || item.tags_ids || []
+        let tagIds = this.normalizeTagIds(rawTagIds);
         let tagsRes = [];
         for (let tagId of tagIds) {
             let tag = Nhentai.nhentaiTags[String(tagId)];
@@ -153,6 +497,21 @@ class Nhentai extends ComicSource {
                 tagsRes.push(tag);
             }
         }
+        if (Array.isArray(item.tags)) {
+            for (let tag of item.tags) {
+                let name = tag?.name
+                if (name && !tagsRes.includes(name)) {
+                    tagsRes.push(name)
+                }
+            }
+        }
+        let lang = this.resolveLanguage({
+            tagIds: tagIds,
+            tagNames: tagsRes,
+            apiTags: item.tags,
+            directLanguage: item.language || item.lang,
+            directLanguages: item.languages || item.langs,
+        })
         return new Comic({
             id: String(item.id),
             title: item.english_title || item.japanese_title || String(item.id),
@@ -165,8 +524,9 @@ class Nhentai extends ComicSource {
     }
 
     parseComicListFromApi(data) {
+        let result = Array.isArray(data?.result) ? data.result : []
         return {
-            comics: (data.result || []).map(e => this.parseComicFromApi(e)),
+            comics: result.map(e => this.parseComicFromApi(e)),
             maxPage: data.num_pages || 1
         }
     }
@@ -214,6 +574,20 @@ class Nhentai extends ComicSource {
     }
 
     async parseComicList(html, type='search') {
+        let embedded = this.extractEmbeddedGalleryPayload(html, type)
+        if (embedded) {
+            let payload = embedded.payload || {}
+            let result = embedded.list || []
+            let maxPage = payload.num_pages || payload.numPages || 1
+            if (!maxPage && result.length > 0) {
+                maxPage = 1
+            }
+            return {
+                comics: result.map(e => this.parseComicFromApi(e)),
+                maxPage: maxPage,
+            }
+        }
+
         let document = new HtmlDocument(html)
         let comicElements = document.querySelectorAll("div.gallery")
 
@@ -494,7 +868,7 @@ class Nhentai extends ComicSource {
                 }
                 throw "Invalid Status Code: " + webRes.status
             }
-            return this.parseComicList(webRes.body)
+            return this.parseComicList(webRes.body, 'favorites')
         }
     }
 
@@ -544,13 +918,7 @@ class Nhentai extends ComicSource {
                     .map(p => this.toAbsoluteMediaUrl(p.thumbnail, true))
                     .filter(Boolean)
                 if (thumbnails.length === 0) {
-                    let pagesRes = await Network.get(`${this.apiBaseUrl}/galleries/${id}/pages`, {})
-                    if (pagesRes.status === 200) {
-                        let pagesData = JSON.parse(pagesRes.body)
-                        thumbnails = (pagesData.pages || [])
-                            .map(p => this.toAbsoluteMediaUrl(p.thumbnail, true))
-                            .filter(Boolean)
-                    }
+                    thumbnails = [cover].filter(Boolean)
                 }
 
                 let related = (data.related || []).map(e => this.parseComicFromApi(e))
@@ -650,10 +1018,10 @@ class Nhentai extends ComicSource {
         loadEp: async (comicId, epId) => {
             comicId = this.normalizeComicId(comicId)
 
-            let apiRes = await Network.get(`${this.apiBaseUrl}/galleries/${comicId}/pages`, {})
+            let apiRes = await Network.get(`${this.apiBaseUrl}/galleries/${comicId}`, {})
             if (apiRes.status === 200) {
                 let apiData = JSON.parse(apiRes.body)
-                let images = (apiData.pages || []).map(p => this.toAbsoluteMediaUrl(p.path, false))
+                let images = this.extractImagesFromGalleryPayload(apiData)
                 if (images.length > 0) {
                     return { images: images }
                 }
@@ -663,34 +1031,14 @@ class Nhentai extends ComicSource {
             if(res.status !== 200) {
                 throw "Invalid Status Code: " + res.status
             }
-            let document = new HtmlDocument(res.body)
-            let script = document.querySelectorAll("script").find((e) => {
-                return e.text.includes("window._gallery")
-            }).text
-            let json = script.split('JSON.parse("')[1].split('");')[0]
-            let decodedJsonText =
-                json.replaceAll("\\u0022", "\"").replaceAll("\\u005C", "\\");
-            let data = JSON.parse(decodedJsonText)
-            let mediaId = data.media_id
-            let images = []
-            for (let image of data.images.pages) {
-                let ext = 'jpg'
-                switch(image.t) {
-                    case 'p':
-                        ext = 'png'
-                        break
-                    case 'g':
-                        ext = 'gif'
-                        break
-                    case 'w':
-                        ext = 'webp'
-                        break
+            let embedded = this.extractEmbeddedGalleryDetail(res.body, comicId)
+            if (embedded) {
+                let images = this.extractImagesFromGalleryPayload(embedded)
+                if (images.length > 0) {
+                    return { images: images }
                 }
-                images.push(`https://i3.nhentai.net/galleries/${mediaId}/${images.length + 1}.${ext}`)
             }
-            return {
-                images: images,
-            }
+            throw "Failed to parse gallery images"
         },
         /**
          * [Optional] load comments
