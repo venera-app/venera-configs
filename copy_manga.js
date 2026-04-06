@@ -4,31 +4,97 @@ class CopyManga extends ComicSource {
 
     key = "copy_manga"
 
-    version = "1.4.1"
+    version = "1.4.2"
 
     minAppVersion = "1.6.0"
 
     url = "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/copy_manga.js"
 
+    async updateReqIdBackground() {
+        const reqIdUrl = "https://marketing.aiacgn.com/api/v2/adopr/query3/?format=json&ident=200100001";
+
+        try {
+            const response = await Network.get(reqIdUrl, {
+                ...this.headers,
+                "Content-Type": "application/x-www-form-urlencoded;charset=utf-8",
+                "accept": "application/json",
+                "accept-encoding": "gzip",
+            });
+
+            if (response.status === 200) {
+                const data = JSON.parse(response.body);
+                const reqId = data.results.request_id;
+
+                this.saveData('_reqId_cache', reqId);
+                this.saveData('_reqId_timestamp', Date.now());
+            }
+        } catch (e) {
+
+        }
+    }
+
+    async updateReqIdSync() {
+        const cacheKey = '_reqId_cache';
+        const timeKey = '_reqId_timestamp';
+        const oldReqId = this.loadData(cacheKey);
+
+        const reqIdUrl = "https://marketing.aiacgn.com/api/v2/adopr/query3/?format=json&ident=200100001";
+
+        try {
+            const response = await Network.get(reqIdUrl, {
+                ...this.headers,
+                "Content-Type": "application/x-www-form-urlencoded;charset=utf-8",
+                "accept": "application/json",
+                "accept-encoding": "gzip",
+            });
+
+            if (response.status === 200) {
+                const data = JSON.parse(response.body);
+                const reqId = data.results.request_id;
+
+                this.saveData(cacheKey, reqId);
+                this.saveData(timeKey, Date.now());
+
+                return reqId;
+            }
+        } catch (e) {
+            return oldReqId || "";
+        }
+
+        return oldReqId || "";
+    }
+
     async getReqID() {
         if (this.copyRegion === "0") {
             return "";
         }
-        const reqIdUrl = "https://marketing.aiacgn.com/api/v2/adopr/query3/?format=json&ident=200100001";
-        let reqId = "";
-        try {
-            const response = await Network.get(reqIdUrl, this.headers);
 
-            if (response.status === 200) {
-                const data = JSON.parse(response.body);
-                reqId = data.results.request_id;
+        const cacheKey = '_reqId_cache';
+        const timeKey = '_reqId_timestamp';
+
+        const cachedReqId = this.loadData(cacheKey);
+        const cachedTime = this.loadData(timeKey) || 0;
+        const now = Date.now();
+
+        const ONE_HOUR = 60 * 60 * 1000;
+        const TWO_MIN = 2 * 60 * 1000;
+
+        if (cachedReqId && (now - cachedTime < ONE_HOUR)) {
+            if (now - cachedTime > TWO_MIN) {
+                setTimeout(
+                    () => this.updateReqIdBackground(),
+                    Math.floor(Math.random() * 3000)
+                );
             }
-        } catch (e) {
+            return cachedReqId;
         }
-        return reqId;
+
+        return await this.updateReqIdSync();
     }
 
+
     get headers() {
+
         let token = this.loadData("token");
         let secret = "M2FmMDg1OTAzMTEwMzJlZmUwNjYwNTUwYTA1NjNhNTM="
 
@@ -51,13 +117,13 @@ class CopyManga extends ComicSource {
         )
 
         return {
-            "User-Agent": `COPY/3.0.6`,
+            "User-Agent": `COPY/${this.copyVersion}`,
             "source": "copyApp",
             "deviceinfo": this.deviceinfo,
             "dt": `${year}.${month}.${day}`,
             "platform": "3",
-            "referer": `com.copymanga.app-3.0.6`,
-            "version": "3.0.6",
+            "referer": `com.copymanga.app-${this.copyVersion}`,
+            "version": this.copyVersion,
             "device": this.device,
             "pseudoid": this.pseudoid,
             "Accept": "application/json",
@@ -108,9 +174,10 @@ class CopyManga extends ComicSource {
         return pid;
     }
 
-    // get copyVersion() {
-    //     return this.loadSetting('version')
-    // }
+    get copyVersion() {
+        let version = this.loadData('_copy_version');
+        return version || "3.0.6";
+    }
 
     // get copyPlatform()
     // return this.loadSetting('platform')
@@ -170,6 +237,7 @@ class CopyManga extends ComicSource {
         this.author_path_word_dict = {}
         this.refreshSearchApi()
         this.refreshAppApi()
+        this.refreshCopyVersion()
     }
 
     /// account
@@ -1051,11 +1119,6 @@ class CopyManga extends ComicSource {
                 this.refreshAppApi();
             }
         },
-        // version: {
-        //     title: "拷贝版本（重启APP生效）",
-        //     type: "input",
-        //     default: CopyManga.defaultCopyVersion,
-        // },
         // platform: {
         //     title: "平台代号（重启APP生效）",
         //     type: "input",
@@ -1100,6 +1163,25 @@ class CopyManga extends ComicSource {
         if (res.status === 200) {
             let data = await res.json();
             this.settings.base_url = data.results.api[0][0];
+        }
+    }
+    async refreshCopyVersion() {
+        const url = `https://api.copy-manga.com/api/v3/system/appVersion/last?format=json&platform=3`;
+
+        try {
+            const res = await fetch(url, { headers: this.headers });
+
+            if (res.status === 200) {
+                const data = await res.json();
+                const androidInfo = data?.results?.android;
+
+                if (androidInfo && androidInfo.update) {
+                    const newVersion = androidInfo.version;
+                    this.saveData('_copy_version', newVersion);
+                }
+            }
+        } catch (error) {
+            console.error("拷贝漫画版本检查发生异常:", error);
         }
     }
 }
