@@ -7,7 +7,7 @@ class Nhentai extends ComicSource {
     // unique id of the source
     key = "nhentai"
 
-    version = "1.0.8"
+    version = "1.0.9"
 
     minAppVersion = "1.0.0"
 
@@ -22,9 +22,13 @@ class Nhentai extends ComicSource {
     // [Optional] account related
     account = {
         loginWithWebview: {
-            url: "https://nhentai.net/login/?next=/",
+            url: "https://nhentai.net/login",
             checkStatus: (url, title) => {
-                return url === "https://nhentai.net/"
+                return title === "nhentai: hentai doujinshi and manga"
+            },
+            onLoginSuccess: async () => {
+                let cookies = await Network.getCookies("https://nhentai.net")
+                Network.setCookies("https://nhentai.net", cookies)
             },
         },
 
