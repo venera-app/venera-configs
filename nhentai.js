@@ -7,7 +7,7 @@ class Nhentai extends ComicSource {
     // unique id of the source
     key = "nhentai"
 
-    version = "1.0.8"
+    version = "1.0.10"
 
     minAppVersion = "1.0.0"
 
@@ -22,9 +22,12 @@ class Nhentai extends ComicSource {
     // [Optional] account related
     account = {
         loginWithWebview: {
-            url: "https://nhentai.net/login/?next=/",
+            url: "https://nhentai.net/login",
             checkStatus: (url, title) => {
-                return url === "https://nhentai.net/"
+                return title === "nhentai: hentai doujinshi and manga"
+            },
+            onLoginSuccess: async () => {
+                await this.persistAuthFromCookies()
             },
         },
 
@@ -33,6 +36,7 @@ class Nhentai extends ComicSource {
          */
         logout: () => {
             Network.deleteCookies('https://nhentai.net')
+            this.deleteData("accessToken")
         },
 
         // {string?} - register url
@@ -53,12 +57,12 @@ class Nhentai extends ComicSource {
         let idMatch = href.match(regex);
         let id = idMatch ? idMatch.join('') : "";
         let lang = "Unknown";
-        let tags = element.attributes["data-tags"] || "";
-        if (tags.includes("12227")) {
+        let tags = element.attributes?.["class"];
+        if (tags.includes("lang-gb")) {
             lang = "English";
-        } else if (tags.includes("6346")) {
+        } else if (tags.includes("lang-jp")) {
             lang = "日本語";
-        } else if (tags.includes("29963")) {
+        } else if (tags.includes("lang-cn")) {
             lang = "中文";
         }
         let tagsRes = [];
@@ -110,7 +114,7 @@ class Nhentai extends ComicSource {
         return {
             url,
             headers: {
-                Referer: "https://nhentai.net/",
+                "Referer": "https://nhentai.net/",
                 "User-Agent": "Mozilla/5.0"
             }
         }
@@ -199,18 +203,33 @@ class Nhentai extends ComicSource {
         }
     }
 
-    async deleteWithFallback(url, headers) {
-        if (typeof Network.delete === "function") {
-            return await Network.delete(url, headers, null)
+    findCookieValue(cookies, name) {
+        if (!Array.isArray(cookies)) {
+            return ""
         }
-        if (typeof Network.request === "function") {
-            return await Network.request(url, "DELETE", headers, null)
+        let cookie = cookies.find((item) => item?.name === name)
+        return typeof cookie?.value === "string" ? cookie.value : ""
+    }
+
+    async persistAuthFromCookies() {
+        let cookies = await Network.getCookies(this.baseUrl)
+        let accessToken = this.findCookieValue(cookies, "access_token")
+        if (accessToken) {
+            this.saveData("accessToken", accessToken)
         }
-        let h = {
-            ...headers,
-            "X-HTTP-Method-Override": "DELETE",
+        return accessToken
+    }
+
+    async getAuthHeaders() {
+        let accessToken = this.loadData("accessToken");
+        if (!accessToken) {
+            accessToken = await this.persistAuthFromCookies();
         }
-        return await Network.post(url, h, null)
+        let headers = {}
+        if (accessToken) {
+            headers["Authorization"] = `User ${accessToken}`
+        }
+        return headers
     }
 
     async parseComicList(html, type='search') {
@@ -434,7 +453,6 @@ class Nhentai extends ComicSource {
         multiFolder: false,
         /**
          * add or delete favorite.
-         * throw `Login expired` to indicate login expired, App will automatically re-login and re-add/delete favorite
          * @param comicId {string}
          * @param folderId {string}
          * @param isAdding {boolean} - true for add, false for delete
@@ -443,45 +461,24 @@ class Nhentai extends ComicSource {
         addOrDelFavorite: async (comicId, folderId, isAdding) => {
             comicId = this.normalizeComicId(comicId)
             let v2Url = `${this.apiBaseUrl}/galleries/${comicId}/favorite`
-            let headers = {
-                "X-Requested-With": "XMLHttpRequest"
-            }
+            let headers = await this.getAuthHeaders()
             let res = isAdding
                 ? await Network.post(v2Url, headers, null)
-                : await this.deleteWithFallback(v2Url, headers)
-            if(res.status !== 200) {
-                // Fallback to legacy endpoint for cookie-based auth compatibility.
-                let info = await this.comic.loadInfo(comicId)
-                let token = info.csrfToken
-                let legacyUrl = `${this.baseUrl}/api/gallery/${comicId}/${isAdding ? "favorite" : "unfavorite"}`
-                let legacyRes = await Network.post(legacyUrl, {
-                    "X-CSRFToken": token,
-                    "Referer": `${this.baseUrl}/g/${comicId}/`,
-                    "X-Requested-With": "XMLHttpRequest"
-                }, null)
-                if (legacyRes.status === 200) {
-                    return true
-                }
-                if (legacyRes.status === 401) {
-                    throw "Login expired"
-                }
-                throw "Invalid Status Code: " + legacyRes.status
-            }
-            if(res.status === 200) {
+                : await Network.delete(v2Url, headers, null)
+            if (res.status === 200) {
                 return true
             }
-            throw "Failed"
+            throw "Invalid Status Code: " + res.status
         },
         /**
          * load comics in a folder
-         * throw `Login expired` to indicate login expired, App will automatically re-login retry.
          * @param page {number}
          * @param folder {string?} - folder id, null for non-multi-folder
          * @returns {Promise<{comics: Comic[], maxPage: number}>}
          */
         loadComics: async (page, folder) => {
             let apiUrl = `${this.apiBaseUrl}/favorites?page=${page}`
-            let apiRes = await Network.get(apiUrl, {})
+            let apiRes = await Network.get(apiUrl, await this.getAuthHeaders())
             if (apiRes.status === 200) {
                 return this.parseComicListFromApi(JSON.parse(apiRes.body))
             }
@@ -489,9 +486,6 @@ class Nhentai extends ComicSource {
             let url = `${this.baseUrl}/favorites?page=${page}`
             let webRes = await Network.get(url, {})
             if(webRes.status !== 200) {
-                if (apiRes.status === 401 || webRes.status === 401) {
-                    throw "Login expired"
-                }
                 throw "Invalid Status Code: " + webRes.status
             }
             return this.parseComicList(webRes.body)
@@ -522,7 +516,10 @@ class Nhentai extends ComicSource {
         loadInfo: async (id) => {
             id = this.normalizeComicId(id)
 
-            let apiRes = await Network.get(`${this.apiBaseUrl}/galleries/${id}?include=related,favorite`, {})
+            let apiRes = await Network.get(
+                `${this.apiBaseUrl}/galleries/${id}?include=related,favorite`,
+                await this.getAuthHeaders(),
+            )
             if (apiRes.status === 200) {
                 let data = JSON.parse(apiRes.body)
 
@@ -544,7 +541,10 @@ class Nhentai extends ComicSource {
                     .map(p => this.toAbsoluteMediaUrl(p.thumbnail, true))
                     .filter(Boolean)
                 if (thumbnails.length === 0) {
-                    let pagesRes = await Network.get(`${this.apiBaseUrl}/galleries/${id}/pages`, {})
+                    let pagesRes = await Network.get(
+                        `${this.apiBaseUrl}/galleries/${id}`,
+                        await this.getAuthHeaders(),
+                    )
                     if (pagesRes.status === 200) {
                         let pagesData = JSON.parse(pagesRes.body)
                         thumbnails = (pagesData.pages || [])
@@ -650,46 +650,18 @@ class Nhentai extends ComicSource {
         loadEp: async (comicId, epId) => {
             comicId = this.normalizeComicId(comicId)
 
-            let apiRes = await Network.get(`${this.apiBaseUrl}/galleries/${comicId}/pages`, {})
+            let apiRes = await Network.get(
+                `${this.apiBaseUrl}/galleries/${comicId}`,
+                await this.getAuthHeaders(),
+            )
             if (apiRes.status === 200) {
                 let apiData = JSON.parse(apiRes.body)
                 let images = (apiData.pages || []).map(p => this.toAbsoluteMediaUrl(p.path, false))
                 if (images.length > 0) {
                     return { images: images }
                 }
-            }
-
-            let res = await Network.get(`${this.baseUrl}/g/${comicId}/1/`, {})
-            if(res.status !== 200) {
-                throw "Invalid Status Code: " + res.status
-            }
-            let document = new HtmlDocument(res.body)
-            let script = document.querySelectorAll("script").find((e) => {
-                return e.text.includes("window._gallery")
-            }).text
-            let json = script.split('JSON.parse("')[1].split('");')[0]
-            let decodedJsonText =
-                json.replaceAll("\\u0022", "\"").replaceAll("\\u005C", "\\");
-            let data = JSON.parse(decodedJsonText)
-            let mediaId = data.media_id
-            let images = []
-            for (let image of data.images.pages) {
-                let ext = 'jpg'
-                switch(image.t) {
-                    case 'p':
-                        ext = 'png'
-                        break
-                    case 'g':
-                        ext = 'gif'
-                        break
-                    case 'w':
-                        ext = 'webp'
-                        break
-                }
-                images.push(`https://i3.nhentai.net/galleries/${mediaId}/${images.length + 1}.${ext}`)
-            }
-            return {
-                images: images,
+            } else {
+                throw "Invalid Status Code: " + apiRes.status
             }
         },
         /**
@@ -702,7 +674,10 @@ class Nhentai extends ComicSource {
          */
         loadComments: async (comicId, subId, page, replyTo) => {
             comicId = this.normalizeComicId(comicId)
-            let res = await Network.get(`${this.apiBaseUrl}/galleries/${comicId}/comments`, {})
+            let res = await Network.get(
+                `${this.apiBaseUrl}/galleries/${comicId}/comments`,
+                await this.getAuthHeaders(),
+            )
             if(res.status !== 200) {
                 throw "Invalid Status Code: " + res.status
             }
@@ -713,7 +688,7 @@ class Nhentai extends ComicSource {
                     avatar: this.toAbsoluteMediaUrl(c.poster.avatar_url, false),
                     content: c.body,
                     time: typeof c.post_date === "number"
-                        ? new Date(c.post_date * 1000).toISOString()
+                        ? this.formatTimestamp(c.post_date)
                         : String(c.post_date),
                 })
             })
