@@ -15,7 +15,7 @@ Flat repo of JavaScript "comic source" plugins for the Venera manga reader app. 
 
 1. Each source file must have `/** @type {import('./_venera_.js')} */` at the top.
 2. The class must extend `ComicSource` and define `name`, `key`, `version`, and `url`.
-3. The `url` field must point to the file's jsDelivr CDN path: `https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/<filename>.js`
+3. The `url` field must point to the file's jsDelivr CDN path: `https://cdn.jsdelivr.net/gh/theoldman-lab/venera-configs@main/<filename>.js`
 4. The `key` field should be a unique identifier (typically lowercase snake_case).
 5. After adding/removing/renaming a source, update `index.json` with the corresponding entry.
 

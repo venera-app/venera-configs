@@ -1,103 +1,186 @@
 /** @type {import('./_venera_.js')} */
 class Pixiv extends ComicSource {
-    // ================================================================
-    // WORK STATUS: 骨架已完成，等待填充 Pixiv API 实现
-    // ================================================================
-    //
-    // TODO 清单:
-    //
-    // [ ] 1. 认证系统
-    //     Pixiv 使用 OAuth2 (refresh_token / access_token)，
-    //     也可通过 Cookie (PHPSESSID) 登录。
-    //     选用方案: login 方法实现账号密码登录获取 token，
-    //     loginWithCookies 保留作为备选。
-    //
-    // [ ] 2. 探索页 (explore)
-    //     - 日榜/周榜/月榜/新人榜 (ranking API)
-    //     - 关注画师新作 (followed illusts)
-    //     - 推荐作品 (recommended)
-    //
-    // [ ] 3. 搜索 (search)
-    //     - 关键词搜索 + 排序选项 (按热度/日期)
-    //     - 支持按标签搜索 (partial_match_for_tags)
-    //
-    // [ ] 4. 分类浏览 (category/tags)
-    //     - 热门标签列表
-    //     - 按标签浏览作品
-    //
-    // [ ] 5. 作品详情 (comic.loadInfo)
-    //     - 作品基本信息 (标题、画师、标签)
-    //     - 多图作品/漫画分页 (page_count)
-    //     - 收藏状态
-    //
-    // [ ] 6. 图片加载 (comic.loadEp / onImageLoad)
-    //     - Pixiv 图片有 referer 防盗链保护
-    //     - 需要特殊请求头
-    //
-    // [ ] 7. 收藏功能 (favorites)
-    //     - 添加/删除书签
-    //     - 公开/私有收藏
-    //
-    // [ ] 8. 设置 (settings)
-    //     - 图片质量选择
-    //     - 默认浏览模式
-    //
-    // [ ] 9. 翻译 (translation)
-    //     - zh_CN / zh_TW / en
-    //
-    // ================================================================
-    // Pixiv API 参考:
-    //   认证: POST https://oauth.secure.pixiv.net/auth/token
-    //   API 基址: https://app-api.pixiv.net
-    //   图片: https://i.pximg.net
-    //   Headers 需携带: Authorization: Bearer <token>
-    //   User-Agent: PixivIOSApp/7.x (iOS 伪装)
-    // ================================================================
-
+    /*
+     * ================================================================
+     * WORK STATUS — 2025-05-22
+     * ================================================================
+     * [x] Auth      — refresh_token 登录 / PHPSESSID 备用 / 401 自动刷新
+     * [x] Explore   — Following/Daily/Weekly/Recommended/Newest 五分区
+     * [x] Category  — 7种排行 + 动态热门标签 + 关注新作
+     * [x] CategoryComics — offset 分页 (newest 仅首页, 是 API 限制)
+     * [x] Search    — 关键词搜索 + 排序/搜索目标双选项
+     * [x] Favorites — 书签增删查 / 自动 Login expired 重登录
+     * [x] Comic     — 详情/多页 Chapter/图片加载 + Referer 防盗链
+     * [x] Settings  — API Host / Image Quality
+     * [x] Translation — zh_CN / zh_TW / en
+     *
+     * 已知限制:
+     * - Ugoira (动图) 视为普通图片, 未调用 ugoira_metadata
+     * - illust_new (Newest) 用游标分页, 仅支持首页
+     * - 多图作品仅 Large 尺寸 (API meta_pages 无原图 URL)
+     * - R-18 内容未做特殊过滤 (依赖 Pixiv 默认 filter=for_ios)
+     * - parseNextUrl 已实现但未使用 (留待 cursor 分页扩展)
+     * ================================================================
+     */
     name = "Pixiv"
     key = "pixiv"
     version = "1.0.0"
     minAppVersion = "1.6.0"
-    url = "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/pixiv.js"
+    url = "https://cdn.jsdelivr.net/gh/theoldman-lab/venera-configs@main/pixiv.js"
 
-    // ---------- 内部工具方法 ----------
+    static authUrl = "https://oauth.secure.pixiv.net/auth/token"
+    static clientId = "MOBrBDS8blbauoSck0ZfDbtuzpyT"
+    static clientSecret = "lsACyCD94FhDUtGTXi3QzcFE2uU1hqtDaKeqrdwj"
+    static hashSecret = "28c1fdd170a5204386cb1313c7077b34f83e4aaf4aa829ce78c231e05b0bae2c"
+    static ua = "PixivIOSApp/7.13.3 (iOS 14.6; iPhone13,2)"
 
-    // TODO: 实现 OAuth token 刷新逻辑
-    getToken() {
-        return this.loadData('access_token')
+    get apiBase() {
+        return this.loadSetting('apiHost') || 'https://app-api.pixiv.net'
     }
 
-    // TODO: 实现 base headers
-    get headers() {
-        let token = this.getToken()
+    // ---- Auth helpers ----
+
+    getAuthHeaders() {
+        let d = new Date()
+        let time = d.toISOString().replace(/\.\d+Z$/, '+00:00')
+        let hash = Convert.hexEncode(Convert.md5(Convert.encodeUtf8(time + Pixiv.hashSecret)))
+        return {
+            'X-Client-Time': time,
+            'X-Client-Hash': hash,
+            'App-OS': 'ios',
+            'App-OS-Version': '14.6',
+            'User-Agent': Pixiv.ua,
+            'Content-Type': 'application/x-www-form-urlencoded'
+        }
+    }
+
+    get apiHeaders() {
+        let token = this.loadData('access_token')
+        if (!token) return null
         return {
             'Authorization': `Bearer ${token}`,
-            'User-Agent': 'PixivIOSApp/7.13.3 (iOS 14.6; iPhone13,2)',
+            'App-OS': 'ios',
+            'App-OS-Version': '14.6',
+            'User-Agent': Pixiv.ua,
             'Accept-Language': 'zh-cn'
         }
     }
 
-    // ---------- 认证 ----------
+    async refreshToken() {
+        let refreshToken = this.loadData('refresh_token')
+        if (!refreshToken) throw 'No refresh token'
+
+        let res = await Network.post(Pixiv.authUrl, this.getAuthHeaders(),
+            `client_id=${Pixiv.clientId}&client_secret=${Pixiv.clientSecret}&grant_type=refresh_token&refresh_token=${refreshToken}&get_secure_url=1`)
+
+        if (res.status !== 200) throw `Token refresh failed: HTTP ${res.status}`
+
+        let json = JSON.parse(res.body)
+        let resp = json.response
+        this.saveData('access_token', resp.access_token)
+        this.saveData('refresh_token', resp.refresh_token)
+        this.saveData('user_id', resp.user.id.toString())
+        this.saveData('user_name', resp.user.name)
+        this.saveData('user_account', resp.user.account)
+        return resp.access_token
+    }
+
+    // Authenticated GET with auto-refresh on 401
+    async apiGet(url) {
+        let token = this.loadData('access_token')
+        if (!token) {
+            token = await this.refreshToken()
+        }
+        let res = await Network.get(url, this.apiHeaders)
+        if (res.status === 401) {
+            token = await this.refreshToken()
+            res = await Network.get(url, this.apiHeaders)
+        }
+        if (res.status !== 200) throw `HTTP ${res.status}: ${res.body}`
+        return JSON.parse(res.body)
+    }
+
+    // Authenticated POST with auto-refresh on 401
+    async apiPost(url, body) {
+        let token = this.loadData('access_token')
+        if (!token) {
+            token = await this.refreshToken()
+        }
+        let postHeaders = Object.assign({}, this.apiHeaders, {
+            'Content-Type': 'application/x-www-form-urlencoded'
+        })
+        let res = await Network.post(url, postHeaders, body)
+        if (res.status === 401) {
+            token = await this.refreshToken()
+            postHeaders = Object.assign({}, this.apiHeaders, {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            })
+            res = await Network.post(url, postHeaders, body)
+        }
+        if (res.status !== 200) throw `HTTP ${res.status}: ${res.body}`
+        return JSON.parse(res.body)
+    }
+
+    // ---- Account ----
 
     account = {
-        // TODO: 实现 Pixiv OAuth2 登录
-        // login: async (account, pwd) => {
-        //     1. POST https://oauth.secure.pixiv.net/auth/token
-        //        body: client_id=xxx&client_secret=xxx&grant_type=password
-        //              &username=<account>&password=<pwd>
-        //     2. 保存 refresh_token, access_token, user_id 到本地
-        //     3. return 'ok'
-        // },
+        // Pixiv 已废弃密码登录 (#158), 请使用 refresh_token 登录
+        // 获取 refresh_token: 浏览器登录 pixiv 后打开开发者工具 ->
+        // Application -> Local Storage -> 搜索 "refresh_token" 或
+        // 使用 https://github.com/eggplants/get-pixivpy-token
         login: async (account, pwd) => {
+            // 优先使用本地存储的最新 refresh_token (Pixiv 每次刷新都会轮换)
+            let refreshToken = this.loadData('refresh_token') || (account || '').trim()
+            if (!refreshToken) {
+                throw 'Please enter your refresh_token'
+            }
 
+            let res = await Network.post(Pixiv.authUrl, this.getAuthHeaders(),
+                `client_id=${Pixiv.clientId}&client_secret=${Pixiv.clientSecret}&grant_type=refresh_token&refresh_token=${encodeURIComponent(refreshToken)}&get_secure_url=1`)
+
+            if (res.status !== 200) {
+                let msg = `Login failed (HTTP ${res.status})`
+                try {
+                    let json = JSON.parse(res.body)
+                    if (json.has_error) msg = json.errors.system.message || msg
+                } catch (e) { }
+                throw msg
+            }
+
+            let json = JSON.parse(res.body)
+            this.saveData('access_token', json.response.access_token)
+            this.saveData('refresh_token', json.response.refresh_token)
+            this.saveData('user_id', json.response.user.id.toString())
+            this.saveData('user_name', json.response.user.name)
+            this.saveData('user_account', json.response.user.account)
+            return 'ok'
         },
 
-        // 备选: Cookie 登录
         loginWithCookies: {
             fields: ["PHPSESSID"],
-            // TODO: validate 用 PHPSESSID 请求用户信息验证 cookie 有效性
             validate: async (values) => {
+                let phpsessid = values[0]
+                let cookie = new Cookie({
+                    name: 'PHPSESSID',
+                    value: phpsessid,
+                    domain: '.pixiv.net'
+                })
+                Network.setCookies('https://www.pixiv.net', [cookie])
 
+                // 尝试用 Cookie 获取 access_token (需要先有 refresh_token)
+                // PHPSESSID 登录有限制，主要用于验证是否已登录
+                try {
+                    let res = await Network.get(
+                        'https://www.pixiv.net/ajax/user/extra',
+                        { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36' }
+                    )
+                    if (res.status !== 200) return false
+                    let json = JSON.parse(res.body)
+                    if (json.error) return false
+                    return true
+                } catch (e) {
+                    return false
+                }
             },
         },
 
@@ -105,66 +188,209 @@ class Pixiv extends ComicSource {
             this.deleteData('access_token')
             this.deleteData('refresh_token')
             this.deleteData('user_id')
+            this.deleteData('user_name')
+            this.deleteData('user_account')
             Network.deleteCookies('https://www.pixiv.net')
         },
 
         registerWebsite: 'https://www.pixiv.net/signup/'
     }
 
-    // ---------- 探索页 ----------
+    // ---- Utility ----
+
+    static parseNextUrl(nextUrl) {
+        if (!nextUrl) return null
+        let idx = nextUrl.indexOf('?')
+        if (idx === -1) return {}
+        let qs = nextUrl.substring(idx + 1)
+        let result = {}
+        for (let pair of qs.split('&')) {
+            let [k, v] = pair.split('=')
+            k = decodeURIComponent(k)
+            v = decodeURIComponent(v || '')
+            if (k.endsWith('[]')) k = k.substring(0, k.length - 2)
+            result[k] = v
+        }
+        return result
+    }
+
+    parseIllust(illust) {
+        let cover = illust.image_urls.medium
+        if (illust.page_count > 1 && illust.meta_pages && illust.meta_pages.length > 0) {
+            cover = illust.meta_pages[0].image_urls.medium
+        }
+        let tags = (illust.tags || []).map(t => t.translated_name || t.name)
+        return new Comic({
+            id: illust.id.toString(),
+            title: illust.title,
+            subTitle: illust.user.name,
+            cover: cover,
+            tags: tags,
+            description: illust.caption || '',
+            maxPage: illust.page_count || 1
+        })
+    }
+
+    // page: 1-based → Pixiv offset
+    static pageSize = 30
+
+    offsetForPage(page) {
+        return (page - 1) * Pixiv.pageSize
+    }
+
+    async getIllusts(url, page) {
+        if (page > 1) {
+            let sep = url.includes('?') ? '&' : '?'
+            url += `${sep}offset=${this.offsetForPage(page)}`
+        }
+        return await this.apiGet(url)
+    }
+
+    // ---- Explore ----
 
     explore = [
         {
-            title: "Pixiv",
+            title: "",
+
             type: "multiPartPage",
 
-            // TODO: 加载日榜/周榜/推荐等分区
             load: async (page) => {
-                /*
-                示例结构:
-                return [
-                    { title: "Daily Ranking", comics: [...], viewMore: "..." },
-                    { title: "Weekly Ranking", comics: [...], viewMore: "..." },
-                    { title: "Recommended", comics: [...], viewMore: "..." }
+                let base = this.apiBase
+                // Following 需登录，失败则静默跳过
+                let following = await this.getIllusts(`${base}/v2/illust/follow?restrict=public`, 1).catch(() => null)
+                let futures = await Promise.all([
+                    this.getIllusts(`${base}/v1/illust/ranking?mode=day`, 1).catch(() => null),
+                    this.getIllusts(`${base}/v1/illust/ranking?mode=week`, 1).catch(() => null),
+                    this.getIllusts(`${base}/v1/illust/recommended?content_type=illust&include_ranking_label=true`, 1).catch(() => null),
+                    this.getIllusts(`${base}/v1/illust/new?content_type=illust`, 1).catch(() => null),
+                ])
+
+                let sections = [
+                    { title: 'Following',      data: following, category: 'follow', param: '' },
+                    { title: 'Daily Ranking',   data: futures[0], category: 'ranking', param: 'day' },
+                    { title: 'Weekly Ranking',  data: futures[1], category: 'ranking', param: 'week' },
+                    { title: 'Recommended',     data: futures[2], category: 'recommended', param: '' },
+                    { title: 'Newest',          data: futures[3], category: 'newest', param: '' },
                 ]
-                */
+
+                let result = []
+                for (let s of sections) {
+                    let comics = []
+                    if (s.data && s.data.illusts) {
+                        comics = s.data.illusts.map(e => this.parseIllust(e))
+                    }
+                    // Following 分区无数据时跳过 (未登录)
+                    if (s.category === 'follow' && comics.length === 0) continue
+                    result.push({
+                        title: s.title,
+                        comics: comics,
+                        viewMore: {
+                            page: 'category',
+                            attributes: {
+                                category: s.category,
+                                param: s.param,
+                            }
+                        }
+                    })
+                }
+                return result
             },
         }
     ]
 
-    // ---------- 分类/标签 ----------
+    // ---- Category ----
 
     category = {
         title: "Pixiv",
         parts: [
             {
+                name: "Ranking",
+                type: "fixed",
+                categories: [
+                    { label: "Following",    target: { page: "category", attributes: { category: "follow", param: "" } } },
+                    { label: "Daily",        target: { page: "category", attributes: { category: "ranking", param: "day" } } },
+                    { label: "Weekly",       target: { page: "category", attributes: { category: "ranking", param: "week" } } },
+                    { label: "Monthly",      target: { page: "category", attributes: { category: "ranking", param: "month" } } },
+                    { label: "Male Popular", target: { page: "category", attributes: { category: "ranking", param: "day_male" } } },
+                    { label: "Female Popular",target: { page: "category", attributes: { category: "ranking", param: "day_female" } } },
+                    { label: "Rookie",       target: { page: "category", attributes: { category: "ranking", param: "week_rookie" } } },
+                    { label: "Original",     target: { page: "category", attributes: { category: "ranking", param: "week_original" } } },
+                ]
+            },
+            {
                 name: "Tags",
                 type: "dynamic",
-                // TODO: 加载热门标签列表
                 loader: async () => {
-                    return []
+                    try {
+                        let json = await this.apiGet(`${this.apiBase}/v1/trending-tags/illust?filter=for_ios`)
+                        return (json.trend_tags || []).map(t => ({
+                            label: t.translated_name || t.tag,
+                            target: { page: "category", attributes: { category: "tag", param: t.tag } }
+                        }))
+                    } catch (e) {
+                        return []
+                    }
                 }
             }
         ],
-        enableRankingPage: true,
+        enableRankingPage: false,
     }
+
+    // ---- Category Comics ----
 
     categoryComics = {
-        // TODO: 按标签/排名加载作品列表
         load: async (category, param, options, page) => {
+            let base = this.apiBase
+            let json
 
+            if (category === 'ranking') {
+                json = await this.getIllusts(
+                    `${base}/v1/illust/ranking?mode=${param}`, page)
+            } else if (category === 'follow') {
+                json = await this.getIllusts(
+                    `${base}/v2/illust/follow?restrict=public`, page)
+            } else if (category === 'recommended') {
+                json = await this.getIllusts(
+                    `${base}/v1/illust/recommended?content_type=illust&include_ranking_label=true`, page)
+            } else if (category === 'newest') {
+                // illust_new 使用 max_illust_id 游标分页，不支持 offset
+                if (page > 1) return { comics: [], maxPage: 1 }
+                json = await this.apiGet(
+                    `${base}/v1/illust/new?content_type=illust`)
+            } else if (category === 'tag') {
+                json = await this.getIllusts(
+                    `${base}/v1/search/illust?word=${encodeURIComponent(param)}&search_target=partial_match_for_tags`, page)
+            } else {
+                throw `Unknown category: ${category}`
+            }
+
+            let comics = (json.illusts || []).map(e => this.parseIllust(e))
+            let hasNext = !!json.next_url
+            return {
+                comics: comics,
+                maxPage: hasNext ? page + 1 : page
+            }
         },
     }
 
-    // ---------- 搜索 ----------
+    // ---- Search ----
 
     search = {
-        // TODO: 关键词搜索作品
         load: async (keyword, options, page) => {
+            let sort = options[0] || 'date_desc'
+            let searchTarget = options[1] || 'partial_match_for_tags'
+            let base = this.apiBase
+            let json = await this.getIllusts(
+                `${base}/v1/search/illust?word=${encodeURIComponent(keyword)}&search_target=${searchTarget}&sort=${sort}`, page)
 
+            let comics = (json.illusts || []).map(e => this.parseIllust(e))
+            let hasNext = !!json.next_url
+            return {
+                comics: comics,
+                maxPage: hasNext ? page + 1 : page
+            }
         },
 
-        // TODO: 搜索选项 (排序方式)
         optionList: [
             {
                 type: "select",
@@ -175,92 +401,222 @@ class Pixiv extends ComicSource {
                 ],
                 label: "Sort",
                 default: "date_desc"
+            },
+            {
+                type: "select",
+                options: [
+                    "partial_match_for_tags-Tags (Partial)",
+                    "exact_match_for_tags-Tags (Exact)",
+                    "title_and_caption-Title & Caption"
+                ],
+                label: "Search Target",
+                default: "partial_match_for_tags"
             }
         ],
     }
 
-    // ---------- 收藏 ----------
+    // ---- Favorites ----
 
-    // TODO: 实现书签增删查
-    // favorites = {
-    //     multiFolder: false,
-    //     addOrDelFavorite: async (comicId, folderId, isAdding, favoriteId) => {},
-    //     loadFolders: async (comicId) => {},
-    //     loadComics: async (page, folder) => {},
-    // }
+    favorites = {
+        multiFolder: false,
 
-    // ---------- 作品详情 ----------
+        addOrDelFavorite: async (comicId, folderId, isAdding, favoriteId) => {
+            try {
+                if (isAdding) {
+                    await this.apiPost(`${this.apiBase}/v2/illust/bookmark/add`,
+                        `illust_id=${comicId}&restrict=public`)
+                } else {
+                    await this.apiPost(`${this.apiBase}/v1/illust/bookmark/delete`,
+                        `illust_id=${comicId}`)
+                }
+            } catch (e) {
+                if (String(e).includes('401') || String(e).includes('Token refresh failed')) {
+                    throw 'Login expired'
+                }
+                throw e
+            }
+        },
+
+        loadFolders: async (comicId) => {
+            let folders = { '0': this.translate('All') }
+            let favorited = []
+            if (comicId) {
+                try {
+                    let json = await this.apiGet(`${this.apiBase}/v2/illust/bookmark/detail?illust_id=${comicId}`)
+                    if (json.bookmark_detail) {
+                        favorited.push('0')
+                    }
+                } catch (e) {
+                    if (String(e).includes('401') || String(e).includes('Token refresh failed')) {
+                        throw 'Login expired'
+                    }
+                }
+            }
+            return { folders: folders, favorited: favorited }
+        },
+
+        loadComics: async (page, folder) => {
+            let userId = this.loadData('user_id')
+            if (!userId) throw 'Login required'
+            try {
+                let json = await this.apiGet(
+                    `${this.apiBase}/v1/user/bookmarks/illust?user_id=${userId}&restrict=public&offset=${(page - 1) * Pixiv.pageSize}`)
+                let comics = (json.illusts || []).map(e => this.parseIllust(e))
+                let hasNext = !!json.next_url
+                return { comics: comics, maxPage: hasNext ? page + 1 : page }
+            } catch (e) {
+                if (String(e).includes('401') || String(e).includes('Token refresh failed')) {
+                    throw 'Login expired'
+                }
+                throw e
+            }
+        },
+    }
+
+    // ---- Comic Detail ----
 
     comic = {
-        // TODO: 加载作品详情 (标题/画师/标签/图片列表)
         loadInfo: async (id) => {
-            /*
-            返回 ComicDetails:
-            new ComicDetails({
-                title: "",
-                subtitle: "",    // 画师名
-                cover: "",       // 第一张图作为封面
-                description: "",
-                tags: {},
-                chapters: new Map(),  // 多图作品每张图作为一个 chapter
+            let json = await this.apiGet(`${this.apiBase}/v1/illust/detail?illust_id=${id}`)
+            let illust = json.illust
+            if (!illust) throw 'Illust not found'
+
+            let chapters = new Map()
+            if (illust.page_count > 1 && illust.meta_pages && illust.meta_pages.length > 0) {
+                for (let i = 0; i < illust.meta_pages.length; i++) {
+                    chapters.set(i.toString(), `Page ${i + 1}`)
+                }
+            } else {
+                chapters.set('0', illust.title)
+            }
+
+            let tags = {}
+            if (illust.tags && illust.tags.length > 0) {
+                tags['Tags'] = illust.tags.map(t => t.translated_name || t.name)
+            }
+            tags['Author'] = [illust.user.name]
+            if (illust.user.account) {
+                tags['Account'] = [illust.user.account]
+            }
+
+            let cover = illust.image_urls.medium
+            if (illust.page_count > 1 && illust.meta_pages && illust.meta_pages.length > 0) {
+                cover = illust.meta_pages[0].image_urls.medium
+            }
+
+            return new ComicDetails({
+                title: illust.title,
+                subtitle: illust.user.name,
+                cover: cover,
+                description: illust.caption || '',
+                tags: tags,
+                chapters: chapters,
+                isFavorite: illust.is_bookmarked || false,
+                commentCount: illust.total_comments || 0,
+                likesCount: illust.total_bookmarks || 0,
+                uploadTime: illust.create_date,
+                url: `https://www.pixiv.net/artworks/${illust.id}`,
+                stars: (illust.total_bookmarks || 0) > 0 ? Math.min(5, Math.ceil((illust.total_bookmarks || 0) / 2000)) : 0,
             })
-            */
         },
 
-        // TODO: 加载作品图片
         loadEp: async (comicId, epId) => {
-            /*
-            单图: 直接返回原图 URL
-            多图: epId 为页码，返回对应图片
-            Pixiv 图片 URL 格式:
-            https://i.pximg.net/img-original/img/YYYY/MM/DD/..._p0.png
-            */
+            let json = await this.apiGet(`${this.apiBase}/v1/illust/detail?illust_id=${comicId}`)
+            let illust = json.illust
+            if (!illust) throw 'Illust not found'
+
+            let images = []
+            if (illust.page_count <= 1 || !illust.meta_pages || illust.meta_pages.length === 0) {
+                let quality = this.loadSetting('imageQuality') || 'large'
+                let url = (quality === 'original' && illust.meta_single_page?.original_image_url)
+                    || illust.image_urls.large
+                images.push(url)
+            } else {
+                let idx = parseInt(epId || '0')
+                let page = illust.meta_pages[idx]
+                if (page) {
+                    images.push(page.image_urls.large)
+                }
+            }
+
+            return { images: images }
         },
 
-        // TODO: 图片加载配置 (防盗链 header)
         onImageLoad: (url, comicId, epId) => {
             return {
                 headers: {
                     'Referer': 'https://www.pixiv.net/',
-                    'User-Agent': 'PixivIOSApp/7.13.3 (iOS 14.6; iPhone13,2)'
+                    'User-Agent': Pixiv.ua
                 }
             }
         },
 
-        // TODO: 识别 pixiv URL 中的作品 ID
+        onClickTag: (namespace, tag) => {
+            if (namespace === 'Tags') {
+                return {
+                    page: 'search',
+                    attributes: { keyword: tag }
+                }
+            }
+            if (namespace === 'Author') {
+                return {
+                    page: 'search',
+                    attributes: { keyword: tag }
+                }
+            }
+            return null
+        },
+
         idMatch: "^\\d+$",
 
-        // TODO: 从 URL 解析作品 ID
         link: {
             domains: ['www.pixiv.net', 'pixiv.net'],
             linkToId: (url) => {
-                // https://www.pixiv.net/artworks/12345678
                 let match = url.match(/artworks\/(\d+)/)
                 return match ? match[1] : null
             }
         },
     }
 
-    // ---------- 设置 ----------
+    // ---- Settings ----
 
     settings = {
-        // TODO: 图片质量设置
-        // imageQuality: {
-        //     title: "Image Quality",
-        //     type: "select",
-        //     options: [
-        //         { value: "original", text: "Original" },
-        //         { value: "regular", text: "Regular" }
-        //     ],
-        //     default: "original"
-        // }
+        apiHost: {
+            title: "API Host",
+            type: "input",
+            default: "https://app-api.pixiv.net",
+            validator: "^https?://.+"
+        },
+        imageQuality: {
+            title: "Image Quality",
+            type: "select",
+            options: [
+                { value: 'large', text: 'Large (~1200px)' },
+                { value: 'original', text: 'Original' },
+            ],
+            default: 'large'
+        }
     }
 
-    // ---------- 翻译 ----------
+    // ---- Translation ----
 
     translation = {
-        'zh_CN': {},
-        'zh_TW': {},
+        'zh_CN': {
+            'API Host': 'API地址',
+            'Image Quality': '图片质量',
+            'All': '全部',
+            'Tags': '标签',
+            'Author': '作者',
+            'Account': '账号',
+        },
+        'zh_TW': {
+            'API Host': 'API位址',
+            'Image Quality': '圖片品質',
+            'All': '全部',
+            'Tags': '標籤',
+            'Author': '作者',
+            'Account': '帳號',
+        },
         'en': {}
     }
 }
