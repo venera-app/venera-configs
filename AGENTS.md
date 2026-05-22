@@ -9,6 +9,9 @@ Flat repo of JavaScript "comic source" plugins for the Venera manga reader app. 
 - `_venera_.js` — Library/typedef for IDE code completion. **Do not modify.**
 - `_template_.js` — Starter template for new sources. Copy and rename to create a new source.
 - `index.json` — Registry of all sources (name, fileName, key, version). **Must be updated** when adding, removing, or renaming a source file.
+- `pixiv.js` — Pixiv illust browsing source. Uses OAuth 2.0 (Webview + refresh_token flow) to authenticate with Pixiv's app API (`app-api.pixiv.net`).
+- `pixez-flutter/` — Extracted Pixiv API layer from the PixEz Flutter project. Reference-only codebase for understanding Pixiv's internal API protocol.
+- `pixez-flutter/PIXIV_API.md` — Comprehensive Pixiv API reference documentation. Consult this when working on `pixiv.js`.
 - `.github/workflows/purge_cdn.yml` — On push to `main`, purges changed `.js`/`.json` files from jsDelivr CDN cache.
 
 ## Adding or updating a source
@@ -18,6 +21,60 @@ Flat repo of JavaScript "comic source" plugins for the Venera manga reader app. 
 3. The `url` field must point to the file's jsDelivr CDN path: `https://cdn.jsdelivr.net/gh/theoldman-lab/venera-configs@main/<filename>.js`
 4. The `key` field should be a unique identifier (typically lowercase snake_case).
 5. After adding/removing/renaming a source, update `index.json` with the corresponding entry.
+
+## pixiv.js implementation notes
+
+The Pixiv source uses the Pixiv app's private API (same as the official Android/iOS clients). Key implementation details:
+
+### Authentication
+
+- **Primary flow**: `loginWithWebview` — opens `accounts.pixiv.net/login`, captures `refresh_token` from LocalStorage after successful login, then exchanges it for `access_token` via OAuth.
+- **Fallback flow**: `login(account, pwd)` — treats `account` as a `refresh_token` (Pixiv's password grant is blocked). Calls `/auth/token` with `grant_type=refresh_token`.
+- **Auto-refresh**: When any API call returns HTTP 400 with `"OAuth"` in `error.message`, the interceptor automatically refreshes the token and retries.
+
+### Required headers
+
+Every API request to `app-api.pixiv.net` must include:
+
+| Header | Value |
+|--------|-------|
+| `X-Client-Time` | Current UTC time: `yyyy-MM-dd'T'HH:mm:ss'+00:00'` |
+| `X-Client-Hash` | `MD5(X-Client-Time + hashSecret)` as hex |
+| `User-Agent` | `PixivIOSApp/7.13.3 (iOS 14.6; iPhone13,2)` |
+| `App-OS` / `App-OS-Version` | `ios` / `14.6` |
+| `App-Version` | `5.0.166` |
+| `Authorization` | `Bearer {access_token}` |
+| `Host` | `app-api.pixiv.net` |
+
+Hash secret: `28c1fdd170a5204386cb1313c7077b34f83e4aaf4aa829ce78c231e05b0bae2c`
+
+OAuth endpoints (`oauth.secure.pixiv.net`) use the same headers minus `Authorization` and `Host`.
+
+### Pixiv API hosts
+
+| Host | Purpose |
+|------|---------|
+| `app-api.pixiv.net` | REST API (illust, novel, user, search, etc.) |
+| `oauth.secure.pixiv.net` | OAuth token endpoint (`/auth/token`) |
+| `accounts.pixiv.net` | Account management |
+| `i.pximg.net` / `s.pximg.net` | Image CDN |
+
+### Image CDN
+
+All image URLs are signed/domain-locked to `i.pximg.net`. Requests must include:
+- `Referer: https://app-api.pixiv.net/`
+- A valid `User-Agent` matching the app client
+
+### Pagination
+
+Most endpoints support `offset`-based pagination (30 items/page). The `next_url` field in responses contains the full URL for the next page. `v1/illust/new` uses `max_illust_id` cursor pagination and does NOT support `offset`.
+
+### Known limitations
+
+- `v1/illust/new` — cursor-based pagination, only page 1 works
+- Comments — next_url cursor pagination; loads multi-page in a single call (configurable via settings)
+- Multi-page works — each page is a separate "chapter"; no way to view all pages at once
+- Cannot create/delete Pixiv bookmark tags as folders (multiFolder disabled)
 
 ## Venera API notes
 
