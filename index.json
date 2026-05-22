@@ -188,5 +188,11 @@
         "key": "happy",
         "version": "1.0.0",
         "description": "中国大陆及日韩IP无法访问，遇到403可以尝试切换其他地区网络"
+    },
+    {
+        "name": "Pixiv",
+        "fileName": "pixiv.js",
+        "key": "pixiv",
+        "version": "1.0.0"
     }
 ]

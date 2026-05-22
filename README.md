@@ -1,5 +1,18 @@
 # venera-configs
 
+个人fork，仅希望加入pixiv
+
+预期功能：
+- 登陆
+- 查看关注画师动态
+- 排行
+- 搜索
+- 下载
+- 推荐画师
+
+- （不包括小说功能）
+目前需准备api备制
+
 Configuration file repository for venera
 
 ## Create a new configuration
