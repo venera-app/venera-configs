@@ -4,7 +4,7 @@ class Pixiv extends ComicSource {
      * ================================================================
      * WORK STATUS — 2025-05-22
      * ================================================================
-     * [x] Auth      — refresh_token 登录 / PHPSESSID 备用 / 401 自动刷新
+     * [x] Auth      — Webview 自动登录 (primary) / refresh_token 备用 / 401 自动刷新
      * [x] Explore   — Following/Daily/Weekly/Recommended/Newest 五分区
      * [x] Category  — 7种排行 + 动态热门标签 + 关注新作
      * [x] CategoryComics — offset 分页 (newest 仅首页, 是 API 限制)
@@ -24,7 +24,7 @@ class Pixiv extends ComicSource {
      */
     name = "Pixiv"
     key = "pixiv"
-    version = "1.0.1"
+    version = "1.1.0"
     minAppVersion = "1.6.0"
     url = "https://cdn.jsdelivr.net/gh/theoldman-lab/venera-configs@main/pixiv.js"
 
@@ -87,6 +87,10 @@ class Pixiv extends ComicSource {
 
     // Authenticated GET with auto-refresh on 401
     async apiGet(url) {
+        // webview 登录后延迟换 token
+        if (this.loadData('pending_refresh_token')) {
+            await this.exchangeWebviewToken()
+        }
         let token = this.loadData('access_token')
         if (!token) {
             token = await this.refreshToken()
@@ -102,6 +106,9 @@ class Pixiv extends ComicSource {
 
     // Authenticated POST with auto-refresh on 401
     async apiPost(url, body) {
+        if (this.loadData('pending_refresh_token')) {
+            await this.exchangeWebviewToken()
+        }
         let token = this.loadData('access_token')
         if (!token) {
             token = await this.refreshToken()
@@ -123,16 +130,86 @@ class Pixiv extends ComicSource {
 
     // ---- Account ----
 
+    /**
+     * 用延迟的 refresh_token 换取 access_token
+     * 适用于 loginWithWebview 后需要异步 OAuth 交换的场景
+     */
+    async exchangeWebviewToken() {
+        let token = this.loadData('pending_refresh_token')
+        if (!token) return false
+        this.deleteData('pending_refresh_token')
+        try {
+            let res = await Network.post(Pixiv.authUrl, this.getAuthHeaders(),
+                `client_id=${Pixiv.clientId}&client_secret=${Pixiv.clientSecret}&grant_type=refresh_token&refresh_token=${encodeURIComponent(token)}&get_secure_url=1`)
+            if (res.status !== 200) return false
+            let json = JSON.parse(res.body)
+            this.saveData('access_token', json.response.access_token)
+            this.saveData('refresh_token', json.response.refresh_token)
+            this.saveData('user_id', json.response.user.id.toString())
+            this.saveData('user_name', json.response.user.name)
+            this.saveData('user_account', json.response.user.account)
+            return true
+        } catch (e) {
+            return false
+        }
+    }
+
     account = {
-        // Pixiv 已废弃密码登录 (#158), 请使用 refresh_token 登录
-        // 获取 refresh_token: 浏览器登录 pixiv 后打开开发者工具 ->
-        // Application -> Local Storage -> 搜索 "refresh_token" 或
-        // 使用 https://github.com/eggplants/get-pixivpy-token
+        /*
+         * 主登录方式: Webview 内嵌浏览器登录 Pixiv
+         * App 内打开 Pixiv 登录页, 用户输入账号密码,
+         * 登录成功后自动从 LocalStorage 提取 refresh_token
+         */
+        loginWithWebview: {
+            url: "https://accounts.pixiv.net/login?lang=zh",
+
+            checkStatus: (url, title) => {
+                // 登录成功后 Pixiv 重定向到 www.pixiv.net (非登录页)
+                if (url.includes('www.pixiv.net') && !url.includes('/login')) {
+                    return true
+                }
+                return false
+            },
+
+            onLoginSuccess: () => {
+                // Webview 关闭后 App 已保存 LocalStorage, 提取 refresh_token
+                try {
+                    let storage = this.loadData('_localStorage')
+                    if (!storage) return
+                    if (typeof storage === 'string') storage = JSON.parse(storage)
+
+                    let tokenData = null
+                    // Pixiv web 的 token 存储格式: {"token": "{\"refresh_token\":\"...\"}"}
+                    if (storage.token) {
+                        tokenData = typeof storage.token === 'string'
+                            ? JSON.parse(storage.token)
+                            : storage.token
+                    }
+                    if (!tokenData) tokenData = storage
+
+                    let refreshToken = tokenData?.refresh_token
+                    if (refreshToken) {
+                        this.saveData('pending_refresh_token', refreshToken)
+                    }
+                } catch (e) { }
+            },
+        },
+
+        /*
+         * 备用: 手动输入 refresh_token 登录
+         * (Webview 方式失败或高级用户手动填入)
+         */
         login: async (account, pwd) => {
-            // 优先使用本地存储的最新 refresh_token (Pixiv 每次刷新都会轮换)
-            let refreshToken = this.loadData('refresh_token') || (account || '').trim()
+            // 优先: webview 登录后暂存的 pending_refresh_token
+            // 其次: 上次 OAuth 刷新时的最新 refresh_token
+            // 最后: 用户本次手动输入的 refresh_token
+            let refreshToken = this.loadData('pending_refresh_token')
+                || this.loadData('refresh_token')
+                || (account || '').trim()
+            this.deleteData('pending_refresh_token')
+
             if (!refreshToken) {
-                throw 'Please enter your refresh_token'
+                throw 'Login required. Please login via Webview first.'
             }
 
             let res = await Network.post(Pixiv.authUrl, this.getAuthHeaders(),
@@ -156,37 +233,10 @@ class Pixiv extends ComicSource {
             return 'ok'
         },
 
-        loginWithCookies: {
-            fields: ["PHPSESSID"],
-            validate: async (values) => {
-                let phpsessid = values[0]
-                let cookie = new Cookie({
-                    name: 'PHPSESSID',
-                    value: phpsessid,
-                    domain: '.pixiv.net'
-                })
-                Network.setCookies('https://www.pixiv.net', [cookie])
-
-                // 尝试用 Cookie 获取 access_token (需要先有 refresh_token)
-                // PHPSESSID 登录有限制，主要用于验证是否已登录
-                try {
-                    let res = await Network.get(
-                        'https://www.pixiv.net/ajax/user/extra',
-                        { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36' }
-                    )
-                    if (res.status !== 200) return false
-                    let json = JSON.parse(res.body)
-                    if (json.error) return false
-                    return true
-                } catch (e) {
-                    return false
-                }
-            },
-        },
-
         logout: () => {
             this.deleteData('access_token')
             this.deleteData('refresh_token')
+            this.deleteData('pending_refresh_token')
             this.deleteData('user_id')
             this.deleteData('user_name')
             this.deleteData('user_account')
