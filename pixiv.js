@@ -7,7 +7,7 @@ class Pixiv extends ComicSource {
     // ============================================================
     name = "Pixiv"
     key = "pixiv"
-    version = "0.4.0"
+    version = "0.3.0"
     minAppVersion = "1.6.0"
     url = "https://cdn.jsdelivr.net/gh/theoldman-lab/venera-configs@main/pixiv.js"
 
@@ -23,7 +23,6 @@ class Pixiv extends ComicSource {
     static PKCE_CHARS    = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~"
 
     static _pkceVerifier = ""
-    static LOGIN_URL     = "https://accounts.pixiv.net/login?lang=en"
 
     get apiBase() {
         return this.loadSetting('apiHost') || 'https://app-api.pixiv.net'
@@ -98,47 +97,6 @@ class Pixiv extends ComicSource {
         if (!h) return null
         h['Content-Type'] = 'application/x-www-form-urlencoded'
         return h
-    }
-
-    // ============================================================
-    //  LOCAL STORAGE TOKEN EXTRACTION (fallback)
-    // ============================================================
-
-    _tryLocalStorageToken() {
-        let storage = this.loadData('_localStorage')
-        console.log('[Pixiv] _tryLocalStorageToken: exists=' + !!storage)
-        if (!storage) return false
-
-        if (typeof storage === 'string') {
-            try { storage = JSON.parse(storage) } catch(e) { return false }
-        }
-        if (!storage || typeof storage !== 'object') return false
-
-        let keys = Object.keys(storage)
-        console.log('[Pixiv] localStorage keys (' + keys.length + '): ' + keys.join(', '))
-
-        let refreshToken = null
-        if (storage.refresh_token) refreshToken = storage.refresh_token
-        if (!refreshToken && storage.token) {
-            let t = typeof storage.token === 'string' ? JSON.parse(storage.token) : storage.token
-            if (t && t.refresh_token) refreshToken = t.refresh_token
-        }
-        if (!refreshToken) {
-            for (let key in storage) {
-                try {
-                    let v = typeof storage[key] === 'string' ? JSON.parse(storage[key]) : storage[key]
-                    if (v && v.refresh_token) { refreshToken = v.refresh_token; break }
-                } catch (e) {}
-            }
-        }
-
-        if (refreshToken) {
-            console.log('[Pixiv] localStorage: refresh_token found')
-            this.saveData('pending_refresh_token', refreshToken)
-            return true
-        }
-        console.log('[Pixiv] localStorage: no refresh_token')
-        return false
     }
 
     // ============================================================
@@ -315,14 +273,6 @@ class Pixiv extends ComicSource {
     //  UTILITY
     // ============================================================
 
-    _normalizeSearchWord(keyword) {
-        let colonIdx = keyword.indexOf(':')
-        if (colonIdx > 0 && colonIdx < keyword.length - 1 && /^[a-z_]+$/i.test(keyword.substring(0, colonIdx))) {
-            return { word: keyword.substring(colonIdx + 1), isTagSearch: true }
-        }
-        return { word: keyword, isTagSearch: false }
-    }
-
     parseIllust(illust) {
         let cover = illust.image_urls.medium
         if (illust.page_count > 1 && illust.meta_pages && illust.meta_pages.length > 0) {
@@ -416,53 +366,70 @@ class Pixiv extends ComicSource {
 
     search = {
 
-        loadNext: async (keyword, options, next) => {
+        load: async (keyword, options, page) => {
             let sort = ((options && options[0]) || 'date_desc').replace(/^"|"$/g, '')
             let searchTarget = ((options && options[1]) || 'partial_match_for_tags').replace(/^"|"$/g, '')
             let aiFilter = ((options && options[2]) || 'all').replace(/^"|"$/g, '')
 
-            let normalized = this._normalizeSearchWord(keyword)
-            let word = normalized.word
             let isTagClick = this._pendingTagSearch
             this._pendingTagSearch = false
 
             if (isTagClick) {
                 searchTarget = 'partial_match_for_tags'
                 sort = 'popular_desc'
-            } else if (normalized.isTagSearch) {
-                searchTarget = 'partial_match_for_tags'
             }
 
-            if (searchTarget === 'users') {
-                let url = next
-                    ? (next.startsWith('http') ? next : this.apiBase + next)
-                    : this.apiBase + '/v1/search/user' +
-                        '?word=' + encodeURIComponent(word) +
+            let url
+            if (page > 1) {
+                let cursor = this.loadData('_search_cursor')
+                if (!cursor) return { comics: [], maxPage: 1 }
+                url = this.apiBase + cursor
+            } else {
+                this.deleteData('_search_cursor')
+
+                if (searchTarget === 'users') {
+                    url = this.apiBase + '/v1/search/user' +
+                        '?word=' + encodeURIComponent(keyword) +
                         '&filter=for_android'
-
-                let json = await this.apiGet(url)
-                let userPreviews = json.user_previews || []
-                let comics = userPreviews.map((function(e) { return this.parseUserPreview(e) }).bind(this))
-
-                return { comics: comics, next: json.next_url || null }
+                } else if (isTagClick) {
+                    url = this.apiBase + '/v1/search/popular-preview/illust' +
+                        '?word=' + encodeURIComponent(keyword) +
+                        '&search_target=partial_match_for_tags' +
+                        '&filter=for_android' +
+                        '&include_translated_tag_results=true' +
+                        '&merge_plain_keyword_results=true'
+                } else {
+                    url = this.apiBase + '/v1/search/illust' +
+                        '?word=' + encodeURIComponent(keyword) +
+                        '&sort=' + sort +
+                        '&search_target=' + searchTarget +
+                        '&filter=for_android' +
+                        '&merge_plain_keyword_results=true' +
+                        (aiFilter === 'exclude_ai' ? '&search_ai_type=1' : '') +
+                        (aiFilter === 'only_ai' ? '&search_ai_type=2' : '')
+                }
             }
-
-            let url = next
-                ? (next.startsWith('http') ? next : this.apiBase + next)
-                : this.apiBase + '/v1/search/illust' +
-                    '?word=' + encodeURIComponent(word) +
-                    '&sort=' + sort +
-                    '&search_target=' + searchTarget +
-                    '&filter=for_android' +
-                    '&merge_plain_keyword_results=true' +
-                    (isTagClick ? '&include_translated_tag_results=true' : '') +
-                    (aiFilter === 'exclude_ai' ? '&search_ai_type=1' : '') +
-                    (aiFilter === 'only_ai' ? '&search_ai_type=2' : '')
 
             let json = await this.apiGet(url)
-            let comics = (json.illusts || []).map((function(e) { return this.parseIllust(e) }).bind(this))
+            let comics
 
-            return { comics: comics, next: json.next_url || null }
+            if (searchTarget === 'users') {
+                let userPreviews = json.user_previews || []
+                comics = userPreviews.map((function(e) { return this.parseUserPreview(e) }).bind(this))
+            } else {
+                comics = (json.illusts || []).map((function(e) { return this.parseIllust(e) }).bind(this))
+            }
+
+            if (json.next_url) {
+                this.saveData('_search_cursor', json.next_url)
+            } else {
+                this.deleteData('_search_cursor')
+            }
+
+            return {
+                comics: comics,
+                maxPage: json.next_url ? page + 1 : page
+            }
         },
 
         optionList: [
@@ -499,7 +466,7 @@ class Pixiv extends ComicSource {
             }
         ],
 
-        enableTagsSuggestions: true,
+        enableTagsSuggestions: false,
     }
 
     // ============================================================
@@ -686,10 +653,6 @@ class Pixiv extends ComicSource {
                     else if (c === '=') break
                     else challenge += c
                 }
-                let pkceStart = 'https://app-api.pixiv.net/web/v1/users/auth/pixiv/start' +
-                    '?code_challenge=' + challenge +
-                    '&code_challenge_method=S256' +
-                    '&client=pixiv-android'
                 return 'https://app-api.pixiv.net/web/v1/login' +
                     '?code_challenge=' + challenge +
                     '&code_challenge_method=S256' +
@@ -834,23 +797,7 @@ class Pixiv extends ComicSource {
             'AI Only': '仅AI',
             'Users': '用户',
         },
-        'zh_TW': {
-            'API Host': 'API 位址',
-            'Following': '關注',
-            'sort': '排序',
-            'target': '搜尋目標',
-            'ai': 'AI',
-            'Newest': '最新',
-            'Oldest': '最舊',
-            'Popular': '最熱',
-            'Tag Match': '標籤匹配',
-            'Exact Tag': '精確標籤',
-            'Title & Caption': '標題和簡介',
-            'All': '全部',
-            'No AI': '不含AI',
-            'AI Only': '僅AI',
-            'Users': '用戶',
-        },
+        'zh_TW': {},
         'en': {}
     }
 }
