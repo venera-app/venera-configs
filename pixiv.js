@@ -7,7 +7,7 @@ class Pixiv extends ComicSource {
     // ============================================================
     name = "Pixiv"
     key = "pixiv"
-    version = "0.2.2"
+    version = "0.4.0"
     minAppVersion = "1.6.0"
     url = "https://cdn.jsdelivr.net/gh/theoldman-lab/venera-configs@main/pixiv.js"
 
@@ -315,6 +315,14 @@ class Pixiv extends ComicSource {
     //  UTILITY
     // ============================================================
 
+    _normalizeSearchWord(keyword) {
+        let colonIdx = keyword.indexOf(':')
+        if (colonIdx > 0 && colonIdx < keyword.length - 1 && /^[a-z_]+$/i.test(keyword.substring(0, colonIdx))) {
+            return { word: keyword.substring(colonIdx + 1), isTagSearch: true }
+        }
+        return { word: keyword, isTagSearch: false }
+    }
+
     parseIllust(illust) {
         let cover = illust.image_urls.medium
         if (illust.page_count > 1 && illust.meta_pages && illust.meta_pages.length > 0) {
@@ -330,6 +338,28 @@ class Pixiv extends ComicSource {
             tags: tags,
             description: (illust.caption || '').replace(/<[^>]*>/g, ''),
             maxPage: illust.page_count || 1
+        })
+    }
+
+    parseUserPreview(userPreview) {
+        let user = userPreview.user
+        let illusts = userPreview.illusts || []
+        let cover = user.profile_image_urls.medium
+        let tags = []
+        let pages = 1
+        if (illusts.length > 0) {
+            cover = illusts[0].image_urls.medium
+            tags = (illusts[0].tags || []).map(function(t) { return t.translated_name || t.name })
+            pages = illusts.length
+        }
+        return new Comic({
+            id: 'user_' + user.id.toString(),
+            title: user.name,
+            subTitle: user.account,
+            cover: cover,
+            tags: tags,
+            description: '',
+            maxPage: pages
         })
     }
 
@@ -381,13 +411,95 @@ class Pixiv extends ComicSource {
     }
 
     // ============================================================
-    //  SEARCH (stub)
+    //  SEARCH
     // ============================================================
 
     search = {
-        load: async (keyword, options, page) => {
-            return { comics: [], maxPage: 1 }
+
+        loadNext: async (keyword, options, next) => {
+            let sort = ((options && options[0]) || 'date_desc').replace(/^"|"$/g, '')
+            let searchTarget = ((options && options[1]) || 'partial_match_for_tags').replace(/^"|"$/g, '')
+            let aiFilter = ((options && options[2]) || 'all').replace(/^"|"$/g, '')
+
+            let normalized = this._normalizeSearchWord(keyword)
+            let word = normalized.word
+            let isTagClick = this._pendingTagSearch
+            this._pendingTagSearch = false
+
+            if (isTagClick) {
+                searchTarget = 'partial_match_for_tags'
+                sort = 'popular_desc'
+            } else if (normalized.isTagSearch) {
+                searchTarget = 'partial_match_for_tags'
+            }
+
+            if (searchTarget === 'users') {
+                let url = next
+                    ? (next.startsWith('http') ? next : this.apiBase + next)
+                    : this.apiBase + '/v1/search/user' +
+                        '?word=' + encodeURIComponent(word) +
+                        '&filter=for_android'
+
+                let json = await this.apiGet(url)
+                let userPreviews = json.user_previews || []
+                let comics = userPreviews.map((function(e) { return this.parseUserPreview(e) }).bind(this))
+
+                return { comics: comics, next: json.next_url || null }
+            }
+
+            let url = next
+                ? (next.startsWith('http') ? next : this.apiBase + next)
+                : this.apiBase + '/v1/search/illust' +
+                    '?word=' + encodeURIComponent(word) +
+                    '&sort=' + sort +
+                    '&search_target=' + searchTarget +
+                    '&filter=for_android' +
+                    '&merge_plain_keyword_results=true' +
+                    (isTagClick ? '&include_translated_tag_results=true' : '') +
+                    (aiFilter === 'exclude_ai' ? '&search_ai_type=1' : '') +
+                    (aiFilter === 'only_ai' ? '&search_ai_type=2' : '')
+
+            let json = await this.apiGet(url)
+            let comics = (json.illusts || []).map((function(e) { return this.parseIllust(e) }).bind(this))
+
+            return { comics: comics, next: json.next_url || null }
         },
+
+        optionList: [
+            {
+                type: "select",
+                options: [
+                    "date_desc-Newest",
+                    "date_asc-Oldest",
+                    "popular_desc-Popular"
+                ],
+                label: "sort",
+                default: "date_desc",
+            },
+            {
+                type: "select",
+                options: [
+                    "partial_match_for_tags-Tag Match",
+                    "exact_match_for_tags-Exact Tag",
+                    "title_and_caption-Title & Caption",
+                    "users-Users"
+                ],
+                label: "target",
+                default: "partial_match_for_tags",
+            },
+            {
+                type: "select",
+                options: [
+                    "all-All",
+                    "exclude_ai-No AI",
+                    "only_ai-AI Only"
+                ],
+                label: "ai",
+                default: "all",
+            }
+        ],
+
+        enableTagsSuggestions: true,
     }
 
     // ============================================================
@@ -417,6 +529,34 @@ class Pixiv extends ComicSource {
     comic = {
 
         loadInfo: async (id) => {
+            if (id.startsWith('user_')) {
+                let userId = id.substring(5)
+                let json = await this.apiGet(
+                    this.apiBase + '/v1/user/illusts?filter=for_android&user_id=' + userId + '&offset=0')
+                let illusts = json.illusts || []
+                if (illusts.length === 0) {
+                    let userJson = await this.apiGet(
+                        this.apiBase + '/v1/user/detail?filter=for_android&user_id=' + userId)
+                    let user = userJson.user
+                    if (!user) throw 'User not found'
+                    let tagsObj = {}
+                    tagsObj['Artist'] = [user.name + ' |' + user.id]
+                    return new ComicDetails({
+                        title: user.name,
+                        subtitle: user.account,
+                        cover: user.profile_image_urls.medium,
+                        description: user.comment || '',
+                        tags: tagsObj,
+                        chapters: { '0': user.name },
+                        isFavorite: null,
+                        url: 'https://www.pixiv.net/users/' + user.id
+                    })
+                }
+                let illust = illusts[0]
+                // Reuse existing illust detail loading
+                return await this.comic.loadInfo(illust.id.toString())
+            }
+
             let json = await this.apiGet(
                 this.apiBase + '/v1/illust/detail?illust_id=' + id)
             let illust = json.illust
@@ -506,6 +646,7 @@ class Pixiv extends ComicSource {
                     }
                 }
             }
+            this._pendingTagSearch = true
             return {
                 page: 'search',
                 keyword: tag,
@@ -679,10 +820,36 @@ class Pixiv extends ComicSource {
         'zh_CN': {
             'API Host': 'API 地址',
             'Following': '关注',
+            'sort': '排序',
+            'target': '搜索目标',
+            'ai': 'AI',
+            'Newest': '最新',
+            'Oldest': '最旧',
+            'Popular': '最热',
+            'Tag Match': '标签匹配',
+            'Exact Tag': '精确标签',
+            'Title & Caption': '标题和简介',
+            'All': '全部',
+            'No AI': '不含AI',
+            'AI Only': '仅AI',
+            'Users': '用户',
         },
         'zh_TW': {
             'API Host': 'API 位址',
             'Following': '關注',
+            'sort': '排序',
+            'target': '搜尋目標',
+            'ai': 'AI',
+            'Newest': '最新',
+            'Oldest': '最舊',
+            'Popular': '最熱',
+            'Tag Match': '標籤匹配',
+            'Exact Tag': '精確標籤',
+            'Title & Caption': '標題和簡介',
+            'All': '全部',
+            'No AI': '不含AI',
+            'AI Only': '僅AI',
+            'Users': '用戶',
         },
         'en': {}
     }

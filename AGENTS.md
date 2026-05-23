@@ -11,13 +11,13 @@ Flat repo of JavaScript "comic source" plugins for the Venera manga reader app. 
 - `index.json` — Registry of all sources (name, fileName, key, version). **Must be updated** when adding, removing, or renaming a source file.
 - `pixiv.js` — Pixiv illust browsing source. PKCE login via `app-api.pixiv.net/web/v1/login?code_challenge=...` WebView. IIFE generates PKCE verifier+challenge at construction time; `checkStatus` captures auth code from callback; `_exchangeAuthCode` exchanges with App OAuth credentials. Manual refresh_token as fallback.
 - `PIXIV_API.md` — Comprehensive Pixiv API reference documentation extracted from the PixEz Flutter project. Consult this when working on `pixiv.js`.
-- `pixez/` — Extracted Pixiv API layer from the PixEz Flutter project. Reference-only codebase for understanding Pixiv's internal API protocol.
+- `pixez/` — Extracted Pixiv API layer from the PixEz Flutter project. **Gitignored** — not available on a fresh clone. Primary reference is `PIXIV_API.md`.
 - `.github/workflows/purge_cdn.yml` — On push to `main`, purges changed `.js`/`.json` files from jsDelivr CDN cache.
 
 ## Adding or updating a source
 
 1. Each source file must have `/** @type {import('./_venera_.js')} */` at the top.
-2. The class must extend `ComicSource` and define `name`, `key`, `version`, and `url`.
+2. The class must extend `ComicSource` and define `name`, `key`, `version`, `minAppVersion`, and `url`.
 3. The `url` field must point to the file's jsDelivr CDN path: `https://cdn.jsdelivr.net/gh/theoldman-lab/venera-configs@main/<filename>.js`
 4. The `key` field should be a unique identifier (typically lowercase snake_case).
 5. After adding/removing/renaming a source, update `index.json` with the corresponding entry.
@@ -37,7 +37,7 @@ Rewritten from scratch, based on the PixEz Flutter project (`pixez/`) API layer.
 | Comic tags | Artist tag (name | ID) under `'Artist'` namespace; content tags under `'Tags'` namespace |
 | Artist works | Via `onClickTag` → `categoryComics.load` for `user_illusts` category (offset pagination, 30/page) |
 | Category | Stub (empty) — artist browsing via `user_illusts` categoryComics only reachable through tags |
-| Search | Not yet |
+| Search | Keyword search via `/v1/search/illust` and `/v1/search/user`, sort/target/AI filter options, `next_url` cursor pagination, autocomplete suggestions enabled, tag clicks use `partial_match_for_tags` + `popular_desc` (ref: PixEz `getPopularPreview`) |
 | Favorites | Not yet |
 | Comments | Not yet |
 | Category/Ranking | Not yet |
@@ -109,12 +109,14 @@ Pixiv uses `next_url` cursor-based pagination. Responses contain a `next_url` fi
 ## Venera API notes
 
 - **`Network.get/post/put/delete`** return `{status, headers, body}` where `body` is a **string** (UTF-8 decoded). Use `Network.fetchBytes` for binary responses.
-- **`fetch`** (global) is a browser-like wrapper available since app 1.2.0. Returns `{ok, status, json(), text(), arrayBuffer()}`.
+- **`fetch`** (global) is a browser-like wrapper available since app 1.2.0. Returns `{ok, status, json(), text(), arrayBuffer()}`. Unlike `Network.get`, `body` is `ArrayBuffer` (not string); use `.text()` or `.json()`.
 - **`HtmlDocument`** — HTML parser. Always call `.dispose()` when done.
 - **`Network.setCookies(url, cookies)`** — Each cookie is a `new Cookie({name, value, domain})`.
 - **`Convert`** — hashing (md5, sha1, sha256, sha512, hmac), encoding (utf8, gbk, base64, hex), decryption (AES-ECB/CBC/CFB/OFB, RSA).
+  - **Critical**: `Convert.md5()` (and all hash functions) return `ArrayBuffer`, **not** hex string. Use `Convert.hexEncode(Convert.md5(data))` to get a hex string (e.g., for Pixiv `X-Client-Hash`).
 - **`this.loadData`/`saveData`/`deleteData`** — scoped per-source persistent key-value storage.
-- **`this.loadSetting`** — reads user-configured settings declared in the `settings` block.
+- **`this.loadSetting`** — reads user-configured settings declared in the `settings` block (see `pixiv.js` `apiHost` setting for proxy support).
 - **Throw `'Login expired'`** (exact string) from account/favorite methods to trigger automatic re-login in the app.
 - **`this.translate(key)`** — looks up translation using `APP.locale` and the source's `translation` object.
 - **`ImageLoadingConfig`** — for compatibility with older app versions, create a plain object rather than using the constructor.
+- **`categoryComics.load` must be synchronous** (return value directly, not a Promise). Venera's Dart bridge checks the return type strictly; async functions return Promise, not List.
