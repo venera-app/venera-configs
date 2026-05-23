@@ -2,9 +2,9 @@
 
 Venera 漫画阅读器插件仓库，提供 Pixiv 漫画源。
 
-## Pixiv 源 (`pixiv.js`) — v2.0.0
+## Pixiv 源 (`pixiv.js`) — v2.0.1
 
-基于 PixEz Flutter 项目的 API 层完全重写。
+基于 PixEz Flutter 项目的 API 层重写。
 
 ### 已实现
 
@@ -13,7 +13,7 @@ Venera 漫画阅读器插件仓库，提供 Pixiv 漫画源。
 | 登录 | WebView 打开 `app-api.pixiv.net/web/v1/login`（PKCE 流程），回调捕获授权码后用 App OAuth 凭证交换 `access_token` + `refresh_token` |
 | Token 管理 | 自动刷新（HTTP 400 + `OAuth` 错误触发，与 Pixiv 官方客户端一致） |
 | 探索页 | 关注动态（`/v2/illust/follow?restrict=all`），`next_url` 游标分页 |
-| 作品详情 | 标题/画师/多页分章，原图/大图加载 |
+| 作品详情 | 标题/画师/多页统一章节，原图/大图加载 |
 | 图片加载 | `Referer` + `User-Agent` 头（Pixiv 图片 CDN 要求） |
 
 ### 待实现
@@ -29,10 +29,10 @@ Venera 漫画阅读器插件仓库，提供 Pixiv 漫画源。
 
 ### 登录方式
 
-1. **主流程（PKCE）**：Venera 内置浏览器打开 `app-api.pixiv.net/web/v1/login`（与官方 App 相同的登录页）→ 登录成功后 Pixiv 重定向到回调 URL 并携带 `code` → 捕获 `code` 后用 App 专用 `CLIENT_ID/SECRET` 交换 `access_token` + `refresh_token`
-2. **备用流程**：手动粘贴 `refresh_token` 到账号输入框 → 直接调用 `/auth/token` 交换
+1. **PKCE 流程**：WebView 打开 `app-api.pixiv.net/web/v1/login?code_challenge=...` → 服务器创建 PKCE 会话 → 重定向至 `accounts.pixiv.net/login` → 用户登录 → Pixiv 追随 OAuth 重定向链 → `callback?code=...` → `checkStatus` 捕获授权码 → `_exchangeAuthCode` 交换 `access_token`
+2. **手动流程**：粘贴 `refresh_token` 到账号输入框直接交换
 
-> **注意**：Pixiv 网页登录（`accounts.pixiv.net`）和 App API（`app-api.pixiv.net`）使用不同的 OAuth 客户端凭证。网页端产出的 token 无法用于 App API，必须通过 PKCE 流程获取 App 端的正确 token。
+> **注意**：`/auth/token` 请求必须设置 `Content-Type: application/x-www-form-urlencoded`，否则 Pixiv 返回 `invalid_client`。
 
 ### API 参考
 

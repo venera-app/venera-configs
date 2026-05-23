@@ -2,3 +2,4 @@
 .vscode
 test/
 pixez/
+log*
