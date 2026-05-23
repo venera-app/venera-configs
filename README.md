@@ -10,7 +10,7 @@ Venera 漫画阅读器插件仓库，提供 Pixiv 漫画源。
 
 | 功能 | 说明 |
 |------|------|
-| 登录 | WebView 打开 `accounts.pixiv.net/login`，自动提取 localStorage 中的 `refresh_token`，通过 `/auth/token` 交换 `access_token` |
+| 登录 | WebView 打开 `app-api.pixiv.net/web/v1/login`（PKCE 流程），回调捕获授权码后用 App OAuth 凭证交换 `access_token` + `refresh_token` |
 | Token 管理 | 自动刷新（HTTP 400 + `OAuth` 错误触发，与 Pixiv 官方客户端一致） |
 | 探索页 | 关注动态（`/v2/illust/follow?restrict=all`），`next_url` 游标分页 |
 | 作品详情 | 标题/画师/多页分章，原图/大图加载 |
@@ -29,8 +29,10 @@ Venera 漫画阅读器插件仓库，提供 Pixiv 漫画源。
 
 ### 登录方式
 
-1. **主流程**：Venera 内置浏览器打开 Pixiv 网页登录 → 登录成功后 localStorage 中的 `refresh_token` 被自动捕获 → 下次 API 调用时交换 `access_token`
+1. **主流程（PKCE）**：Venera 内置浏览器打开 `app-api.pixiv.net/web/v1/login`（与官方 App 相同的登录页）→ 登录成功后 Pixiv 重定向到回调 URL 并携带 `code` → 捕获 `code` 后用 App 专用 `CLIENT_ID/SECRET` 交换 `access_token` + `refresh_token`
 2. **备用流程**：手动粘贴 `refresh_token` 到账号输入框 → 直接调用 `/auth/token` 交换
+
+> **注意**：Pixiv 网页登录（`accounts.pixiv.net`）和 App API（`app-api.pixiv.net`）使用不同的 OAuth 客户端凭证。网页端产出的 token 无法用于 App API，必须通过 PKCE 流程获取 App 端的正确 token。
 
 ### API 参考
 

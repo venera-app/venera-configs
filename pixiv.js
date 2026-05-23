@@ -19,9 +19,27 @@ class Pixiv extends ComicSource {
     static CLIENT_SECRET = "lsACyCD94FhDUtGTXi3QzcFE2uU1hqtDaKeqrdwj"
     static HASH_SECRET   = "28c1fdd170a5204386cb1313c7077b34f83e4aaf4aa829ce78c231e05b0bae2c"
     static USER_AGENT    = "PixivAndroidApp/5.0.166 (Android 10.0; Pixel C)"
+    static REDIRECT_URI  = "https://app-api.pixiv.net/web/v1/users/auth/pixiv/callback"
+    static PKCE_CHARS    = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~"
 
     get apiBase() {
         return this.loadSetting('apiHost') || 'https://app-api.pixiv.net'
+    }
+
+    // ============================================================
+    //  INIT — setup PKCE login URL before WebView opens
+    //  (ref: PixEz CryptoPlugin + OAuthClient.generateWebviewUrl)
+    // ============================================================
+
+    init() {
+        let verifier = this._generateCodeVerifier()
+        this.saveData('_pkce_verifier', verifier)
+        let challenge = this._generateCodeChallenge(verifier)
+        this.account.loginWithWebview.url =
+            'https://app-api.pixiv.net/web/v1/login' +
+            '?code_challenge=' + challenge +
+            '&code_challenge_method=S256' +
+            '&client=pixiv-android'
     }
 
     // ============================================================
@@ -59,6 +77,67 @@ class Pixiv extends ComicSource {
         if (!h) return null
         h['Content-Type'] = 'application/x-www-form-urlencoded'
         return h
+    }
+
+    // ============================================================
+    //  PKCE — code_verifier / code_challenge
+    //  (ref: PixEz CryptoPlugin)
+    // ============================================================
+
+    _generateCodeVerifier() {
+        let chars = Pixiv.PKCE_CHARS
+        let result = ''
+        for (let i = 0; i < 128; i++) {
+            result += chars[randomInt(0, chars.length - 1)]
+        }
+        return result
+    }
+
+    _generateCodeChallenge(verifier) {
+        let hash = Convert.sha256(Convert.encodeUtf8(verifier))
+        let b64 = Convert.encodeBase64(hash)
+        let result = ''
+        for (let i = 0; i < b64.length; i++) {
+            let c = b64[i]
+            if (c === '+') result += '-'
+            else if (c === '/') result += '_'
+            else if (c === '=') break
+            else result += c
+        }
+        return result
+    }
+
+    // ============================================================
+    //  TOKEN EXCHANGE (ref: PixEz OAuthClient.code2Token)
+    // ============================================================
+
+    async _exchangeAuthCode() {
+        let code = this.loadData('_pkce_code')
+        let verifier = this.loadData('_pkce_verifier')
+        if (!code || !verifier) return false
+
+        this.deleteData('_pkce_code')
+        this.deleteData('_pkce_verifier')
+
+        let body = [
+            'client_id=' + encodeURIComponent(Pixiv.CLIENT_ID),
+            'client_secret=' + encodeURIComponent(Pixiv.CLIENT_SECRET),
+            'grant_type=authorization_code',
+            'code=' + encodeURIComponent(code),
+            'code_verifier=' + encodeURIComponent(verifier),
+            'redirect_uri=' + encodeURIComponent(Pixiv.REDIRECT_URI),
+            'include_policy=true'
+        ].join('&')
+
+        let res = await Network.post(Pixiv.AUTH_URL, this.getSignHeaders(), body)
+        if (res.status !== 200) return false
+
+        let json = JSON.parse(res.body)
+        let resp = json.response
+        if (!resp || !resp.access_token) return false
+
+        this._saveTokenResponse(resp)
+        return true
     }
 
     // ============================================================
@@ -116,18 +195,13 @@ class Pixiv extends ComicSource {
     }
 
     // ============================================================
-    //  _ensureToken — exchange pending token before API calls
+    //  _ensureToken — exchange pending auth code before API calls
     // ============================================================
 
     async _ensureToken() {
-        let pending = this.loadData('pending_refresh_token')
-        if (!pending) return
-        this.deleteData('pending_refresh_token')
-        this.saveData('refresh_token', pending)
-        try {
-            await this.refreshToken()
-        } catch (e) {
-            this.deleteData('refresh_token')
+        let code = this.loadData('_pkce_code')
+        if (code) {
+            try { await this._exchangeAuthCode() } catch (e) {}
         }
     }
 
@@ -163,48 +237,6 @@ class Pixiv extends ComicSource {
         }
         if (res.status !== 200) throw 'HTTP ' + res.status + ': ' + url
         return JSON.parse(res.body)
-    }
-
-    // ============================================================
-    //  LOCALSTORAGE TOKEN EXTRACTION
-    //
-    //  After WebView login at accounts.pixiv.net, Pixiv's web SPA
-    //  stores OAuth tokens in localStorage. Venera captures this
-    //  as _localStorage (per _template_.js loginWithWebview docs).
-    //
-    //  We search multiple paths since the exact key structure
-    //  depends on Pixiv's frontend implementation.
-    // ============================================================
-
-    _extractRefreshToken(storage) {
-        if (!storage) return null
-        if (typeof storage === 'string') {
-            try { storage = JSON.parse(storage) } catch (e) { return null }
-        }
-        if (!storage || typeof storage !== 'object') return null
-
-        if (storage.token) {
-            let t = typeof storage.token === 'string'
-                ? (() => { try { return JSON.parse(storage.token) } catch (e) { return null } })()
-                : storage.token
-            if (t && t.refresh_token) return t.refresh_token
-        }
-
-        if (storage.refresh_token) return storage.refresh_token
-
-        for (let key of Object.keys(storage)) {
-            try {
-                let val = storage[key]
-                if (typeof val === 'string') {
-                    try { val = JSON.parse(val) } catch (e) { continue }
-                }
-                if (val && typeof val === 'object' && val.refresh_token) {
-                    return val.refresh_token
-                }
-            } catch (e) {}
-        }
-
-        return null
     }
 
     // ============================================================
@@ -385,55 +417,55 @@ class Pixiv extends ComicSource {
     // ============================================================
     //  ACCOUNT
     //
-    //  Primary:  WebView opens accounts.pixiv.net/login.
-    //            After login, Pixiv redirects to www.pixiv.net and
-    //            stores OAuth tokens in localStorage. Venera
-    //            captures this automatically as _localStorage.
+    //  PKCE flow (same as PixEz + official Pixiv Android client):
+    //    1. init() generates code_verifier + code_challenge
+    //    2. WebView opens app-api.pixiv.net/web/v1/login?code_challenge=...
+    //       (this IS the Pixiv login page — just via the App API gateway)
+    //    3. After login, Pixiv redirects to callback?code=...
+    //    4. checkStatus captures the authorization code
+    //    5. _exchangeAuthCode exchanges it with App OAuth credentials
     //
-    //  Fallback: Manual refresh_token via account parameter.
+    //  Fallback: manual refresh_token via account parameter.
     // ============================================================
 
     account = {
 
         loginWithWebview: {
-            url: "https://accounts.pixiv.net/login?lang=zh",
+            // Set by init() — PKCE login URL
+            url: "",
 
             checkStatus: (url, title) => {
-                if ((url.includes('www.pixiv.net') || url.includes('pixiv.net'))
-                    && !url.includes('/login')
-                    && !url.includes('accounts.pixiv.net')) {
-                    return true
+                let codeIdx = url.indexOf('code=')
+                if (url.includes('/auth/pixiv/callback') && codeIdx !== -1) {
+                    let start = codeIdx + 5
+                    let end = url.indexOf('&', start)
+                    if (end === -1) end = url.length
+                    let code = url.substring(start, end)
+                    if (code) {
+                        this.saveData('_pkce_code', decodeURIComponent(code))
+                        return true
+                    }
                 }
                 return false
             },
 
             onLoginSuccess: () => {
                 try {
-                    let storage = this.loadData('_localStorage')
-                    let token = this._extractRefreshToken(storage)
-                    if (token) {
-                        this.saveData('pending_refresh_token', token)
-                    }
+                    this._exchangeAuthCode().catch(function(){})
                 } catch (e) {}
             },
         },
 
         login: async (account, pwd) => {
-            // 1) pending token from WebView login
-            let pending = this.loadData('pending_refresh_token')
-            if (pending) {
-                this.deleteData('pending_refresh_token')
-                this.saveData('refresh_token', pending)
-                try {
-                    await this.refreshToken()
-                    return 'ok'
-                } catch (e) {
-                    this.deleteData('refresh_token')
-                    throw 'Login failed: unable to exchange token'
-                }
+            // 1) Exchange PKCE authorization code
+            let code = this.loadData('_pkce_code')
+            if (code) {
+                let ok = await this._exchangeAuthCode()
+                if (ok) return 'ok'
+                throw 'Login failed: unable to exchange authorization code'
             }
 
-            // 2) stored refresh_token from previous session
+            // 2) Refresh existing stored token
             if (this.loadData('refresh_token')) {
                 try {
                     await this.refreshToken()
@@ -443,7 +475,7 @@ class Pixiv extends ComicSource {
                 }
             }
 
-            // 3) manual refresh_token via account parameter
+            // 3) Manual refresh_token via account parameter
             let manual = (account || '').trim()
             if (manual) {
                 this.saveData('refresh_token', manual)
@@ -462,12 +494,11 @@ class Pixiv extends ComicSource {
         logout: () => {
             this.deleteData('access_token')
             this.deleteData('refresh_token')
-            this.deleteData('pending_refresh_token')
+            this.deleteData('_pkce_code')
+            this.deleteData('_pkce_verifier')
             this.deleteData('user_id')
             this.deleteData('user_name')
             this.deleteData('user_account')
-            Network.deleteCookies('https://www.pixiv.net')
-            Network.deleteCookies('https://accounts.pixiv.net')
         },
 
         registerWebsite: 'https://www.pixiv.net/signup/'

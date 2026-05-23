@@ -9,7 +9,7 @@ Flat repo of JavaScript "comic source" plugins for the Venera manga reader app. 
 - `_venera_.js` — Library/typedef for IDE code completion. **Do not modify.**
 - `_template_.js` — Starter template for new sources. Copy and rename to create a new source.
 - `index.json` — Registry of all sources (name, fileName, key, version). **Must be updated** when adding, removing, or renaming a source file.
-- `pixiv.js` — Pixiv illust browsing source. Uses WebView login (`accounts.pixiv.net/login` → localStorage → refresh_token) to authenticate with Pixiv's app API (`app-api.pixiv.net`).
+- `pixiv.js` — Pixiv illust browsing source. Uses PKCE WebView login (`app-api.pixiv.net/web/v1/login?code_challenge=...`) to authenticate with Pixiv's app API (`app-api.pixiv.net`).
 - `PIXIV_API.md` — Comprehensive Pixiv API reference documentation extracted from the PixEz Flutter project. Consult this when working on `pixiv.js`.
 - `pixez/` — Extracted Pixiv API layer from the PixEz Flutter project. Reference-only codebase for understanding Pixiv's internal API protocol.
 - `.github/workflows/purge_cdn.yml` — On push to `main`, purges changed `.js`/`.json` files from jsDelivr CDN cache.
@@ -41,9 +41,11 @@ Rewritten from scratch, based on the PixEz Flutter project (`pixez/`) API layer.
 
 ### Authentication
 
-- **Primary flow**: `loginWithWebview` — opens `accounts.pixiv.net/login?lang=zh` in Venera's built-in WebView. After successful login, Pixiv's web SPA stores OAuth tokens in localStorage. Venera captures this automatically as `_localStorage`. `onLoginSuccess` extracts `refresh_token` and saves it as `pending_refresh_token`, which is exchanged for `access_token` on the next API call or when `login()` is invoked.
+- **Primary flow (PKCE)** — `init()` generates a 128-char `code_verifier` and `code_challenge = base64url(sha256(verifier))`. The WebView opens `app-api.pixiv.net/web/v1/login?code_challenge=...&code_challenge_method=S256&client=pixiv-android`. After login, Pixiv redirects to `.../auth/pixiv/callback?code=...`. `checkStatus` captures the authorization `code`, which is exchanged for `access_token` + `refresh_token` via `POST /auth/token` with `grant_type=authorization_code` + `code_verifier`.
 - **Fallback flow**: `login(account, pwd)` — treats `account` as a `refresh_token` (Pixiv's password grant is blocked). Calls `/auth/token` with `grant_type=refresh_token`.
 - **Auto-refresh**: When any API call returns HTTP 400 with `"OAuth"` in `error.message`, automatically refreshes the token and retries the request (ref: `PixEz RefreshTokenInterceptor`).
+
+> **CRITICAL: Web tokens ≠ App tokens.** Pixiv's `accounts.pixiv.net/login` (the website login page) and `app-api.pixiv.net` (the mobile API) use **different OAuth clients** with different credentials. A `refresh_token` obtained from the website login will NOT work when exchanged with the App API's `CLIENT_ID/SECRET` (`MOBrBDS8...` / `lsACyCD...`). This causes silent `Login expired` errors on API calls. Always use the PKCE flow through `app-api.pixiv.net/web/v1/login` which returns an authorization code that CAN be exchanged with the correct App OAuth credentials. All subsequent API features (search, favorites, comments, etc.) depend on this.
 
 ### Required headers
 
