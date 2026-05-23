@@ -9,9 +9,9 @@ Flat repo of JavaScript "comic source" plugins for the Venera manga reader app. 
 - `_venera_.js` — Library/typedef for IDE code completion. **Do not modify.**
 - `_template_.js` — Starter template for new sources. Copy and rename to create a new source.
 - `index.json` — Registry of all sources (name, fileName, key, version). **Must be updated** when adding, removing, or renaming a source file.
-- `pixiv.js` — Pixiv illust browsing source. Uses OAuth 2.0 (Webview + refresh_token flow) to authenticate with Pixiv's app API (`app-api.pixiv.net`).
-- `pixez-flutter/` — Extracted Pixiv API layer from the PixEz Flutter project. Reference-only codebase for understanding Pixiv's internal API protocol.
-- `pixez-flutter/PIXIV_API.md` — Comprehensive Pixiv API reference documentation. Consult this when working on `pixiv.js`.
+- `pixiv.js` — Pixiv illust browsing source. Uses WebView login (`accounts.pixiv.net/login` → localStorage → refresh_token) to authenticate with Pixiv's app API (`app-api.pixiv.net`).
+- `PIXIV_API.md` — Comprehensive Pixiv API reference documentation extracted from the PixEz Flutter project. Consult this when working on `pixiv.js`.
+- `pixez/` — Extracted Pixiv API layer from the PixEz Flutter project. Reference-only codebase for understanding Pixiv's internal API protocol.
 - `.github/workflows/purge_cdn.yml` — On push to `main`, purges changed `.js`/`.json` files from jsDelivr CDN cache.
 
 ## Adding or updating a source
@@ -22,15 +22,28 @@ Flat repo of JavaScript "comic source" plugins for the Venera manga reader app. 
 4. The `key` field should be a unique identifier (typically lowercase snake_case).
 5. After adding/removing/renaming a source, update `index.json` with the corresponding entry.
 
-## pixiv.js implementation notes
+## pixiv.js v2.0.0 implementation notes
 
-The Pixiv source uses the Pixiv app's private API (same as the official Android/iOS clients). Key implementation details:
+Rewritten from scratch, based on the PixEz Flutter project (`pixez/`) API layer. Reference: `PIXIV_API.md`.
+
+### Status
+
+| Module | Status |
+|--------|--------|
+| Authentication | WebView login + manual refresh_token |
+| Token management | Auto-refresh on OAuth errors (HTTP 400) |
+| Explore | Following feed (`/v2/illust/follow?restrict=all`) |
+| Comic detail | Info + chapters + image loading |
+| Search | Not yet |
+| Favorites | Not yet |
+| Comments | Not yet |
+| Category/Ranking | Not yet |
 
 ### Authentication
 
-- **Primary flow**: `loginWithWebview` — opens `accounts.pixiv.net/login`, captures `refresh_token` from LocalStorage after successful login, then exchanges it for `access_token` via OAuth.
+- **Primary flow**: `loginWithWebview` — opens `accounts.pixiv.net/login?lang=zh` in Venera's built-in WebView. After successful login, Pixiv's web SPA stores OAuth tokens in localStorage. Venera captures this automatically as `_localStorage`. `onLoginSuccess` extracts `refresh_token` and saves it as `pending_refresh_token`, which is exchanged for `access_token` on the next API call or when `login()` is invoked.
 - **Fallback flow**: `login(account, pwd)` — treats `account` as a `refresh_token` (Pixiv's password grant is blocked). Calls `/auth/token` with `grant_type=refresh_token`.
-- **Auto-refresh**: When any API call returns HTTP 400 with `"OAuth"` in `error.message`, the interceptor automatically refreshes the token and retries.
+- **Auto-refresh**: When any API call returns HTTP 400 with `"OAuth"` in `error.message`, automatically refreshes the token and retries the request (ref: `PixEz RefreshTokenInterceptor`).
 
 ### Required headers
 
@@ -40,8 +53,8 @@ Every API request to `app-api.pixiv.net` must include:
 |--------|-------|
 | `X-Client-Time` | Current UTC time: `yyyy-MM-dd'T'HH:mm:ss'+00:00'` |
 | `X-Client-Hash` | `MD5(X-Client-Time + hashSecret)` as hex |
-| `User-Agent` | `PixivIOSApp/7.13.3 (iOS 14.6; iPhone13,2)` |
-| `App-OS` / `App-OS-Version` | `ios` / `14.6` |
+| `User-Agent` | `PixivAndroidApp/5.0.166 (Android 10.0; Pixel C)` |
+| `App-OS` / `App-OS-Version` | `Android` / `Android 10.0` |
 | `App-Version` | `5.0.166` |
 | `Authorization` | `Bearer {access_token}` |
 | `Host` | `app-api.pixiv.net` |
@@ -56,7 +69,7 @@ OAuth endpoints (`oauth.secure.pixiv.net`) use the same headers minus `Authoriza
 |------|---------|
 | `app-api.pixiv.net` | REST API (illust, novel, user, search, etc.) |
 | `oauth.secure.pixiv.net` | OAuth token endpoint (`/auth/token`) |
-| `accounts.pixiv.net` | Account management |
+| `accounts.pixiv.net` | Web login (WebView) |
 | `i.pximg.net` / `s.pximg.net` | Image CDN |
 
 ### Image CDN
@@ -67,14 +80,7 @@ All image URLs are signed/domain-locked to `i.pximg.net`. Requests must include:
 
 ### Pagination
 
-Most endpoints support `offset`-based pagination (30 items/page). The `next_url` field in responses contains the full URL for the next page. `v1/illust/new` uses `max_illust_id` cursor pagination and does NOT support `offset`.
-
-### Known limitations
-
-- `v1/illust/new` — cursor-based pagination, only page 1 works
-- Comments — next_url cursor pagination; loads multi-page in a single call (configurable via settings)
-- Multi-page works — each page is a separate "chapter"; no way to view all pages at once
-- Cannot create/delete Pixiv bookmark tags as folders (multiFolder disabled)
+Pixiv uses `next_url` cursor-based pagination. Responses contain a `next_url` field (relative path) for the next page, or `null` when there are no more pages. The explore feed uses `loadNext` to follow this cursor.
 
 ## Venera API notes
 
