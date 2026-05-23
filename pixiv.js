@@ -7,7 +7,7 @@ class Pixiv extends ComicSource {
     // ============================================================
     name = "Pixiv"
     key = "pixiv"
-    version = "2.0.1"
+    version = "0.2.2"
     minAppVersion = "1.6.0"
     url = "https://cdn.jsdelivr.net/gh/theoldman-lab/venera-configs@main/pixiv.js"
 
@@ -321,6 +321,7 @@ class Pixiv extends ComicSource {
             cover = illust.meta_pages[0].image_urls.medium
         }
         let tags = (illust.tags || []).map(function(t) { return t.translated_name || t.name })
+        tags.push(illust.user.name)
         return new Comic({
             id: illust.id.toString(),
             title: illust.title,
@@ -343,7 +344,7 @@ class Pixiv extends ComicSource {
 
             loadNext: async (next) => {
                 let url = next
-                    ? this.apiBase + next
+                    ? (next.startsWith('http') ? next : this.apiBase + next)
                     : this.apiBase + '/v2/illust/follow?restrict=all'
 
                 let json = await this.apiGet(url)
@@ -359,13 +360,22 @@ class Pixiv extends ComicSource {
     // ============================================================
 
     category = {
-        title: "",
+        title: "Pixiv",
         parts: [],
         enableRankingPage: false,
     }
 
     categoryComics = {
         load: async (category, param, options, page) => {
+            if (category === 'user_illusts') {
+                let offset = (page - 1) * 30
+                let json = await this.apiGet(
+                    this.apiBase + '/v1/user/illusts?filter=for_android&user_id=' + param + '&offset=' + offset)
+                let illusts = json.illusts || []
+                let comics = illusts.map((function(e) { return this.parseIllust(e) }).bind(this))
+                let maxPage = illusts.length < 30 ? page : page + 1
+                return { comics: comics, maxPage: maxPage }
+            }
             return { comics: [], maxPage: 1 }
         },
     }
@@ -415,12 +425,17 @@ class Pixiv extends ComicSource {
             let chapters = {}
             chapters['0'] = illust.title
 
+            let tagsObj = {}
+            let contentTags = (illust.tags || []).map(function(t) { return t.translated_name || t.name })
+            if (contentTags.length > 0) tagsObj['Tags'] = contentTags
+            tagsObj['Artist'] = [illust.user.name + ' |' + illust.user.id]
+
             return new ComicDetails({
                 title: illust.title,
                 subtitle: illust.user.name,
                 cover: illust.image_urls.medium,
                 description: illust.caption || '',
-                tags: {},
+                tags: tagsObj,
                 chapters: chapters,
                 isFavorite: null,
                 url: 'https://www.pixiv.net/artworks/' + illust.id,
@@ -466,6 +481,34 @@ class Pixiv extends ComicSource {
                     'Referer': 'https://app-api.pixiv.net/',
                     'User-Agent': Pixiv.USER_AGENT
                 }
+            }
+        },
+
+        onClickTag: (namespace, tag) => {
+            if (namespace === 'Artist') {
+                let idx = tag.lastIndexOf('|')
+                if (idx !== -1) {
+                    return {
+                        page: 'category',
+                        attributes: {
+                            category: 'user_illusts',
+                            param: tag.substring(idx + 1).trim()
+                        }
+                    }
+                }
+            }
+            if (tag && tag.startsWith('artist:')) {
+                return {
+                    page: 'category',
+                    attributes: {
+                        category: 'user_illusts',
+                        param: tag.substring(7)
+                    }
+                }
+            }
+            return {
+                page: 'search',
+                keyword: tag,
             }
         },
 

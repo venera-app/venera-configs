@@ -22,7 +22,7 @@ Flat repo of JavaScript "comic source" plugins for the Venera manga reader app. 
 4. The `key` field should be a unique identifier (typically lowercase snake_case).
 5. After adding/removing/renaming a source, update `index.json` with the corresponding entry.
 
-## pixiv.js v2.0.1 implementation notes
+## pixiv.js v0.2.2 implementation notes
 
 Rewritten from scratch, based on the PixEz Flutter project (`pixez/`) API layer. Reference: `PIXIV_API.md`.
 
@@ -32,12 +32,27 @@ Rewritten from scratch, based on the PixEz Flutter project (`pixez/`) API layer.
 |--------|--------|
 | Authentication | PKCE WebView login (primary) + manual refresh_token |
 | Token management | Auto-refresh on OAuth errors (HTTP 400) |
-| Explore | Following feed (`/v2/illust/follow?restrict=all`) |
+| Explore | Following feed (`/v2/illust/follow?restrict=all`), `next_url` with host-aware fix |
 | Comic detail | Info + single-chapter image loading |
+| Comic tags | Artist tag (name | ID) under `'Artist'` namespace; content tags under `'Tags'` namespace |
+| Artist works | Via `onClickTag` → `categoryComics.load` for `user_illusts` category (offset pagination, 30/page) |
+| Category | Stub (empty) — artist browsing via `user_illusts` categoryComics only reachable through tags |
 | Search | Not yet |
 | Favorites | Not yet |
 | Comments | Not yet |
 | Category/Ranking | Not yet |
+
+### Tags system
+
+- **List cards** (`parseIllust`): flat tags including artist name at end (click → search by name)
+- **Detail page** (`loadInfo`): namespaced tags — `'Artist': ["画师名 |用户ID"]` and `'Tags': ["tag1", ...]`
+- **`onClickTag`**: `namespace === 'Artist'` → parses `|ID` suffix → jumps to `user_illusts` categoryComics page
+- **`categoryComics.load`** for `user_illusts`: offset-based pagination via `/v1/user/illusts?offset=...`
+
+### Bug fixes (v0.2.x)
+
+- Explore "Following" `next_url` concatenation: Pixiv returns full URLs; check `startsWith('http')` before prepending base
+- `categoryComics loader` must be synchronous — Venera Dart bridge checks return type strictly; async returns Promise not List
 
 ### Authentication
 

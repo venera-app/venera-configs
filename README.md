@@ -2,7 +2,7 @@
 
 Venera 漫画阅读器插件仓库，提供 Pixiv 漫画源。
 
-## Pixiv 源 (`pixiv.js`) — v2.0.1
+## Pixiv 源 (`pixiv.js`) — v0.2.2
 
 基于 PixEz Flutter 项目的 API 层重写。
 
@@ -10,11 +10,13 @@ Venera 漫画阅读器插件仓库，提供 Pixiv 漫画源。
 
 | 功能 | 说明 |
 |------|------|
-| 登录 | WebView 打开 `app-api.pixiv.net/web/v1/login`（PKCE 流程），回调捕获授权码后用 App OAuth 凭证交换 `access_token` + `refresh_token` |
-| Token 管理 | 自动刷新（HTTP 400 + `OAuth` 错误触发，与 Pixiv 官方客户端一致） |
-| 探索页 | 关注动态（`/v2/illust/follow?restrict=all`），`next_url` 游标分页 |
+| 登录 | WebView PKCE 流程 (`app-api.pixiv.net/web/v1/login`) + 手动 refresh_token |
+| Token 管理 | HTTP 400 + `OAuth` 错误自动刷新 |
+| 探索页 | 关注动态 (`/v2/illust/follow?restrict=all`)，`next_url` 游标分页 |
 | 作品详情 | 标题/画师/多页统一章节，原图/大图加载 |
-| 图片加载 | `Referer` + `User-Agent` 头（Pixiv 图片 CDN 要求） |
+| 图片加载 | `Referer` + `User-Agent` 头 |
+| 标签系统 | 列表卡：画师名标签；详情页：`'Artist'`（画师名\|ID）+ `'Tags'`（内容标签）分 namespace |
+| 画师作品 | 点画师标签 → `user_illusts` 分类页，offset 分页浏览 |
 
 ### 待实现
 
@@ -24,6 +26,7 @@ Venera 漫画阅读器插件仓库，提供 Pixiv 漫画源。
 | 收藏/书签 |
 | 评论 |
 | 排行榜 |
+| 分类页入口 |
 | 热门标签 |
 | 小说支持 |
 
