@@ -255,6 +255,56 @@ class Pixiv extends ComicSource {
     ]
 
     // ============================================================
+    //  CATEGORY (stub — not yet implemented)
+    // ============================================================
+
+    category = {
+        title: "",
+        parts: [],
+        enableRankingPage: false,
+    }
+
+    // ============================================================
+    //  CATEGORY COMICS (stub — not yet implemented)
+    // ============================================================
+
+    categoryComics = {
+        load: async (category, param, options, page) => {
+            return { comics: [], maxPage: 1 }
+        },
+    }
+
+    // ============================================================
+    //  SEARCH (stub — not yet implemented)
+    // ============================================================
+
+    search = {
+        load: async (keyword, options, page) => {
+            return { comics: [], maxPage: 1 }
+        },
+    }
+
+    // ============================================================
+    //  FAVORITES (stub — not yet implemented)
+    // ============================================================
+
+    favorites = {
+        multiFolder: false,
+
+        addOrDelFavorite: async (comicId, folderId, isAdding, favoriteId) => {
+            throw 'Login expired'
+        },
+
+        loadFolders: async (comicId) => {
+            return { folders: {}, favorited: [] }
+        },
+
+        loadComics: async (page, folder) => {
+            return { comics: [], maxPage: 1 }
+        },
+    }
+
+    // ============================================================
     //  COMIC — detail view + image loading
     // ============================================================
 
