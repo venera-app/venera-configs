@@ -7,7 +7,7 @@ class Pixiv extends ComicSource {
     // ============================================================
     name = "Pixiv"
     key = "pixiv"
-    version = "0.3.0"
+    version = "0.4.0"
     minAppVersion = "1.6.0"
     url = "https://cdn.jsdelivr.net/gh/theoldman-lab/venera-configs@main/pixiv.js"
 
@@ -336,17 +336,71 @@ class Pixiv extends ComicSource {
     ]
 
     // ============================================================
-    //  CATEGORY (stub)
+    //  CATEGORY — trending tags as dynamic discovery (ref: PixEz)
     // ============================================================
 
     category = {
         title: "Pixiv",
-        parts: [],
+        parts: [
+            {
+                name: "Trending",
+                type: "dynamic",
+                loader: async () => {
+                    try {
+                        let json = await this.apiGet(
+                            this.apiBase + '/v1/trending-tags/illust?filter=for_android')
+                        let tags = json.trend_tags || []
+                        return tags.map(function(t) {
+                            return {
+                                label: t.translated_name || t.tag,
+                                target: {
+                                    page: 'category',
+                                    attributes: {
+                                        category: 'tag_search',
+                                        param: t.tag
+                                    }
+                                }
+                            }
+                        })
+                    } catch (e) {
+                        console.log('[Pixiv] Trending tags load failed: ' + e)
+                        return []
+                    }
+                },
+            }
+        ],
         enableRankingPage: false,
     }
 
     categoryComics = {
         load: async (category, param, options, page) => {
+            // tag_search: trending/via-tag results
+            if (category === 'tag_search') {
+                let url
+                if (page > 1) {
+                    let cursor = this.loadData('_tag_cursor')
+                    if (!cursor) return { comics: [], maxPage: page - 1 }
+                    url = this.apiBase + cursor
+                } else {
+                    this.deleteData('_tag_cursor')
+                    url = this.apiBase + '/v1/search/illust' +
+                        '?word=' + encodeURIComponent(param) +
+                        '&search_target=exact_match_for_tags' +
+                        '&sort=popular_desc' +
+                        '&filter=for_android' +
+                        '&merge_plain_keyword_results=true'
+                }
+                let json = await this.apiGet(url)
+                let illusts = json.illusts || []
+                let comics = illusts.map((function(e) { return this.parseIllust(e) }).bind(this))
+                if (json.next_url) {
+                    this.saveData('_tag_cursor', json.next_url)
+                } else {
+                    this.deleteData('_tag_cursor')
+                }
+                return { comics: comics, maxPage: json.next_url ? page + 1 : page }
+            }
+            // user_illusts: artist works (offset-based pagination)
             if (category === 'user_illusts') {
                 let offset = (page - 1) * 30
                 let json = await this.apiGet(
@@ -361,12 +415,19 @@ class Pixiv extends ComicSource {
     }
 
     // ============================================================
-    //  SEARCH
+    //  SEARCH — cursor-based via loadNext
+    //
+    //  Architecture (matches PixEz):
+    //   Tag clicks  → isTagClick → search/illust
+    //                 (exact_match_for_tags, popular_desc)
+    //   Search bar  → !isTagClick → search/illust
+    //                 (user-chosen sort/search_target/ai filters)
+    //   User search → searchTarget='users' → search/user
     // ============================================================
 
     search = {
 
-        load: async (keyword, options, page) => {
+        loadNext: async (keyword, options, next) => {
             let sort = ((options && options[0]) || 'date_desc').replace(/^"|"$/g, '')
             let searchTarget = ((options && options[1]) || 'partial_match_for_tags').replace(/^"|"$/g, '')
             let aiFilter = ((options && options[2]) || 'all').replace(/^"|"$/g, '')
@@ -374,29 +435,21 @@ class Pixiv extends ComicSource {
             let isTagClick = this._pendingTagSearch
             this._pendingTagSearch = false
 
-            if (isTagClick) {
-                searchTarget = 'partial_match_for_tags'
-                sort = 'popular_desc'
-            }
-
             let url
-            if (page > 1) {
-                let cursor = this.loadData('_search_cursor')
-                if (!cursor) return { comics: [], maxPage: 1 }
-                url = this.apiBase + cursor
-            } else {
-                this.deleteData('_search_cursor')
 
+            if (next) {
+                url = next.startsWith('http') ? next : this.apiBase + next
+            } else {
                 if (searchTarget === 'users') {
                     url = this.apiBase + '/v1/search/user' +
                         '?word=' + encodeURIComponent(keyword) +
                         '&filter=for_android'
                 } else if (isTagClick) {
-                    url = this.apiBase + '/v1/search/popular-preview/illust' +
+                    url = this.apiBase + '/v1/search/illust' +
                         '?word=' + encodeURIComponent(keyword) +
-                        '&search_target=partial_match_for_tags' +
+                        '&search_target=exact_match_for_tags' +
+                        '&sort=popular_desc' +
                         '&filter=for_android' +
-                        '&include_translated_tag_results=true' +
                         '&merge_plain_keyword_results=true'
                 } else {
                     url = this.apiBase + '/v1/search/illust' +
@@ -420,16 +473,7 @@ class Pixiv extends ComicSource {
                 comics = (json.illusts || []).map((function(e) { return this.parseIllust(e) }).bind(this))
             }
 
-            if (json.next_url) {
-                this.saveData('_search_cursor', json.next_url)
-            } else {
-                this.deleteData('_search_cursor')
-            }
-
-            return {
-                comics: comics,
-                maxPage: json.next_url ? page + 1 : page
-            }
+            return { comics: comics, next: json.next_url || null }
         },
 
         optionList: [
@@ -533,7 +577,12 @@ class Pixiv extends ComicSource {
             chapters['0'] = illust.title
 
             let tagsObj = {}
-            let contentTags = (illust.tags || []).map(function(t) { return t.translated_name || t.name })
+            let contentTags = (illust.tags || []).map(function(t) {
+                if (t.translated_name && t.translated_name !== t.name) {
+                    return t.name + ' [' + t.translated_name + ']'
+                }
+                return t.name
+            })
             if (contentTags.length > 0) tagsObj['Tags'] = contentTags
             tagsObj['Artist'] = [illust.user.name + ' |' + illust.user.id]
 
@@ -613,10 +662,18 @@ class Pixiv extends ComicSource {
                     }
                 }
             }
+            // Extract original name from "original [translated]" format
+            let searchTag = tag
+            let bracketIdx = tag.lastIndexOf(' [')
+            if (bracketIdx !== -1 && tag.endsWith(']')) {
+                searchTag = tag.substring(0, bracketIdx)
+            }
             this._pendingTagSearch = true
             return {
                 page: 'search',
-                keyword: tag,
+                attributes: {
+                    keyword: searchTag,
+                },
             }
         },
 
@@ -796,6 +853,7 @@ class Pixiv extends ComicSource {
             'No AI': '不含AI',
             'AI Only': '仅AI',
             'Users': '用户',
+            'Trending': '热门标签',
         },
         'zh_TW': {},
         'en': {}
