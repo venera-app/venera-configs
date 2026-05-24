@@ -514,22 +514,68 @@ class Pixiv extends ComicSource {
     }
 
     // ============================================================
-    //  FAVORITES (stub)
+    //  FAVORITES — bookmark system using Pixiv bookmark tags as folders
     // ============================================================
 
     favorites = {
-        multiFolder: false,
+        multiFolder: true,
 
         addOrDelFavorite: async (comicId, folderId, isAdding, favoriteId) => {
-            throw 'Login expired'
+            if (isAdding) {
+                let body = 'illust_id=' + comicId + '&restrict=public'
+                if (folderId) {
+                    body += '&tags%5B%5D=' + encodeURIComponent(folderId)
+                }
+                await this.apiPost(this.apiBase + '/v2/illust/bookmark/add', body)
+            } else {
+                let body = 'illust_id=' + comicId
+                await this.apiPost(this.apiBase + '/v1/illust/bookmark/delete', body)
+            }
+            return 'ok'
         },
 
         loadFolders: async (comicId) => {
-            return { folders: {}, favorited: [] }
+            let userId = this.loadData('user_id')
+            if (!userId) throw 'Login expired'
+
+            let json = await this.apiGet(
+                this.apiBase + '/v1/user/bookmark-tags/illust?user_id=' + userId + '&restrict=public')
+            let tags = json.bookmark_tags || []
+
+            let folders = { '': 'Default' }
+            tags.forEach(function(t) {
+                folders[t.name] = t.name + ' (' + t.count + ')'
+            })
+
+            let favorited = []
+            if (comicId) {
+                try {
+                    let detail = await this.apiGet(
+                        this.apiBase + '/v2/illust/bookmark/detail?illust_id=' + comicId)
+                    let bd = detail.bookmark_detail
+                    if (bd && bd.is_bookmarked) {
+                        (bd.tags || []).forEach(function(t) { favorited.push(t.name) })
+                    }
+                } catch (e) {}
+            }
+
+            return { folders: folders, favorited: favorited }
         },
 
         loadComics: async (page, folder) => {
-            return { comics: [], maxPage: 1 }
+            let userId = this.loadData('user_id')
+            if (!userId) throw 'Login expired'
+
+            let offset = (page - 1) * 30
+            let url = this.apiBase + '/v1/user/bookmarks/illust' +
+                '?user_id=' + userId + '&restrict=public&offset=' + offset
+            if (folder) url += '&tag=' + encodeURIComponent(folder)
+
+            let json = await this.apiGet(url)
+            let illusts = json.illusts || []
+            let comics = illusts.map((function(e) { return this.parseIllust(e) }).bind(this))
+            let maxPage = illusts.length < 30 ? page : page + 1
+            return { comics: comics, maxPage: maxPage }
         },
     }
 
@@ -552,6 +598,18 @@ class Pixiv extends ComicSource {
                     if (!user) throw 'User not found'
                     let tagsObj = {}
                     tagsObj['Artist'] = [user.name + ' |' + user.id]
+
+                    let isFollowed = false
+                    if (this.loadData('user_id')) {
+                        try {
+                            let followJson = await this.apiGet(
+                                this.apiBase + '/v1/user/follow/detail?user_id=' + userId)
+                            let fd = followJson.follow_detail
+                            if (fd) isFollowed = !!fd.is_followed
+                        } catch (e) {}
+                    }
+                    this.saveData('_artist_of_' + userId, userId)
+
                     return new ComicDetails({
                         title: user.name,
                         subtitle: user.account,
@@ -559,7 +617,7 @@ class Pixiv extends ComicSource {
                         description: user.comment || '',
                         tags: tagsObj,
                         chapters: { '0': user.name },
-                        isFavorite: null,
+                        isLiked: isFollowed,
                         url: 'https://www.pixiv.net/users/' + user.id
                     })
                 }
@@ -586,6 +644,18 @@ class Pixiv extends ComicSource {
             if (contentTags.length > 0) tagsObj['Tags'] = contentTags
             tagsObj['Artist'] = [illust.user.name + ' |' + illust.user.id]
 
+            this.saveData('_artist_of_' + illust.id, illust.user.id)
+
+            let isFollowed = false
+            if (this.loadData('user_id')) {
+                try {
+                    let followJson = await this.apiGet(
+                        this.apiBase + '/v1/user/follow/detail?user_id=' + illust.user.id)
+                    let fd = followJson.follow_detail
+                    if (fd) isFollowed = !!fd.is_followed
+                } catch (e) {}
+            }
+
             return new ComicDetails({
                 title: illust.title,
                 subtitle: illust.user.name,
@@ -593,10 +663,11 @@ class Pixiv extends ComicSource {
                 description: illust.caption || '',
                 tags: tagsObj,
                 chapters: chapters,
-                isFavorite: null,
+                isFavorite: illust.is_bookmarked || false,
                 url: 'https://www.pixiv.net/artworks/' + illust.id,
                 commentCount: illust.total_comments || 0,
                 likesCount: illust.total_bookmarks || 0,
+                isLiked: isFollowed,
                 uploadTime: illust.create_date,
                 maxPage: illust.page_count || 1
             })
@@ -639,6 +710,89 @@ class Pixiv extends ComicSource {
                 }
             }
         },
+
+        // Artist follow/unfollow via like button.
+        // Ignores Venera's isLike param — toggles based on actual server state.
+        likeComic: async (id, isLike) => {
+            let artistId = this.loadData('_artist_of_' + id)
+            if (!artistId && id.startsWith('user_')) {
+                artistId = id.substring(5)
+            }
+            if (!artistId) return
+
+            let isFollowed = false
+            try {
+                let followJson = await this.apiGet(
+                    this.apiBase + '/v1/user/follow/detail?user_id=' + artistId)
+                let fd = followJson.follow_detail
+                if (fd) isFollowed = !!fd.is_followed
+            } catch (e) {}
+
+            if (isFollowed) {
+                let body = 'user_id=' + artistId
+                await this.apiPost(this.apiBase + '/v1/user/follow/delete', body)
+            } else {
+                let body = 'user_id=' + artistId + '&restrict=private'
+                await this.apiPost(this.apiBase + '/v1/user/follow/add', body)
+            }
+        },
+
+        // ============================================================
+        //  COMMENTS
+        // ============================================================
+
+        loadComments: async (comicId, subId, page, replyTo) => {
+            let cursorKey = '_comment_cursor_' + comicId + (replyTo ? '_' + replyTo : '_root')
+            let url
+
+            if (page > 1) {
+                let cursor = this.loadData(cursorKey)
+                if (!cursor) return { comments: [], maxPage: page - 1 }
+                url = this.apiBase + cursor
+            } else {
+                this.deleteData(cursorKey)
+                if (replyTo) {
+                    url = this.apiBase + '/v2/illust/comment/replies?comment_id=' + replyTo
+                } else {
+                    url = this.apiBase + '/v3/illust/comments?illust_id=' + comicId
+                }
+            }
+
+            let json = await this.apiGet(url)
+            let comments = (json.comments || []).map(function(c) {
+                return new Comment({
+                    userName: c.user.name,
+                    avatar: c.user.profile_image_urls.medium,
+                    content: c.comment,
+                    time: c.date,
+                    replyCount: c.has_replies ? 1 : null,
+                    id: c.id.toString(),
+                })
+            })
+
+            if (json.next_url) {
+                this.saveData(cursorKey, json.next_url)
+            } else {
+                this.deleteData(cursorKey)
+            }
+
+            return { comments: comments, maxPage: json.next_url ? page + 1 : page }
+        },
+
+        sendComment: async (comicId, subId, content, replyTo) => {
+            let body = 'illust_id=' + encodeURIComponent(comicId) +
+                '&comment=' + encodeURIComponent(content)
+            if (replyTo) {
+                body += '&parent_comment_id=' + encodeURIComponent(replyTo)
+            }
+            await this.apiPost(this.apiBase + '/v1/illust/comment/add', body)
+            return 'ok'
+        },
+
+        // Pixiv does not support comment likes/votes — stubs for Venera framework
+        likeComment: async (comicId, subId, commentId, isLike) => { },
+
+        voteComment: async (id, subId, commentId, isUp, isCancel) => { },
 
         onClickTag: (namespace, tag) => {
             if (namespace === 'Artist') {
