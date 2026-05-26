@@ -388,7 +388,7 @@ class Pixiv extends ComicSource {
                 if (page > 1) {
                     let cursor = this.loadData('_tag_cursor')
                     if (!cursor) return { comics: [], maxPage: page - 1 }
-                    url = this.apiBase + cursor
+                    url = cursor.startsWith('http') ? cursor : this.apiBase + cursor
                 } else {
                     this.deleteData('_tag_cursor')
                     url = this.apiBase + '/v1/search/illust' +
@@ -441,7 +441,7 @@ class Pixiv extends ComicSource {
                 if (page > 1) {
                     let cursor = this.loadData(cursorKey)
                     if (!cursor) return { comics: [], maxPage: page - 1 }
-                    url = this.apiBase + cursor
+                    url = cursor.startsWith('http') ? cursor : this.apiBase + cursor
                 } else {
                     this.deleteData(cursorKey)
                     url = this.apiBase + '/v1/illust/ranking?filter=for_android&mode=' + option
@@ -634,42 +634,56 @@ class Pixiv extends ComicSource {
         loadInfo: async (id) => {
             if (id.startsWith('user_')) {
                 let userId = id.substring(5)
-                let json = await this.apiGet(
-                    this.apiBase + '/v1/user/illusts?filter=for_android&user_id=' + userId + '&offset=0')
-                let illusts = json.illusts || []
-                if (illusts.length === 0) {
-                    let userJson = await this.apiGet(
+
+                let userJson, illustsJson
+                try {
+                    userJson = await this.apiGet(
                         this.apiBase + '/v1/user/detail?filter=for_android&user_id=' + userId)
-                    let user = userJson.user
-                    if (!user) throw 'User not found'
-                    let tagsObj = {}
-                    tagsObj['Artist'] = [user.name + ' |' + user.id]
+                    illustsJson = await this.apiGet(
+                        this.apiBase + '/v1/user/illusts?filter=for_android&user_id=' + userId + '&offset=0')
+                } catch (e) {}
 
-                    let isFollowed = false
-                    if (this.loadData('user_id')) {
-                        try {
-                            let followJson = await this.apiGet(
-                                this.apiBase + '/v1/user/follow/detail?user_id=' + userId)
-                            let fd = followJson.follow_detail
-                            if (fd) isFollowed = !!fd.is_followed
-                        } catch (e) {}
+                let user = userJson?.user
+                let illusts = illustsJson?.illusts || []
+
+                if (!user) throw 'User not found'
+
+                let tagsObj = {}
+                tagsObj['Artist'] = [user.name + ' |' + user.id]
+
+                let chapters = {}
+                if (illusts.length > 0) {
+                    for (let i = 0; i < illusts.length; i++) {
+                        chapters[illusts[i].id.toString()] = illusts[i].title
                     }
-                    this.saveData('_artist_of_' + userId, userId)
-
-                    return new ComicDetails({
-                        title: user.name,
-                        subtitle: user.account,
-                        cover: user.profile_image_urls.medium,
-                        description: user.comment || '',
-                        tags: tagsObj,
-                        chapters: { '0': user.name },
-                        isLiked: isFollowed,
-                        url: 'https://www.pixiv.net/users/' + user.id
-                    })
                 }
-                let illust = illusts[0]
-                // Reuse existing illust detail loading
-                return await this.comic.loadInfo(illust.id.toString())
+
+                let isFollowed = false
+                if (this.loadData('user_id')) {
+                    try {
+                        let followJson = await this.apiGet(
+                            this.apiBase + '/v1/user/follow/detail?user_id=' + userId)
+                        let fd = followJson.follow_detail
+                        if (fd) isFollowed = !!fd.is_followed
+                    } catch (e) {}
+                }
+                this.saveData('_artist_of_' + userId, userId)
+
+                let desc = user.comment || ''
+                if (illusts.length === 0) {
+                    desc = (desc ? desc + '\n\n' : '') + 'No illustrations yet.'
+                }
+
+                return new ComicDetails({
+                    title: user.name,
+                    subtitle: user.account,
+                    cover: user.profile_image_urls.medium,
+                    description: desc,
+                    tags: tagsObj,
+                    chapters: illusts.length > 0 ? chapters : { '0': user.name },
+                    isLiked: isFollowed,
+                    url: 'https://www.pixiv.net/users/' + user.id
+                })
             }
 
             let json = await this.apiGet(
@@ -720,8 +734,11 @@ class Pixiv extends ComicSource {
         },
 
         loadEp: async (comicId, epId) => {
+            let illustId = comicId.startsWith('user_') ? parseInt(epId) : parseInt(comicId)
+            if (!illustId) throw 'Invalid illust ID'
+
             let json = await this.apiGet(
-                this.apiBase + '/v1/illust/detail?illust_id=' + comicId)
+                this.apiBase + '/v1/illust/detail?illust_id=' + illustId)
             let illust = json.illust
             if (!illust) throw 'Illust not found'
 
@@ -794,7 +811,7 @@ class Pixiv extends ComicSource {
             if (page > 1) {
                 let cursor = this.loadData(cursorKey)
                 if (!cursor) return { comments: [], maxPage: page - 1 }
-                url = this.apiBase + cursor
+                url = cursor.startsWith('http') ? cursor : this.apiBase + cursor
             } else {
                 this.deleteData(cursorKey)
                 if (replyTo) {
