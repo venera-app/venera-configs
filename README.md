@@ -22,7 +22,18 @@ Venera 漫画阅读器的 JS 配置插件仓库。每个 `.js` 文件（除 `_ve
 4. `key` 应为唯一标识符（通常用小写 snake_case）
 5. 添加/删除/重命名源后，必须更新 `index.json`
 
-## Pixiv 源 (`pixiv.js`) — v0.4.0
+## 导入 Pixiv 源
+
+在 Venera App 中：**漫画源界面** → 输入 Pixiv 源 URL 并添加：
+
+```
+https://cdn.jsdelivr.net/gh/theoldman-lab/venera-configs@main/pixiv.js
+```
+
+添加后下拉刷新即可加载。如遇更新延迟，可手动刷新 jsDelivr 缓存（见 `.github/workflows/purge_cdn.yml`）。
+
+
+## Pixiv 源 (`pixiv.js`) — v0.7.0
 
 基于 PixEz Flutter 项目的 API 层重写。参考文档：`PIXIV_API.md`。
 
@@ -31,17 +42,17 @@ Venera 漫画阅读器的 JS 配置插件仓库。每个 `.js` 文件（除 `_ve
 | 模块 | 说明 |
 |------|------|
 | 认证 | PKCE WebView 登录 + 手动 refresh_token，OAuth HTTP 400 自动刷新 |
-| 探索页 | 关注动态 (`/v2/illust/follow?restrict=all`)，`next_url` 游标分页 |
+| 探索页 | 关注动态 (`/v2/illust/follow?restrict=all`)、推荐画师 (`/v1/user/recommended`)、已关注画师 (`/v1/user/following?restrict=private`)，均 `next_url` 游标分页 |
 | 作品详情 | 标题/画师/多页统一章节，原图/大图加载 |
 | 图片加载 | `Referer` + `User-Agent` 头 |
 | 标签系统 | 详情页 `"原始名 [翻译名]"` 格式，`onClickTag` 提取原始名做 `exact_match_for_tags` 搜索 |
 | 画师作品 | Artist 标签点击 → `user_illusts` 分类（offset 分页 30/页） |
-| 分类页 | 热门标签发现 (`/v1/trending-tags/illust`)；`tag_search` 分类支持标签跳转 |
+| 分类页 | 排行榜 11 种模式（`/v1/illust/ranking`，`next_url` 游标分页）；`tag_search` / `user_illusts` 分类 |
 | 搜索 | `loadNext` 游标分页，三路架构（标签点击/关键词/用户），禁用自动补全 |
 | 评论 | 加载/发表/回复评论 (`/v3/illust/comments`, `/v1/illust/comment/add`)，游标分页 |
 | 收藏 | 书签标签→文件夹，添加/删除/加载收藏。`isFavorite` 从 `illust.is_bookmarked` 直接取值 |
 | 画师关注 | `likeComic` 基于服务器实际状态 toggle，默认私密关注 |
-| 排行榜 | 未实现 |
+| 排行榜 | 11 种模式（日/周/月/男性向/女性向/原创/新人/漫画/R18/AI/R18AI），`/v1/illust/ranking` 游标分页 |
 
 ### 标签系统
 

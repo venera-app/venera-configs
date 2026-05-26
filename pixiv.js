@@ -7,7 +7,7 @@ class Pixiv extends ComicSource {
     // ============================================================
     name = "Pixiv"
     key = "pixiv"
-    version = "0.4.0"
+    version = "0.7.0"
     minAppVersion = "1.6.0"
     url = "https://cdn.jsdelivr.net/gh/theoldman-lab/venera-configs@main/pixiv.js"
 
