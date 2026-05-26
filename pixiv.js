@@ -332,6 +332,41 @@ class Pixiv extends ComicSource {
 
                 return { comics: comics, next: json.next_url || null }
             },
+        },
+        {
+            title: "Recommended Artists",
+            type: "multiPageComicList",
+
+            loadNext: async (next) => {
+                let url = next
+                    ? (next.startsWith('http') ? next : this.apiBase + next)
+                    : this.apiBase + '/v1/user/recommended?filter=for_android'
+
+                let json = await this.apiGet(url)
+                let previews = json.user_previews || []
+                let comics = previews.map((function(up) { return this.parseUserPreview(up) }).bind(this))
+
+                return { comics: comics, next: json.next_url || null }
+            },
+        },
+        {
+            title: "Followed Artists",
+            type: "multiPageComicList",
+
+            loadNext: async (next) => {
+                let userId = this.loadData('user_id')
+                if (!userId) return { comics: [], next: null }
+
+                let url = next
+                    ? (next.startsWith('http') ? next : this.apiBase + next)
+                    : this.apiBase + '/v1/user/following?filter=for_android&user_id=' + userId + '&restrict=private'
+
+                let json = await this.apiGet(url)
+                let previews = json.user_previews || []
+                let comics = previews.map((function(up) { return this.parseUserPreview(up) }).bind(this))
+
+                return { comics: comics, next: json.next_url || null }
+            },
         }
     ]
 
@@ -341,35 +376,8 @@ class Pixiv extends ComicSource {
 
     category = {
         title: "Pixiv",
-        parts: [
-            {
-                name: "Trending",
-                type: "dynamic",
-                loader: async () => {
-                    try {
-                        let json = await this.apiGet(
-                            this.apiBase + '/v1/trending-tags/illust?filter=for_android')
-                        let tags = json.trend_tags || []
-                        return tags.map(function(t) {
-                            return {
-                                label: t.translated_name || t.tag,
-                                target: {
-                                    page: 'category',
-                                    attributes: {
-                                        category: 'tag_search',
-                                        param: t.tag
-                                    }
-                                }
-                            }
-                        })
-                    } catch (e) {
-                        console.log('[Pixiv] Trending tags load failed: ' + e)
-                        return []
-                    }
-                },
-            }
-        ],
-        enableRankingPage: false,
+        parts: [],
+        enableRankingPage: true,
     }
 
     categoryComics = {
@@ -411,6 +419,44 @@ class Pixiv extends ComicSource {
                 return { comics: comics, maxPage: maxPage }
             }
             return { comics: [], maxPage: 1 }
+        },
+
+        ranking: {
+            options: [
+                "day-Daily",
+                "week-Weekly",
+                "month-Monthly",
+                "day_male-Daily (Male)",
+                "day_female-Daily (Female)",
+                "week_original-Original",
+                "week_rookie-Rookie",
+                "day_manga-Manga",
+                "day_r18-R18",
+                "day_ai-AI",
+                "day_r18_ai-R18 AI",
+            ],
+            load: async (option, page) => {
+                let url
+                let cursorKey = '_ranking_cursor_' + option
+                if (page > 1) {
+                    let cursor = this.loadData(cursorKey)
+                    if (!cursor) return { comics: [], maxPage: page - 1 }
+                    url = this.apiBase + cursor
+                } else {
+                    this.deleteData(cursorKey)
+                    url = this.apiBase + '/v1/illust/ranking?filter=for_android&mode=' + option
+                }
+
+                let json = await this.apiGet(url)
+                let comics = (json.illusts || []).map((function(e) { return this.parseIllust(e) }).bind(this))
+
+                if (json.next_url) {
+                    this.saveData(cursorKey, json.next_url)
+                } else {
+                    this.deleteData(cursorKey)
+                }
+                return { comics: comics, maxPage: json.next_url ? page + 1 : page }
+            },
         },
     }
 
@@ -1007,7 +1053,19 @@ class Pixiv extends ComicSource {
             'No AI': '不含AI',
             'AI Only': '仅AI',
             'Users': '用户',
-            'Trending': '热门标签',
+            'Recommended Artists': '推荐画师',
+            'Followed Artists': '已关注画师',
+            'Daily': '日榜',
+            'Weekly': '周榜',
+            'Monthly': '月榜',
+            'Daily (Male)': '男性向',
+            'Daily (Female)': '女性向',
+            'Original': '原创',
+            'Rookie': '新人',
+            'Manga': '漫画',
+            'R18': 'R18',
+            'AI': 'AI',
+            'R18 AI': 'R18 AI',
         },
         'zh_TW': {},
         'en': {}
