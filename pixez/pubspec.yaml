@@ -1,0 +1,30 @@
+name: pixez
+description: Pixiv API layer extracted from PixEz Flutter app.
+publish_to: none
+
+version: 1.0.0
+
+environment:
+  sdk: ">=3.10.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  dio: ^5.9.2
+  crypto: ^3.0.7
+  shared_preferences: ^2.5.4
+  path_provider: ^2.1.5
+  device_info_plus: ^12.3.0
+  json_annotation: ^4.9.0
+  intl: any
+  dio_cache_interceptor: ^4.0.6
+  rhttp:
+    path: ./plugins/rhttp
+  dio_compatibility_layer: ^0.1.1
+  flutter_cache_manager_dio: ^4.0.0
+  sqflite_common_ffi: ^2.4.0+3
+  path: any
+
+dev_dependencies:
+  json_serializable: ^6.8.0
+  build_runner: ^2.11.1
