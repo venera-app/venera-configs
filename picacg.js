@@ -1,4 +1,5 @@
 class Picacg extends ComicSource {
+  {
   name = "Picacg";
 
   key = "picacg";
