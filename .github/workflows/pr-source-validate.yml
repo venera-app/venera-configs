@@ -1,0 +1,54 @@
+name: PR Source Validate
+
+on:
+  pull_request:
+
+jobs:
+  validate-sources:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Set up Dart SDK
+        uses: dart-lang/setup-dart@v1
+
+      - name: Fetch base branch
+        run: git fetch origin "${{ github.base_ref }}"
+
+      - name: Clone latest venera_cli
+        run: git clone --depth 1 https://github.com/venera-app/venera_cli.git /tmp/venera_cli
+
+      - name: Get venera_cli dependencies
+        working-directory: /tmp/venera_cli
+        run: dart pub get
+
+      - name: Build venera_cli
+        working-directory: /tmp/venera_cli
+        run: dart build cli --target bin/venera.dart --output /tmp/venera
+
+      - name: Collect changed config files
+        id: changed-configs
+        run: |
+          node scripts/list-changed-configs.js > /tmp/changed-configs.txt
+          count=$(wc -l < /tmp/changed-configs.txt | tr -d ' ')
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+
+      - name: Validate changed config files
+        if: steps.changed-configs.outputs.count != '0'
+        run: |
+          while IFS= read -r file; do
+            [ -n "$file" ] || continue
+            /tmp/venera/bundle/bin/venera source validate "$file"
+          done < /tmp/changed-configs.txt
+
+      - name: No changed config files
+        if: steps.changed-configs.outputs.count == '0'
+        run: echo "No changed config files to validate."
