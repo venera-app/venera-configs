@@ -32,7 +32,7 @@ jobs:
 
       - name: Build venera_cli
         working-directory: /tmp/venera_cli
-        run: dart build exe bin/venera.dart -o /tmp/venera
+        run: dart build cli --target bin/venera.dart --output /tmp/venera
 
       - name: Collect changed config files
         id: changed-configs
@@ -46,7 +46,7 @@ jobs:
         run: |
           while IFS= read -r file; do
             [ -n "$file" ] || continue
-            /tmp/venera source validate "$file"
+            /tmp/venera/bundle/bin/venera source validate "$file"
           done < /tmp/changed-configs.txt
 
       - name: No changed config files
