@@ -30,9 +30,9 @@ jobs:
         working-directory: /tmp/venera_cli
         run: dart pub get
 
-      - name: Compile venera_cli
+      - name: Build venera_cli
         working-directory: /tmp/venera_cli
-        run: dart compile exe bin/venera.dart -o /tmp/venera
+        run: dart build exe bin/venera.dart -o /tmp/venera
 
       - name: Collect changed config files
         id: changed-configs
