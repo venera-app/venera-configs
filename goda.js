@@ -8,7 +8,7 @@ class Goda extends ComicSource {
   // unique id of the source
   key = "goda"
 
-  version = "1.0.0"
+  version = "1.1.0"
 
   minAppVersion = "1.4.0"
 
@@ -38,7 +38,7 @@ class Goda extends ComicSource {
   }
 
   get apiUrl() {
-    return `https://${this.loadSetting("api")}/api`;
+    return `https://${this.loadSetting("api")}/api/v2`;
   }
 
   get imageUrl() {
@@ -219,7 +219,7 @@ class Goda extends ComicSource {
       let maxPage = null;
       try {
         maxPage = parseInt(document.querySelectorAll("button.text-small").pop().text.replaceAll("\n", "").replaceAll(" ", ""));
-      } catch(_) {
+      } catch (_) {
         maxPage = 1;
       }
       return {
@@ -240,7 +240,7 @@ class Goda extends ComicSource {
       let maxPage = null;
       try {
         maxPage = parseInt(document.querySelectorAll("button.text-small").pop().text.replaceAll("\n", "").replaceAll(" ", ""));
-      } catch(_) {
+      } catch (_) {
         maxPage = 1;
       }
       return {
@@ -320,7 +320,8 @@ class Goda extends ComicSource {
       }
       const jsonData = JSON.parse(res.body);
       const images = [];
-      for (let i of jsonData["data"]["info"]["images"]["images"]) {
+      const decodeImagesData = this.decodeCipherText(jsonData["data"]["info"]["images"]["images"])
+      for (let i of decodeImagesData) {
         images.push(this.imageUrl + i["url"]);
       }
       return { images };
@@ -329,4 +330,164 @@ class Goda extends ComicSource {
     // enable tags translate
     enableTagsTranslate: false,
   }
+  /**
+   * decode images data
+   * @param {string} cipherText 
+   * @returns string
+   */
+  decodeCipherText(cipherText) {
+    /**
+     * 输入字符串
+     *   ↓
+     * 检查前缀 J7r 和后缀 nQ
+     *   ↓
+     * 拆分 body，验证中间标记 kD、W4s
+     *   ↓
+     * 重新拼接被打乱的片段
+     *   ↓
+     * 每 7 个字符一组，奇数组反转
+     *   ↓
+     * 字符表替换
+     *   ↓
+     * Base64URL 解码
+     *   ↓
+     * TextDecoder 解 UTF-8
+     *   ↓
+     * JSON.parse()
+     */
+    const BASE64URL_ALPHABET =
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+
+    const SUBSTITUTION_ALPHABET =
+      "_-9876543210abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+    const PREFIX = "J7r";
+    const MARKER_1 = "kD";
+    const MARKER_2 = "W4s";
+    const SUFFIX = "nQ";
+    const CHUNK_SIZE = 7;
+
+    if (
+      typeof cipherText !== "string" ||
+      !cipherText.startsWith(PREFIX) ||
+      !cipherText.endsWith(SUFFIX)
+    ) {
+      throw new Error("invalid format");
+    }
+
+    const body = cipherText.slice(PREFIX.length, -SUFFIX.length);
+
+    const payloadLength = body.length - MARKER_1.length - MARKER_2.length;
+
+    if (payloadLength <= 0) {
+      throw new Error("invalid payload length");
+    }
+
+    const part3Length = Math.floor(payloadLength / 3);
+    const part1Length = Math.floor((payloadLength - part3Length) / 2);
+    const part2Length = payloadLength - part3Length - part1Length;
+
+    const part1 = body.slice(0, part1Length);
+    const marker1 = body.slice(part1Length, part1Length + MARKER_1.length);
+
+    const part2Start = part1Length + MARKER_1.length;
+    const part2 = body.slice(part2Start, part2Start + part2Length);
+
+    const marker2Start = part2Start + part2Length;
+    const marker2 = body.slice(marker2Start, marker2Start + MARKER_2.length);
+
+    const part3 = body.slice(marker2Start + MARKER_2.length);
+
+    if (marker1 !== MARKER_1 || marker2 !== MARKER_2 || part3.length !== part3Length) {
+      throw new Error("invalid markers");
+    }
+
+    const reordered = part3 + part1 + part2;
+
+    let unshuffled = "";
+
+    for (let i = 0, chunkIndex = 0; i < reordered.length; i += CHUNK_SIZE, chunkIndex++) {
+      const chunk = reordered.slice(i, i + CHUNK_SIZE);
+
+      unshuffled += chunkIndex % 2 === 0
+        ? chunk
+        : chunk.split("").reverse().join("");
+    }
+
+    let base64url = "";
+
+    for (const ch of unshuffled) {
+      const index = SUBSTITUTION_ALPHABET.indexOf(ch);
+
+      if (index === -1) {
+        throw new Error("invalid character");
+      }
+
+      base64url += BASE64URL_ALPHABET[index];
+    }
+
+    const padding = base64url.length % 4
+      ? "=".repeat(4 - (base64url.length % 4))
+      : "";
+
+    const base64 = (base64url + padding)
+      .replace(/-/g, "+")
+      .replace(/_/g, "/");
+
+    let jsonText;
+
+    if (typeof Buffer !== "undefined") {
+      jsonText = Buffer.from(base64, "base64").toString("utf8");
+    } else {
+      const binary = this.atobPolyfill(base64);
+
+      // 理论上应该都是ASCII字符用不用解码成uft-8都一样，
+      // quickjs这也没有那也没有，动不动polyfill好烦
+      // const bytes = new Uint8Array(binary.length);
+
+      // for (let i = 0; i < binary.length; i++) {
+      //   bytes[i] = binary.charCodeAt(i);
+      // }
+
+      // jsonText = new TextDecoder().decode(bytes);
+      
+      jsonText = binary;
+    }
+
+    return JSON.parse(jsonText);
+  }
+
+  atobPolyfill = (asc) => {
+    const b64ch =
+        'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
+    const b64chs = Array.prototype.slice.call(b64ch);
+    const b64re =
+    /^(?:[A-Za-z\d+\/]{4})*?(?:[A-Za-z\d+\/]{2}(?:==)?|[A-Za-z\d+\/]{3}=?)?$/;
+    const b64tab = ((a) => {
+      let tab = {};
+      a.forEach((c, i) => tab[c] = i);
+      return tab;
+    })(b64chs);
+    const _fromCC = String.fromCharCode.bind(String);
+    // console.log('polyfilled');
+    asc = asc.replace(/\s+/g, '');
+    if (!b64re.test(asc)) throw new TypeError('malformed base64.');
+    asc += '=='.slice(2 - (asc.length & 3));
+    let u24, r1, r2;
+    let binArray = []; // use array to avoid minor gc in loop
+    for (let i = 0; i < asc.length;) {
+        u24 = b64tab[asc.charAt(i++)] << 18
+            | b64tab[asc.charAt(i++)] << 12
+            | (r1 = b64tab[asc.charAt(i++)]) << 6
+            | (r2 = b64tab[asc.charAt(i++)]);
+        if (r1 === 64) {
+            binArray.push(_fromCC(u24 >> 16 & 255));
+        } else if (r2 === 64) {
+            binArray.push(_fromCC(u24 >> 16 & 255, u24 >> 8 & 255));
+        } else {
+            binArray.push(_fromCC(u24 >> 16 & 255, u24 >> 8 & 255, u24 & 255));
+        }
+    }
+    return binArray.join('');
+  };
 }
