@@ -3,7 +3,7 @@ class Picacg extends ComicSource {
 
     key = "picacg"
 
-    version = "1.0.5"
+    version = "1.0.6"
 
     minAppVersion = "1.0.0"
 
@@ -29,20 +29,20 @@ class Picacg extends ComicSource {
         return {
             "api-key": "C69BAF41DA5ABD1FFEDC6D2FEA56B",
             "accept": "application/vnd.picacomic.com.v1+json",
-            "app-channel": this.loadSetting('appChannel'),
+            "app-channel": this.loadSetting('appChannel') || "3",
             "authorization": token ?? "",
             "time": time,
             "nonce": nonce,
             "app-version": "2.2.1.3.3.4",
             "app-uuid": "defaultUuid",
-            "image-quality": this.loadSetting('imageQuality'),
+            "image-quality": this.loadSetting('imageQuality') || "original",
             "app-platform": "android",
             "app-build-version": "45",
             "Content-Type": "application/json; charset=UTF-8",
             "user-agent": "okhttp/3.8.1",
-            "version": "v1.4.1",
-            "Host": "picaapi.picacomic.com",
+            "version": "v1.5.4",
             "signature": signature,
+            "http_client": "dart:io",
         }
     }
 
@@ -60,13 +60,14 @@ class Picacg extends ComicSource {
             return await this.account.login(username, password)
         },
         login: async (account, pwd) => {
+            let body = JSON.stringify({
+                email: account,
+                password: pwd
+            })
             let res = await Network.post(
                 `${this.loadSetting('base_url')}/auth/sign-in`,
                 this.buildHeaders('POST', 'auth/sign-in'),
-                {
-                    email: account,
-                    password: pwd
-                })
+                body)
 
             if (res.status === 200) {
                 let json = JSON.parse(res.body)
@@ -613,6 +614,22 @@ class Picacg extends ComicSource {
                 throw 'Invalid status code: ' + res.status
             }
             return 'ok'
+        },
+        onImageLoad: async (url, comicId, epId) => {
+            return {
+                url: url,
+                headers: {
+                    "user-agent": "okhttp/3.8.1",
+                }
+            }
+        },
+        onThumbnailLoad: (url) => {
+            return {
+                url: url,
+                headers: {
+                    "user-agent": "okhttp/3.8.1",
+                }
+            }
         },
         // 加载评论
         loadComments: async (comicId, subId, page, replyTo) => {
