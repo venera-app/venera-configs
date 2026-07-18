@@ -92,6 +92,7 @@ class Nhentai extends ComicSource {
     }
 
     normalizeComicId(id) {
+        id = String(id || "");
         if (id.startsWith("nhentai")) {
             return id.replace("nhentai", "")
         }
@@ -182,6 +183,36 @@ class Nhentai extends ComicSource {
             comics: (data.result || []).map(e => this.parseComicFromApi(e)),
             maxPage: data.num_pages || 1
         }
+    }
+
+    getTagIdByName(name) {
+        name = name.toLowerCase();
+
+        for (let id in Nhentai.nhentaiTags) {
+            let tag = Nhentai.nhentaiTags[id];
+            if (
+                tag &&
+                tag.toLowerCase() === name
+            ) {
+                return id;
+            }
+        }
+        return null;
+    }
+
+    async loadApiGalleries(url) {
+        let res = await Network.get(url, this.getApiBaseHeaders());
+
+        if (res.status !== 200) {
+            throw "Invalid Status Code: " + res.status
+        }
+        return this.parseComicListFromApi(JSON.parse(res.body));
+    }
+
+    async loadTagCategory(tagId, page = 1, sort = "date") {
+        return await this.loadApiGalleries(
+            `${this.apiBaseUrl}/galleries/tagged?tag_id=${tagId}&page=${page}&sort=${sort}`
+        );
     }
 
     formatTimestamp(timestampSec) {
@@ -422,31 +453,30 @@ class Nhentai extends ComicSource {
              * @returns {{}}
              */
             load: async (page) => {
-                let url = this.baseUrl
-                if(page && page !== 1) {
-                    url = `${url}?page=${page}`
-                }
-                let res = await Network.get(url, {})
-                if(res.status !== 200) {
-                    throw "Invalid Status Code: " + res.status
-                }
-                let doc = new HtmlDocument(res.body)
-                let data = []
-                if (url === this.baseUrl) {
-                    data.push({
-                        title: "Popular",
-                        comics: doc.querySelectorAll("div.container.index-container.index-popular > div.gallery").map(e => this.parseComic(e))
-                    })
-                }
-                let latest = doc.querySelectorAll("div.container.index-container > div.gallery").map(e => this.parseComic(e))
-                if(url === this.baseUrl) {
-                    latest = latest.slice(data[0].comics.length)
-                }
-                data.push(latest)
+                let currentPage = page || 1;
+                let popular = await this.loadApiGalleries(
+                    `${this.apiBaseUrl}/galleries?sort=popular&page=${currentPage}`
+                );
+                let latest = await this.loadApiGalleries(
+                    `${this.apiBaseUrl}/galleries?sort=date&page=${currentPage}`
+                );
                 return {
-                    data: data,
-                    maxPage: 20000,
-                }
+                    data: [
+                        {
+                            title: "Popular",
+                            comics: popular.comics
+                        },
+                        {
+                            title: "Latest",
+                            comics: latest.comics
+                        }
+                    ],
+
+                    maxPage: Math.max(
+                        popular.maxPage,
+                        latest.maxPage
+                    )
+                };
             }
         }
     ]
@@ -506,11 +536,74 @@ class Nhentai extends ComicSource {
                 }
             }
             category = category.replaceAll(" ", "-")
-            let sort = (options[0] || "popular").replaceAll("@", "-")
+            let sortOption = options[0] || "popular";
+            let sortMap = {
+                "popular-today": "popular",
+                "popular-week": "popular",
+                "popular-month": "popular",
+                "popular": "popular",
+                "/": "date"
+            };
+            let sort = sortMap[sortOption] || "date";
             category = category.replaceAll('.', '-');
-            let url = `${this.baseUrl}/${param}/${encodeURIComponent(category)}${sort}?page=${page}`
-            let res = await Network.get(url, {})
-            return this.parseComicList(res.body, 'category')
+            let tagId = null;
+
+            // 语言
+            if(param === "language") {
+
+                let languageMap = {
+                    chinese: 29963,
+                    english: 12227,
+                    japanese: 6346
+                };
+
+
+                let id = languageMap[category];
+
+                if(id) {
+
+                    return await this.loadApiGalleries(
+                        `${this.apiBaseUrl}/galleries/tagged?tag_id=${id}&page=${page}`
+                    );
+
+                }
+
+            }
+
+            // 根据名称反查 tag id
+            for (let id in Nhentai.nhentaiTags) {
+
+                if (
+                    Nhentai.nhentaiTags[id].toLowerCase()
+                    === category.toLowerCase()
+                ) {
+                    tagId = id;
+                    break;
+                }
+            }
+
+
+            // tag 分类
+            if(tagId){
+                let sort = (options[0] || "date")
+                    .replaceAll("@", "-")
+                    .replace("/", "");
+
+                return await this.loadTagCategory(
+                    tagId,
+                    page || 1,
+                    sort
+                );
+            }
+
+    // API 找不到时保留网页备用
+            let url =
+            `${this.baseUrl}/${param}/${encodeURIComponent(category)}${sort}?page=${page}`;
+            let res = await Network.get(url,{});
+            return this.parseComicList(
+                res.body,
+                "category"
+            );
         },
         // provide options for category comic loading
         optionList: [
