@@ -935,7 +935,7 @@ class Nhentai extends ComicSource {
                 throw "Invalid Status Code: " + res.status
             }
             let data = JSON.parse(res.body)
-            let comments = data.map(c => {
+            let comments = (data.result || []).map(c => {
                 return new Comment({
                     userName: c.poster.username,
                     avatar: this.toAbsoluteMediaUrl(c.poster.avatar_url, false),
@@ -947,7 +947,7 @@ class Nhentai extends ComicSource {
             })
             return {
                 comments: comments,
-                maxPage: 1
+                maxPage: data.num_pages || 1
             }
         },
         /**
