@@ -209,10 +209,10 @@ class Nhentai extends ComicSource {
         return this.parseComicListFromApi(JSON.parse(res.body));
     }
 
-    async loadTagCategory(tagId, page = 1, sort = "date") {
-        return await this.loadApiGalleries(
-            `${this.apiBaseUrl}/galleries/tagged?tag_id=${tagId}&page=${page}&sort=${sort}`
-        );
+    async loadTagCategory(tagId, page = 1, sort = "") {
+        let url =
+            `${this.apiBaseUrl}/galleries/tagged?tag_id=${tagId}&page=${page}&sort=${sort}`;
+        return await this.loadApiGalleries(url);
     }
 
     formatTimestamp(timestampSec) {
@@ -536,16 +536,14 @@ class Nhentai extends ComicSource {
                 }
             }
             category = category.replaceAll(" ", "-")
-            let sortOption = options[0] || "popular";
-            let sortMap = {
-                "popular-today": "popular",
-                "popular-week": "popular",
-                "popular-month": "popular",
-                "popular": "popular",
-                "/": "date"
-            };
-            let sort = sortMap[sortOption] || "date";
             category = category.replaceAll('.', '-');
+            let sort = (options?.[0] || "date")
+                .split("-")[0]
+                .replace("/", "")
+                .replace("@", "-");
+            if(!sort){
+                sort = "date";
+            }
             let tagId = null;
 
             // 语言
@@ -562,8 +560,10 @@ class Nhentai extends ComicSource {
 
                 if(id) {
 
-                    return await this.loadApiGalleries(
-                        `${this.apiBaseUrl}/galleries/tagged?tag_id=${id}&page=${page}`
+                    return await this.loadTagCategory(
+                        id,
+                        page || 1,
+                        sort
                     );
 
                 }
@@ -585,9 +585,6 @@ class Nhentai extends ComicSource {
 
             // tag 分类
             if(tagId){
-                let sort = (options[0] || "date")
-                    .replaceAll("@", "-")
-                    .replace("/", "");
 
                 return await this.loadTagCategory(
                     tagId,
@@ -598,7 +595,7 @@ class Nhentai extends ComicSource {
 
     // API 找不到时保留网页备用
             let url =
-            `${this.baseUrl}/${param}/${encodeURIComponent(category)}${sort}?page=${page}`;
+            `${this.baseUrl}/${param}/${encodeURIComponent(category)}?page=${page}`;
             let res = await Network.get(url,{});
             return this.parseComicList(
                 res.body,
