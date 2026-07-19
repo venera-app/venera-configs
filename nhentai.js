@@ -19,6 +19,7 @@ class Nhentai extends ComicSource {
     imageServer = "https://i3.nhentai.net"
     thumbServer = "https://t3.nhentai.net"
     apiUserAgent = "Venera/1.0 (+https://github.com/venera-app/venera)"
+    tagIdCache = {};
 
     settings = {
         apiKey: {
@@ -161,12 +162,39 @@ class Nhentai extends ComicSource {
             lang = "中文";
         }
         let tagsRes = [];
-        for (let tagId of tagIds) {
+
+        // 优先使用 API 返回的完整 tags
+        if(item.tags && item.tags.length){
+            if(!this.tagIdCache){
+                this.tagIdCache = {};
+            }
+
+            for(let tag of item.tags){
+                if(!tag || !tag.name){
+                    continue;
+                }
+                let namespace =
+                    (tag.type || "tag").toLowerCase();
+                let cacheKey =
+                    namespace + ":" + tag.slug;
+                // 建立缓存
+                this.tagIdCache[cacheKey] = tag.id;
+                if(tag.name){
+                    tagsRes.push(tag.name);
+                }
+            }
+
+        } else {
+
+            // API 没有 tags 时再使用旧表
+            for (let tagId of tagIds) {
             let tag = Nhentai.nhentaiTags[String(tagId)];
             if (tag != null) {
                 tagsRes.push(tag);
             }
+            }
         }
+
         return new Comic({
             id: String(item.id),
             title: item.english_title || item.japanese_title || String(item.id),
@@ -535,8 +563,12 @@ class Nhentai extends ComicSource {
                     case 'categories': param = 'category'; break;
                 }
             }
-            category = category.replaceAll(" ", "-")
-            category = category.replaceAll('.', '-');
+
+            category = category
+                .replaceAll(" ", "-")
+                .replaceAll(".", "-");
+            category = category.toLowerCase();
+
             let sort = (options?.[0] || "date")
                 .split("-")[0]
                 .replace("/", "")
@@ -546,8 +578,20 @@ class Nhentai extends ComicSource {
             }
             let tagId = null;
 
+            // 优先使用详情页缓存的真实 id
+            let cacheKey =
+                param + ":" +
+                category.toLowerCase();
+
+            if(
+                this.tagIdCache &&
+                this.tagIdCache[cacheKey] !== undefined
+            ){
+                tagId = this.tagIdCache[cacheKey];
+            }
+
             // 语言
-            if(param === "language") {
+            if(!tagId && param === "language") {
 
                 let languageMap = {
                     chinese: 29963,
@@ -555,33 +599,31 @@ class Nhentai extends ComicSource {
                     japanese: 6346
                 };
 
-
-                let id = languageMap[category];
-
-                if(id) {
-
-                    return await this.loadTagCategory(
-                        id,
-                        page || 1,
-                        sort
-                    );
-
-                }
-
-            }
-
-            // 根据名称反查 tag id
-            for (let id in Nhentai.nhentaiTags) {
-
-                if (
-                    Nhentai.nhentaiTags[id].toLowerCase()
-                    === category.toLowerCase()
-                ) {
-                    tagId = id;
-                    break;
+                if(languageMap[category]){
+                    tagId = languageMap[category];
                 }
             }
 
+            // 如果缓存没有，再查旧静态表
+            if(!tagId) {
+                let searchName =
+                    category
+                    .toLowerCase()
+                    .replace(/\s+/g, "-");
+
+                for (let id in Nhentai.nhentaiTags) {
+
+                    let tagName =
+                        Nhentai.nhentaiTags[id]
+                        .toLowerCase()
+                        .replace(/\s+/g, "-");
+
+                    if(tagName === searchName){
+                        tagId = id;
+                        break;
+                    }
+                }
+            }
 
             // tag 分类
             if(tagId){
@@ -731,11 +773,21 @@ class Nhentai extends ComicSource {
                 
                 let tags = new Map();
                 for (let tag of (data.tags || [])) {
-                    let namespace = this.tagNamespace(tag.type)
-                    if (!tags.has(namespace)) {
-                        tags.set(namespace, [])
+                    let namespace = (tag.type || "tag").toLowerCase();
+                    if (!this.tagIdCache) {
+                            this.tagIdCache = {};
                     }
-                    tags.get(namespace).push(tag.name)
+                    if(tag.slug && tag.id){
+                        let cacheKey =
+                            namespace + ":" + tag.slug;
+                    // 保存 tag id，给后面的分类搜索使用
+                        this.tagIdCache[cacheKey] = tag.id;
+                    }
+                    let displayNamespace = this.tagNamespace(tag.type);
+                    if (!tags.has(displayNamespace)) {
+                            tags.set(displayNamespace, [])
+                    }
+                    tags.get(displayNamespace).push(tag.name)
                 }
 
                 let thumbnails = (data.pages || [])
