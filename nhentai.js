@@ -202,7 +202,8 @@ class Nhentai extends ComicSource {
             cover: this.toAbsoluteMediaUrl(item.thumbnail, true),
             tags: tagsRes,
             description: String(item.id),
-            language: lang
+            language: lang,
+            maxPage: item.num_pages || 0
         })
     }
 
@@ -814,6 +815,7 @@ class Nhentai extends ComicSource {
                     subtitle: subtitle || "",
                     cover: cover || "",
                     tags: tags,
+                    maxPage: data?.num_pages || 0,
                     uploadTime: this.formatTimestamp(data?.upload_date),
                     isFavorite: !!data?.is_favorited,
                     thumbnails: thumbnails,
