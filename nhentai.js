@@ -520,7 +520,7 @@ class Nhentai extends ComicSource {
 
                 type: "fixed",
 
-                categories: ["chinese", "english", "japanese"],
+                categories: ["Chinese", "English", "Japanese"],
 
                 itemType: "category",
 
@@ -539,11 +539,47 @@ class Nhentai extends ComicSource {
             }
         ],
         // enable ranking page
-        enableRankingPage: false,
+        enableRankingPage: true,
     }
 
     /// category comic loading related
     categoryComics = {
+
+        ranking: {
+            options: [
+                "date-Recent",
+                "today-Popular Today",
+                "week-Popular Week",
+                "month-Popular Month",
+                "popular-Popular All",
+            ],
+            load: async (option, page) => {
+                let sortMap = {
+                    date: "date",
+                    today: "popular-today",
+                    week: "popular-week",
+                    month: "popular-month",
+                    popular: "popular"
+                };
+
+                let sort = sortMap[option] || "date";
+
+                let res = await this.sendAuthRequest(
+                    "GET",
+                    `${this.apiBaseUrl}/search?query=*&sort=${sort}&page=${page || 1}`
+                );
+                if(res.status !== 200){
+                    throw "Invalid Status Code: " + res.status;
+                }
+                let data = JSON.parse(res.body);
+                return {
+                    comics: (data.result || [])
+                        .map(e => this.parseComicFromApi(e)),
+                    maxPage: data.num_pages || 1
+                };
+            },
+        },
+
         /**
          * load comics of a category
          * @param category {string} - category name
