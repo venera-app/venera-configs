@@ -483,28 +483,45 @@ class Nhentai extends ComicSource {
              */
             load: async (page) => {
                 let currentPage = page || 1;
-                let popular = await this.loadApiGalleries(
-                    `${this.apiBaseUrl}/galleries?sort=popular&page=${currentPage}`
-                );
-                let latest = await this.loadApiGalleries(
-                    `${this.apiBaseUrl}/galleries?sort=date&page=${currentPage}`
-                );
-                return {
-                    data: [
-                        {
-                            title: "Popular",
-                            comics: popular.comics
-                        },
-                        {
-                            title: "Latest",
-                            comics: latest.comics
-                        }
-                    ],
+                let data = [];
 
-                    maxPage: Math.max(
-                        popular.maxPage,
-                        latest.maxPage
-                    )
+                if (currentPage === 1) {
+                    let popular;
+                    if (this.popularCache) {
+                        popular = this.popularCache;
+                    } else {
+                        let res = await Network.get(
+                            `${this.apiBaseUrl}/galleries/popular`,
+                            this.getApiBaseHeaders()
+                        );
+                        if (res.status !== 200) {
+                            throw "Invalid Status Code: " + res.status;
+                        }
+                        popular = JSON.parse(res.body);
+                        this.popularCache = popular;
+                    }
+                    data.push({
+                        title: "Popular Now",
+                        comics: popular.map(e => this.parseComicFromApi(e))
+                    });
+                }
+
+                let latest = await this.loadApiGalleries(
+                    `${this.apiBaseUrl}/galleries?page=${currentPage}`
+                );
+
+                if (currentPage === 1) {
+                        data.push({
+                            title: "New Uploads",
+                            comics: latest.comics
+                        });
+                } else {
+                        data.push(latest.comics);
+                }
+
+                return {
+                    data,
+                    maxPage: latest.maxPage
                 };
             }
         }
