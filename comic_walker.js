@@ -1,23 +1,28 @@
 class ComicWalker extends ComicSource {
   name = "カドコミ";
   key = "comic_walker";
-  version = "1.0.0";
+  version = "1.1.0";
   minAppVersion = "1.6.0";
   url =
     "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/comic_walker.js";
 
   api_key = "ytBrdQ2ZYdRQguqEusVLxQVUgakNnVht";
 
-  latestVersion = "1.4.13";
+  latestVersion = "1.5.0";
 
   api_base = "https://mobileapp.comic-walker.com";
+
+  // 根级方法避免框架报错
+  onTagSuggestionSelected() {}
 
   get headers() {
     const headers = {
       "X-API-Environment-Key": this.api_key,
-      "User-Agent": `BookWalkerApp/${this.latestVersion} (Android 13)`,
+      // 改进 User-Agent 格式，更贴近真实应用
+      "User-Agent": `BookWalkerApp/${this.latestVersion} (Android 13; en_US; Phone; com.bookwalker)`,
       "Host": "mobileapp.comic-walker.com",
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
+      "Accept": "application/json"
     };
     const token = this.loadData("token");
     if (token) {
@@ -31,61 +36,94 @@ class ComicWalker extends ComicSource {
       `${this.api_base}/v1/users`,
       this.headers,
       "POST",
+      {}
     );
 
-    this.saveData("token", res.resources.access_token);
-    return res.resources.access_token;
+    if (res && res.resources && res.resources.access_token) {
+      this.saveData("token", res.resources.access_token);
+      return res.resources.access_token;
+    }
+    throw new Error("Failed to get access token");
   }
 
   async request(url, headers, method = "GET", data) {
     let response;
-    if (method === "GET") {
-      response = await Network.get(url, headers);
-    } else if (method === "POST") {
-      response = await Network.post(url, headers, data);
-    } else {
-      throw new Error(`Unsupported method: ${method}`);
-    }
-    if (
-      response.status === 204
-    ) {
-      return response;
-    }
-    response = JSON.parse(response.body);
-    if (
-      response.code === "invalid_request_parameter" ||
-      response.code === "free_daily_reward_quota_exceeded" ||
-      response.code === "unauthorized"
-    ) {
-      await this.refreshToken();
+    try {
       if (method === "GET") {
-        response = await Network.get(url, this.headers);
+        response = await Network.get(url, headers);
       } else if (method === "POST") {
-        response = await Network.post(url, this.headers, data);
+        response = await Network.post(url, headers, data);
       } else {
         throw new Error(`Unsupported method: ${method}`);
       }
-      if (
-        response.status === 204
-      ) {
-        return response;
-      }
-      response = JSON.parse(response.body);
+    } catch (e) {
+      throw e;
     }
-    return response;
+
+    // 处理非 2xx 或 204 状态码，不尝试解析 JSON
+    if (response.status !== 200 && response.status !== 204) {
+      throw new Error(`HTTP ${response.status}: ${response.body || "No body"}`);
+    }
+
+    if (response.status === 204) {
+      return response;
+    }
+
+    let json;
+    try {
+      json = JSON.parse(response.body);
+    } catch (e) {
+      throw new Error(`Invalid JSON response: ${response.body.substring(0, 100)}`);
+    }
+
+    // 处理业务错误码
+    if (
+      json.code === "invalid_request_parameter" ||
+      json.code === "free_daily_reward_quota_exceeded" ||
+      json.code === "unauthorized"
+    ) {
+      await this.refreshToken();
+      const newHeaders = { ...headers, ...this.headers };
+      let retryResponse;
+      if (method === "GET") {
+        retryResponse = await Network.get(url, newHeaders);
+      } else if (method === "POST") {
+        retryResponse = await Network.post(url, newHeaders, data);
+      }
+      if (retryResponse.status !== 200 && retryResponse.status !== 204) {
+        throw new Error(`Retry failed with status ${retryResponse.status}`);
+      }
+      if (retryResponse.status === 204) return retryResponse;
+      try {
+        json = JSON.parse(retryResponse.body);
+      } catch (e) {
+        throw new Error(`Retry invalid JSON: ${retryResponse.body.substring(0, 100)}`);
+      }
+    }
+    return json;
   }
 
   async init() {
     const itunes_api = "https://itunes.apple.com/lookup?bundleId=jp.co.bookwalker.cwapp.ios&country=jp";
 
-    const resp = await Network.get(itunes_api);
-
-    if (resp.status == 200) {
-      response = JSON.parse(resp.body);
-      this.latestVersion = response.version;
+    try {
+      const resp = await Network.get(itunes_api);
+      if (resp.status == 200) {
+        const data = JSON.parse(resp.body);
+        if (data.results && data.results.length > 0) {
+          this.latestVersion = data.results[0].version;
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to fetch latest version, using default:", this.latestVersion);
     }
 
-    await this.refreshToken();
+    // 尝试刷新 token，失败不阻断初始化
+    try {
+      await this.refreshToken();
+    } catch (e) {
+      console.warn("Failed to refresh token during init:", e.message);
+    }
   }
 
   explore = [
@@ -142,7 +180,6 @@ class ComicWalker extends ComicSource {
         );
         result["新連載"] = newSerialization;
 
-
         return result;
       },
     },
@@ -182,6 +219,8 @@ class ComicWalker extends ComicSource {
   };
 
   comic = {
+    onTagSuggestionSelected() {},
+
     loadInfo: async (id) => {
       const res = await this.request(
         `${this.api_base}/v2/screens/comics/${id}`,
@@ -226,10 +265,10 @@ class ComicWalker extends ComicSource {
       for (const ep of episodes.resources) {
         let canRent = false;
         const plans = (ep.plans || []).filter((plan) =>
-      plan.type !== "paid"
+          plan.type !== "paid"
         );
         if (Array.isArray(plans) && plans.length > 0) {
-      canRent = true;
+          canRent = true;
         }
         const title = canRent ? ep.title : `❌ ${ep.title}`;
         chapters.set(ep.id, title);
@@ -254,7 +293,6 @@ class ComicWalker extends ComicSource {
         this.headers,
       );
       const plans = (detail.plans || []).filter((plan) =>
-        // plan.type !== "daily_video_free" &&
         plan.type !== "paid"
       );
       if (
@@ -333,7 +371,7 @@ class ComicWalker extends ComicSource {
           var key = [${keyArray.join(',')}];
           var view = new Uint8Array(buffer);
           for (var i = 0; i < view.length; i++) {
-        view[i] ^= key[i % key.length];
+            view[i] ^= key[i % key.length];
           }
           return buffer;
         }
@@ -342,7 +380,7 @@ class ComicWalker extends ComicSource {
       return {
         url: cleanUrl,
         headers: this.headers,
-        onResponse: async (buffer)  => {
+        onResponse: async (buffer) => {
           return await compute(onResponseScript, buffer);
         }
       };

@@ -1,7 +1,7 @@
 class ShonenJumpPlus extends ComicSource {
   name = "少年ジャンプ＋";
   key = "shonen_jump_plus";
-  version = "1.1.1";
+  version = "1.1.2"; // 升级源版本号
   minAppVersion = "1.2.1";
   url =
     "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/shonen_jump_plus.js";
@@ -10,36 +10,49 @@ class ShonenJumpPlus extends ComicSource {
   bearerToken = null;
   userAccountId = null;
   tokenExpiry = 0;
-  latestVersion = "4.0.24";
+  latestVersion = "4.3.0"; // 备用版本（建议定期更新）
+  _retryCount = 0; // 重试计数器
 
   get headers() {
     return {
-      "Origin": "https://shonenjumpplus.com",
-      "Referer": "https://shonenjumpplus.com/",
+      Origin: "https://shonenjumpplus.com",
+      Referer: "https://shonenjumpplus.com/",
       "X-Giga-Device-Id": this.deviceId,
       "User-Agent": `ShonenJumpPlus-Android/${this.latestVersion}`,
     };
   }
 
   apiBase = `https://shonenjumpplus.com/api/v1`;
+
   generateDeviceId() {
     let result = "";
     const chars = "0123456789abcdef";
     for (let i = 0; i < 16; i++) {
-      result += chars[randomInt(0, chars.length - 1)];
+      result += chars[Math.floor(Math.random() * chars.length)];
     }
     return result;
   }
 
+  // 初始化：获取最新版本号
   async init() {
-    const url = "https://apps.apple.com/jp/app/id875750302";
-
-    const resp = await Network.get(url);
-
-    const match = resp.body.match(/whats-new__latest__version">[^<]*?([\d.]+)</);
-
-    if (match && match[1]) {
-      this.latestVersion = match[1];
+    try {
+      // 使用 iTunes Lookup API
+      const url = "https://itunes.apple.com/jp/lookup?id=875750302";
+      const resp = await Network.get(url);
+      if (resp.status !== 200) throw new Error(`HTTP ${resp.status}`);
+      const data = JSON.parse(resp.body);
+      if (data.results && data.results.length > 0) {
+        const version = data.results[0].version;
+        if (version) {
+          this.latestVersion = version;
+          console.log(`[ShonenJumpPlus] 获取到最新版本: ${version}`);
+          return;
+        }
+      }
+      throw new Error("无法从 iTunes 解析版本号");
+    } catch (e) {
+      console.warn("[ShonenJumpPlus] 获取版本失败，使用备用版本", e);
+      // 备用版本保持不变（已初始化）
     }
   }
 
@@ -57,36 +70,41 @@ class ShonenJumpPlus extends ComicSource {
         }
 
         const sections = response.data.homeSections;
-        const dailyRankingSection = sections.find((section) =>
-          section.__typename === "DailyRankingSection"
+        const dailyRankingSection = sections.find(
+          (section) => section.__typename === "DailyRankingSection",
         );
 
         if (!dailyRankingSection || !dailyRankingSection.dailyRankings) {
           throw "Cannot fetch daily ranking data";
         }
 
-        const dailyRanking = dailyRankingSection.dailyRankings.find((ranking) =>
-          ranking.ranking && ranking.ranking.__typename === "DailyRanking"
+        const dailyRanking = dailyRankingSection.dailyRankings.find(
+          (ranking) =>
+            ranking.ranking && ranking.ranking.__typename === "DailyRanking",
         );
 
         if (
-          !dailyRanking || !dailyRanking.ranking ||
-          !dailyRanking.ranking.items || !dailyRanking.ranking.items.edges
+          !dailyRanking ||
+          !dailyRanking.ranking ||
+          !dailyRanking.ranking.items ||
+          !dailyRanking.ranking.items.edges
         ) {
           throw "Cannot fetch ranking data structure";
         }
 
-        const rankingItems = dailyRanking.ranking.items.edges.map((edge) =>
-          edge.node
-        ).filter((node) =>
-          node.__typename === "DailyRankingValidItem" && node.product
-        );
+        const rankingItems = dailyRanking.ranking.items.edges
+          .map((edge) => edge.node)
+          .filter(
+            (node) =>
+              node.__typename === "DailyRankingValidItem" && node.product,
+          );
 
         function parseComic(item) {
           const series = item.product.series;
           if (!series) return null;
 
-          const cover = series.squareThumbnailUriTemplate ||
+          const cover =
+            series.squareThumbnailUriTemplate ||
             series.horizontalThumbnailUriTemplate;
 
           return {
@@ -102,9 +120,9 @@ class ShonenJumpPlus extends ComicSource {
           };
         }
 
-        const comics = rankingItems.map(parseComic).filter((comic) =>
-          comic !== null
-        );
+        const comics = rankingItems
+          .map(parseComic)
+          .filter((comic) => comic !== null);
 
         const result = {};
         result["Daily Ranking"] = comics;
@@ -127,34 +145,36 @@ class ShonenJumpPlus extends ComicSource {
       const edges = response?.data?.search?.edges || [];
       const pageInfo = response?.data?.search?.pageInfo || {};
 
-      const comics = edges.map(({ node }) => {
-        const authors = (node.author?.name || "").split(/\s*\/\s*/).filter(
-          Boolean,
-        );
-        const cover = node.latestIssue?.thumbnailUriTemplate ||
-          node.thumbnailUriTemplate;
-        if (node.__typename === "Series") {
-          return new Comic({
-            id: node.databaseId,
-            title: node.title || "",
-            cover: this.replaceCoverUrl(cover),
-            description: node.description || "",
-            tags: authors,
-          });
-        }
-        if (node.__typename === "MagazineLabel") {
-          return new Comic({
-            id: node.databaseId,
-            title: node.title || "",
-            cover: this.replaceCoverUrl(cover),
-          });
-        }
-        return null;
-      }).filter(Boolean);
+      const comics = edges
+        .map(({ node }) => {
+          const authors = (node.author?.name || "")
+            .split(/\s*\/\s*/)
+            .filter(Boolean);
+          const cover =
+            node.latestIssue?.thumbnailUriTemplate || node.thumbnailUriTemplate;
+          if (node.__typename === "Series") {
+            return new Comic({
+              id: node.databaseId,
+              title: node.title || "",
+              cover: this.replaceCoverUrl(cover),
+              description: node.description || "",
+              tags: authors,
+            });
+          }
+          if (node.__typename === "MagazineLabel") {
+            return new Comic({
+              id: node.databaseId,
+              title: node.title || "",
+              cover: this.replaceCoverUrl(cover),
+            });
+          }
+          return null;
+        })
+        .filter(Boolean);
 
       return {
         comics,
-        maxPage: pageInfo.hasNextPage ? (page || 1) + 1 : (page || 1),
+        maxPage: pageInfo.hasNextPage ? (page || 1) + 1 : page || 1,
         endCursor: pageInfo.endCursor,
       };
     },
@@ -180,13 +200,14 @@ class ShonenJumpPlus extends ComicSource {
         { chapters: {}, latestPublishAt: "" },
       );
 
-      const maxDate = latestPublishAt > seriesData.openAt
-        ? latestPublishAt
-        : seriesData.openAt;
+      const maxDate =
+        latestPublishAt > seriesData.openAt
+          ? latestPublishAt
+          : seriesData.openAt;
       const updateDate = new Date(new Date(maxDate) - 60 * 60 * 1000);
-      const authors = (seriesData.author?.name || "").split(/\s*\/\s*/).filter(
-        Boolean,
-      );
+      const authors = (seriesData.author?.name || "")
+        .split(/\s*\/\s*/)
+        .filter(Boolean);
 
       return new ComicDetails({
         title: seriesData.title || "",
@@ -194,8 +215,8 @@ class ShonenJumpPlus extends ComicSource {
         cover: this.replaceCoverUrl(seriesData.thumbnailUriTemplate),
         description: seriesData.description || "",
         tags: {
-          "Author": authors,
-          "Update": [updateDate.toISOString().slice(0, 10)],
+          Author: authors,
+          Update: [updateDate.toISOString().slice(0, 10)],
         },
         url: `https://shonenjumpplus.com/app/episode/${seriesData.publisherId}`,
         chapters,
@@ -235,32 +256,53 @@ class ShonenJumpPlus extends ComicSource {
     },
   };
 
+  // ---------- 辅助方法 ----------
   async ensureAuth() {
     if (!this.bearerToken || Date.now() > this.tokenExpiry) {
       await this.fetchBearerToken();
     }
   }
 
-  async graphqlRequest(operationName, variables) {
-    const payload = {
-      operationName,
-      variables,
-      query: GraphQLQueries[operationName],
-    };
-    const response = await Network.post(
-      `${this.apiBase}/graphql?opname=${operationName}`,
-      {
-        ...this.headers,
-        "Authorization": `Bearer ${this.bearerToken}`,
-        "Accept": "application/json",
-        "X-APOLLO-OPERATION-NAME": operationName,
-        "Content-Type": "application/json",
-      },
-      JSON.stringify(payload),
-    );
+  // 封装 graphql 请求，自动处理 410 并重试
+  async graphqlRequest(operationName, variables, retry = true) {
+    try {
+      const payload = {
+        operationName,
+        variables,
+        query: GraphQLQueries[operationName],
+      };
+      const response = await Network.post(
+        `${this.apiBase}/graphql?opname=${operationName}`,
+        {
+          ...this.headers,
+          Authorization: `Bearer ${this.bearerToken}`,
+          Accept: "application/json",
+          "X-APOLLO-OPERATION-NAME": operationName,
+          "Content-Type": "application/json",
+        },
+        JSON.stringify(payload),
+      );
 
-    if (response.status !== 200) throw `Invalid status: ${response.status}`;
-    return JSON.parse(response.body);
+      if (response.status === 410) {
+        if (retry && this._retryCount < 3) {
+          this._retryCount++;
+          console.warn("[ShonenJumpPlus] 收到 410，尝试更新版本并重试");
+          await this.init(); // 重新获取版本
+          // 重新获取 token（因为可能失效）
+          await this.fetchBearerToken();
+          // 重试请求（不再次重试，防止死循环）
+          return this.graphqlRequest(operationName, variables, false);
+        } else {
+          throw new Error(`GraphQL 请求失败，状态码 410，版本可能需要手动更新`);
+        }
+      }
+
+      if (response.status !== 200) throw `Invalid status: ${response.status}`;
+      return JSON.parse(response.body);
+    } catch (e) {
+      console.error("[ShonenJumpPlus] graphqlRequest 异常:", e);
+      throw e;
+    }
   }
 
   normalizeEpisodeId(epId) {
@@ -272,24 +314,45 @@ class ShonenJumpPlus extends ComicSource {
   }
 
   replaceCoverUrl(url) {
-    return (url || "").replace("{height}", "1500").replace(
-      "{width}",
-      "1500",
-    ) || "";
+    return (
+      (url || "").replace("{height}", "1500").replace("{width}", "1500") || ""
+    );
   }
 
-  async fetchBearerToken() {
-    const response = await Network.post(
-      `${this.apiBase}/user_account/access_token`,
-      this.headers,
-      "",
-    );
-    const { access_token, user_account_id } = JSON.parse(
-      response.body,
-    );
-    this.bearerToken = access_token;
-    this.userAccountId = user_account_id;
-    this.tokenExpiry = Date.now() + 3600000;
+  // 获取 bearer token，处理 410
+  async fetchBearerToken(retry = true) {
+    try {
+      const response = await Network.post(
+        `${this.apiBase}/user_account/access_token`,
+        this.headers,
+        "",
+      );
+
+      if (response.status === 410) {
+        if (retry && this._retryCount < 3) {
+          this._retryCount++;
+          console.warn("[ShonenJumpPlus] token 请求收到 410，尝试更新版本并重试");
+          await this.init();
+          // 重新请求（不再重试）
+          return this.fetchBearerToken(false);
+        } else {
+          throw new Error("获取 access_token 失败，状态码 410，版本过旧");
+        }
+      }
+
+      if (response.status !== 200) {
+        throw new Error(`获取 access_token 失败，状态码 ${response.status}`);
+      }
+
+      const { access_token, user_account_id } = JSON.parse(response.body);
+      this.bearerToken = access_token;
+      this.userAccountId = user_account_id;
+      this.tokenExpiry = Date.now() + 3600000;
+      this._retryCount = 0; // 重置重试计数
+    } catch (e) {
+      console.error("[ShonenJumpPlus] fetchBearerToken 异常:", e);
+      throw e;
+    }
   }
 
   async fetchSeriesDetail(id) {
@@ -298,12 +361,14 @@ class ShonenJumpPlus extends ComicSource {
   }
 
   async fetchEpisodes(id) {
-    const response = await this.graphqlRequest(
-      "SeriesDetailEpisodeList",
-      { id, episodeOffset: 0, episodeFirst: 1500, episodeSort: "NUMBER_ASC" },
-    );
+    const response = await this.graphqlRequest("SeriesDetailEpisodeList", {
+      id,
+      episodeOffset: 0,
+      episodeFirst: 1500,
+      episodeSort: "NUMBER_ASC",
+    });
     const episodes = (response?.data?.series?.episodes?.edges || []).map(
-      (edge) => edge.node
+      (edge) => edge.node,
     );
     return episodes;
   }
@@ -317,21 +382,25 @@ class ShonenJumpPlus extends ComicSource {
   }
 
   isEpisodeAccessible({ purchaseInfo }) {
-    return purchaseInfo?.isFree || purchaseInfo?.hasPurchased ||
-      purchaseInfo?.hasRented;
+    return (
+      purchaseInfo?.isFree ||
+      purchaseInfo?.hasPurchased ||
+      purchaseInfo?.hasRented
+    );
   }
 
   async handleEpisodePurchase(episodeData) {
     const { id, purchaseInfo } = episodeData;
-    const { purchasableViaOnetimeFree, rentable, unitPrice } = purchaseInfo ||
-      {};
+    const { purchasableViaOnetimeFree, rentable, unitPrice } =
+      purchaseInfo || {};
 
     if (purchasableViaOnetimeFree) await this.consumeOnetimeFree(id);
     if (rentable) await this.rentChapter(id, unitPrice);
   }
 
   buildImageUrls({ pageImages, pageImageToken }) {
-    const validImages = pageImages.edges.flatMap((edge) => edge.node?.src)
+    const validImages = pageImages.edges
+      .flatMap((edge) => edge.node?.src)
       .filter(Boolean);
     return {
       images: validImages.map((url) => `${url}?token=${pageImageToken}`),
@@ -382,8 +451,9 @@ class ShonenJumpPlus extends ComicSource {
   }
 }
 
+// GraphQL 查询（保持不变）
 const GraphQLQueries = {
-  "SearchResult": `query SearchResult($after: String, $keyword: String!) {
+  SearchResult: `query SearchResult($after: String, $keyword: String!) {
         search(after: $after, first: 50, keyword: $keyword, types: [SERIES,MAGAZINE_LABEL]) {
             pageInfo { hasNextPage endCursor }
             edges {
@@ -395,7 +465,7 @@ const GraphQLQueries = {
             }
         }
     }`,
-  "SeriesDetail": `query SeriesDetail($id: String!) {
+  SeriesDetail: `query SeriesDetail($id: String!) {
         series(databaseId: $id) {
             id databaseId title thumbnailUriTemplate
             author { name }
@@ -405,16 +475,14 @@ const GraphQLQueries = {
             publisherId
         }
     }`,
-  "SeriesDetailEpisodeList":
-    `query SeriesDetailEpisodeList($id: String!, $episodeOffset: Int, $episodeFirst: Int, $episodeSort: ReadableProductSorting) {
+  SeriesDetailEpisodeList: `query SeriesDetailEpisodeList($id: String!, $episodeOffset: Int, $episodeFirst: Int, $episodeSort: ReadableProductSorting) {
         series(databaseId: $id) {
             episodes: readableProducts(types: [EPISODE], first: $episodeFirst, offset: $episodeOffset, sort: $episodeSort) {
                 edges { node { databaseId title publishedAt } }
             }
         }
     }`,
-  "EpisodeViewerConditionallyCacheable":
-    `query EpisodeViewerConditionallyCacheable($episodeID: String!) {
+  EpisodeViewerConditionallyCacheable: `query EpisodeViewerConditionallyCacheable($episodeID: String!) {
         episode(databaseId: $episodeID) {
             id pageImages { edges { node { src } } } pageImageToken
             purchaseInfo {
@@ -423,19 +491,18 @@ const GraphQLQueries = {
             }
         }
     }`,
-  "ConsumeOnetimeFree":
-    `mutation ConsumeOnetimeFree($input: ConsumeOnetimeFreeInput!) {
+  ConsumeOnetimeFree: `mutation ConsumeOnetimeFree($input: ConsumeOnetimeFreeInput!) {
         consumeOnetimeFree(input: $input) { isSuccess }
     }`,
-  "Rent": `mutation Rent($input: RentInput!) {
+  Rent: `mutation Rent($input: RentInput!) {
         rent(input: $input) {
             userAccount { databaseId }
         }
     }`,
-  "AddUserDevice": `mutation AddUserDevice($input: AddUserDeviceInput!) {
+  AddUserDevice: `mutation AddUserDevice($input: AddUserDeviceInput!) {
         addUserDevice(input: $input) { isSuccess }
     }`,
-  "HomeCacheable": `query HomeCacheable {
+  HomeCacheable: `query HomeCacheable {
     homeSections {
       __typename
       ...DailyRankingSection
