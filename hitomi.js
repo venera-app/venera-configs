@@ -551,7 +551,7 @@ async function get_image_srcs(files) {
   const real_full_path_from_hash = (hash) => {
     return hash.replace(/^.*(..)(.)$/, "$2/$1/" + hash);
   };
-  return files.map((image) => url_from_url_from_hash(0, image, "avif"));
+  return files.map((image) => url_from_url_from_hash(0, image, "webp"));
 }
 
 /**
