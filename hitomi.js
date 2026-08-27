@@ -551,7 +551,9 @@ async function get_image_srcs(files) {
   const real_full_path_from_hash = (hash) => {
     return hash.replace(/^.*(..)(.)$/, "$2/$1/" + hash);
   };
-  return files.map((image) => url_from_url_from_hash(0, image, "avif"));
+  // 使用 webp 而非 avif：
+  // webp 为网站默认格式，Venera/Flutter 完全支持。
+  return files.map((image) => url_from_url_from_hash(0, image, "webp"));
 }
 
 /**
@@ -561,14 +563,15 @@ async function get_image_srcs(files) {
  * @returns {string}
  */
 function get_thumbnail_url_from_hash(hash, bigTn) {
+  // 使用 webp 缩略图，保证封面下载后可解码且有正确扩展名
   return (
     "https://atn." +
     domain2 +
     "/" +
-    `${bigTn ? "avifbigtn" : "avifsmalltn"}/${hash.slice(-1)}/${hash.slice(
+    `${bigTn ? "webpbigtn" : "webpsmalltn"}/${hash.slice(-1)}/${hash.slice(
       -3,
       -1
-    )}/${hash}.avif`
+    )}/${hash}.webp`
   );
 }
 
@@ -995,12 +998,12 @@ class Hitomi extends ComicSource {
   // unique id of the source
   key = "hitomi";
 
-  version = "1.1.2";
+  version = "1.1.3";
 
   minAppVersion = "1.4.6";
 
   // update url
-  url = "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/hitomi.js";
+  url = "https://git.nyne.dev/nyne/venera-configs/raw/branch/main/hitomi.js";
 
   galleryCache = [];
   categoryResultCache = undefined;
