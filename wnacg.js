@@ -7,7 +7,7 @@ class Wnacg extends ComicSource {
     // unique id of the source
     key = "wnacg"
 
-    version = "1.0.5"
+    version = "1.0.6"
 
     minAppVersion = "1.0.0"
 
@@ -644,14 +644,40 @@ class Wnacg extends ComicSource {
             cover = 'https:' + cover
             cover = cover.substring(0, 6) + cover.substring(8)
             let labels = document.querySelectorAll("div.asTBcell.uwconn > label")
-            let category = labels[0].text.split("：")[1]
-            let pages = labels[1].text.split("：")[1];
+            // 站点的 label 形如「分類：…」「頁數：119P」「章節：10 話」「編號：…」，顺序不固定，按名字取值
+            let labelMap = {}
+            for (let label of labels) {
+                let t = label.text
+                let i = t.indexOf("：")
+                if (i < 0) continue
+                labelMap[t.substring(0, i).trim()] = t.substring(i + 1).trim()
+            }
+            let category = labelMap["分類"] || ""
+            let pages = labelMap["頁數"]
+            let chapterCount = labelMap["章節"]
+            // 注意：章节块（div.sr_compact）复用了站点原生的 a.tagshow 样式，
+            // 所以不能把 a.tagshow 全当标签，要用 data-chid / href 里的 -aid- 把它们区分出来
             let tagsDom = document.querySelectorAll("a.tagshow");
+            let tagList = []
+            let chapters = new Map()
+            for (let e of tagsDom) {
+                let href = e.attributes["href"] || ""
+                let chid = e.attributes["data-chid"]
+                let match = RegExp("(?<=-aid-)[0-9]+").exec(href)
+                if ((chid !== undefined && chid !== null && chid !== "") || match) {
+                    let id = (chid !== undefined && chid !== null && chid !== "") ? String(chid) : match[0]
+                    let name = e.text.trim()
+                    if (name !== "") chapters.set(id, name)
+                } else {
+                    tagList.push(e.text)
+                }
+            }
             let tags = new Map()
-            tags.set("頁數", [pages])
+            if (pages !== undefined) tags.set("頁數", [pages])
+            if (chapterCount !== undefined) tags.set("章節", [chapterCount])
             tags.set("分類", [category])
-            if (tagsDom.length > 0) {
-                tags.set("標籤", tagsDom.map((e) => e.text))
+            if (tagList.length > 0) {
+                tags.set("標籤", tagList)
             }
             let description = document.querySelector("div.asTBcell.uwconn > p").text;
             let uploader = document.querySelector("div.asTBcell.uwuinfo > a > p").text;
@@ -662,6 +688,7 @@ class Wnacg extends ComicSource {
                 cover: cover,
                 pages: pages,
                 tags: tags,
+                chapters: chapters,
                 description: description,
                 uploader: uploader,
             })
@@ -683,8 +710,10 @@ class Wnacg extends ComicSource {
                 return 'https:' + e.attributes["src"]
             })
             next = (Number(next) + 1).toString()
-            let pagesLink = document.querySelector("div.f_left.paginator").children
-            if (pagesLink[pagesLink.length - 1].classNames.includes("thispage")) {
+            // 合集页没有缩略图网格、也不一定有分页器，这里做空值保护，避免整页报错
+            let paginator = document.querySelector("div.f_left.paginator")
+            let pagesLink = (paginator === null || paginator === undefined) ? [] : paginator.children
+            if (pagesLink.length === 0 || pagesLink[pagesLink.length - 1].classNames.includes("thispage")) {
                 next = null
             }
             return {
@@ -699,7 +728,10 @@ class Wnacg extends ComicSource {
          * @returns {Promise<{images: string[]}>}
          */
         loadEp: async (comicId, epId) => {
-            let res = await Network.get(`${this.baseUrl}/photos-gallery-aid-${comicId}.html`, {})
+            // 合集（多章節）里每一话本身就是独立相册，epId 就是该话的 aid；
+            // 单本漫画没有 epId，回退用 comicId
+            let targetId = (epId !== undefined && epId !== null && epId !== "") ? epId : comicId
+            let res = await Network.get(`${this.baseUrl}/photos-gallery-aid-${targetId}.html`, {})
             if (res.status !== 200) {
                 throw `Invalid Status Code ${res.status}`
             }
