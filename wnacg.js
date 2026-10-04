@@ -7,7 +7,7 @@ class Wnacg extends ComicSource {
     // unique id of the source
     key = "wnacg"
 
-    version = "1.0.5"
+    version = "1.0.6"
 
     minAppVersion = "1.0.0"
 
@@ -634,7 +634,8 @@ class Wnacg extends ComicSource {
          * @returns {Promise<ComicDetails>}
          */
         loadInfo: async (id) => {
-            let res = await Network.get(`${this.baseUrl}/photos-index-page-1-aid-${id}.html`, {})
+            // Force a stable chapter order/layout instead of using the website's saved preference.
+            let res = await Network.get(`${this.baseUrl}/photos-index-page-1-aid-${id}.html?order=asc&mode=list`, {})
             if (res.status !== 200) {
                 throw `Invalid Status Code ${res.status}`
             }
@@ -645,10 +646,10 @@ class Wnacg extends ComicSource {
             cover = cover.substring(0, 6) + cover.substring(8)
             let labels = document.querySelectorAll("div.asTBcell.uwconn > label")
             let category = labels[0].text.split("：")[1]
-            let pages = labels[1].text.split("：")[1];
-            let tagsDom = document.querySelectorAll("a.tagshow");
+            let isSeries = document.querySelector("#sr_pub") !== null
+            let tagsDom = document.querySelectorAll("div.asTBcell.uwconn a.tagshow");
             let tags = new Map()
-            tags.set("頁數", [pages])
+            tags.set(isSeries ? "章節" : "頁數", [labels[1].text.split("：")[1]])
             tags.set("分類", [category])
             if (tagsDom.length > 0) {
                 tags.set("標籤", tagsDom.map((e) => e.text))
@@ -656,11 +657,43 @@ class Wnacg extends ComicSource {
             let description = document.querySelector("div.asTBcell.uwconn > p").text;
             let uploader = document.querySelector("div.asTBcell.uwuinfo > a > p").text;
 
+            let chapters
+            if (isSeries) {
+                chapters = new Map()
+                let page = 1
+                let maxPage = 1
+                try {
+                    while (true) {
+                        for (let chapter of document.querySelectorAll("a[data-chid]")) {
+                            chapters.set(chapter.attributes["data-chid"], chapter.text.trim())
+                        }
+                        for (let link of document.querySelectorAll("div.f_left.paginator a[href]")) {
+                            let match = link.attributes["href"].match(/-page-(\d+)-/)
+                            if (match) maxPage = Math.max(maxPage, Number(match[1]))
+                        }
+                        if (page >= maxPage) break
+                        page++
+                        document.dispose()
+                        document = null
+                        let chapterRes = await Network.get(`${this.baseUrl}/photos-index-page-${page}-aid-${id}.html?order=asc&mode=list`, {})
+                        if (chapterRes.status !== 200) {
+                            throw `Invalid Status Code ${chapterRes.status}`
+                        }
+                        document = new HtmlDocument(chapterRes.body)
+                    }
+                } finally {
+                    if (document) document.dispose()
+                }
+                if (chapters.size === 0) throw 'Invalid chapter directory'
+            } else {
+                document.dispose()
+            }
+
             return new ComicDetails({
                 id: id,
                 title: title,
                 cover: cover,
-                pages: pages,
+                chapters: chapters,
                 tags: tags,
                 description: description,
                 uploader: uploader,
@@ -679,14 +712,20 @@ class Wnacg extends ComicSource {
                 throw `Invalid Status Code ${res.status}`
             }
             let document = new HtmlDocument(res.body)
+            if (document.querySelector("#sr_pub")) {
+                document.dispose()
+                return { thumbnails: [], next: null }
+            }
             let thumbnails = document.querySelectorAll("div.pic_box.tb > a > img").map((e) => {
                 return 'https:' + e.attributes["src"]
             })
             next = (Number(next) + 1).toString()
-            let pagesLink = document.querySelector("div.f_left.paginator").children
-            if (pagesLink[pagesLink.length - 1].classNames.includes("thispage")) {
+            let paginator = document.querySelector("div.f_left.paginator")
+            let pagesLink = paginator ? paginator.children : []
+            if (pagesLink.length === 0 || pagesLink[pagesLink.length - 1].classNames.includes("thispage")) {
                 next = null
             }
+            document.dispose()
             return {
                 thumbnails: thumbnails,
                 next: next
@@ -699,7 +738,7 @@ class Wnacg extends ComicSource {
          * @returns {Promise<{images: string[]}>}
          */
         loadEp: async (comicId, epId) => {
-            let res = await Network.get(`${this.baseUrl}/photos-gallery-aid-${comicId}.html`, {})
+            let res = await Network.get(`${this.baseUrl}/photos-gallery-aid-${epId || comicId}.html`, {})
             if (res.status !== 200) {
                 throw `Invalid Status Code ${res.status}`
             }
