@@ -600,8 +600,6 @@ class Wnacg extends ComicSource {
                 let name = comic.querySelector("div.box_cel.u_listcon > p.l_title > a").text;
                 let link = comic.querySelector("div.box_cel.u_listcon > p.l_title > a").attributes["href"];
                 let id = RegExp("(?<=-aid-)[0-9]+").exec(link)[0];
-                let info = comic.querySelector("div.box_cel.u_listcon > p.l_detla").text;
-                let pages = Number(RegExp("(?<=頁數：)[0-9]+").exec(info)[0])
                 let delUrl = comic.querySelector("div.box_cel.u_listcon > p.alopt > a").attributes["onclick"];
                 let favoriteId = RegExp("(?<=del-id-)[0-9]+").exec(delUrl)[0];
                 return new Comic({
@@ -609,7 +607,6 @@ class Wnacg extends ComicSource {
                     title: name,
                     subtitle: time,
                     cover: cover,
-                    pages: pages,
                     favoriteId: favoriteId,
                 })
             })
