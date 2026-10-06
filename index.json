@@ -8,7 +8,7 @@
     {
         "name": "拷贝漫画(多账号)",
         "fileName": "copy_manga_multi_accounts.js",
-        "key": "copy_manga",
+        "key": "copy_manga_multi_accounts",
         "version": "1.4.1"
     },
     {
