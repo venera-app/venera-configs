@@ -145,7 +145,7 @@ function diffIndexEntries(baseByFile, currentByFile) {
 }
 
 function isConfigFile(filePath) {
-  if (!filePath.endsWith(".js")) {
+  if (path.dirname(filePath) !== "." || !filePath.endsWith(".js")) {
     return false;
   }
   const baseName = path.basename(filePath);
