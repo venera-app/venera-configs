@@ -96,7 +96,8 @@
         "name": "再漫画",
         "fileName": "zaimanhua.js",
         "key": "zaimanhua",
-        "version": "1.0.2"
+        "version": "1.0.4",
+        "description": "已增加搜索栏作品ID号的索引与搜索功能，章节评论修复"
     },
     {
         "name": "漫画柜",
@@ -181,7 +182,7 @@
         "fileName": "hot_manga.js",
         "key": "hot_manga",
         "version": "1.0.0"
-	},
+    },
     {
         "name": "Kavita",
         "fileName": "kavita.js",
@@ -201,5 +202,51 @@
         "key": "mycomic",
         "version": "1.1.0",
         "description": "mycomic.com漫画源, 遇到Cloudflare验证请在源设置中登录"
+    },
+    {
+        "name": "zero搬运网",
+        "fileName": "zerobyw33.js",
+        "key": "zerobyw33",
+        "version": "1.2.0",
+        "description": "可以登录"
+    },
+    {
+        "name": "如漫画",
+        "fileName": "rumanhua.js",
+        "key": "rumanhua",
+        "version": "1.0.0"
+    },
+    {
+        "name": "51漫画",
+        "fileName": "51manga.js",
+        "key": "manga51",
+        "version": "1.1.0"
+    },
+    {
+        "name": "嗶哩漫畫",
+        "fileName": "bilimanga.js",
+        "key": "bilimanga",
+        "version": "1.1.0"
+    },
+    {
+        "name": "MangaForFree",
+        "fileName": "mangaforfree.js",
+        "key": "mangaforfree",
+        "version": "0.6.3",
+        "description": "生肉漫画网站MangaForFree"
+    },
+    {
+        "name": "4KHD",
+        "fileName": "4khd.js",
+        "key": "4khd",
+        "version": "1.4.3",
+        "description": "真人网站4khd"
+    },
+    {
+        "name": "CosplayTele",
+        "fileName": "cosplaytele.js",
+        "key": "cosplaytele",
+        "version": "1.6.1",
+        "description": "真人CosplayTele"
     }
 ]
