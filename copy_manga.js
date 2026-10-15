@@ -4,7 +4,7 @@ class CopyManga extends ComicSource {
 
     key = "copy_manga"
 
-    version = "1.4.2"
+    version = "1.4.3"
 
     minAppVersion = "1.6.0"
 
@@ -1113,9 +1113,19 @@ class CopyManga extends ComicSource {
             const res = await fetch(url, { headers: this.headers });
             if (res.status === 200) {
                 let data = await res.json();
-                let api = data.results?.api?.[0]?.[0];
-                if (api) {
-                    this.settings.base_url.default = api;
+                let apis = data.results?.api ?? [];
+                for (const item of apis) {
+                    let api = item?.[0];
+                    // Only copy-manga hosts are accepted, and the check sends no account headers,
+                    // so the user's token is never sent to an unrelated host.
+                    if (!api || !/copy/i.test(api)) continue;
+                    try {
+                        const check = await fetch(`https://${api}/api/v3/h5/homeIndex`, { headers: { "User-Agent": this.headers["User-Agent"] } });
+                        if (check.status === 200 && (await check.json())?.code === 200) {
+                            this.settings.base_url.default = api;
+                            return;
+                        }
+                    } catch (e) { }
                 }
             }
         } catch (e) { }
