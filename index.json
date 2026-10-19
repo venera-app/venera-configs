@@ -201,5 +201,12 @@
         "key": "mycomic",
         "version": "1.1.0",
         "description": "mycomic.com漫画源, 遇到Cloudflare验证请在源设置中登录"
+    },
+    {
+        "name": "Pixiv",
+        "fileName": "pixiv.js",
+        "key": "pixiv",
+        "version": "0.4.1",
+        "description": "Pixiv 第三方源, 支持账号密码/网页登录与多账号切换; 登录后可使用关注、收藏、评论、画师作品、连载章节、推荐画师, 并可切换 R18/AI 作品显示"
     }
 ]
