@@ -8,7 +8,7 @@ class MangaDex extends ComicSource {
     // unique id of the source
     key = "manga_dex"
 
-    version = "1.1.1"
+    version = "1.2.0"
 
     minAppVersion = "1.6.0"
 
@@ -52,7 +52,8 @@ class MangaDex extends ComicSource {
             } else {
                 cover = ""
             }
-            let description = data['attributes']['description']['en']
+            let descriptions = data['attributes']['description'] || {}
+            let description = descriptions['en'] || descriptions['zh'] || Object.values(descriptions)[0] || ''
             let createTime = data['attributes']['createdAt']
             let updateTime = data['attributes']['updatedAt']
             let status = data['attributes']['status']
@@ -166,9 +167,16 @@ class MangaDex extends ComicSource {
         }
     }
 
-    // Account feature is not implemented yet
-    // TODO: implement account feature
-    // account = {}
+    // MangaDex forum comments use the web session for authentication.
+    account = {
+        loginWithWebview: {
+            url: "https://forums.mangadex.org/login/",
+            checkStatus: (url, title) => {
+                return url.startsWith("https://forums.mangadex.org/") && !url.includes("/login")
+            }
+        },
+        logout: () => Network.deleteCookies("https://forums.mangadex.org/")
+    }
 
     // explore page list
     explore = [
@@ -518,20 +526,28 @@ class MangaDex extends ComicSource {
 
         },
         getChapters: async (id) => {
-            let res = await fetch(`https://api.mangadex.org/manga/${id}/feed?limit=500&translatedLanguage[]=en&order[chapter]=asc`)
-            if (!res.ok) {
-                throw new Error("Network response was not ok")
-            }
-            let data = await res.json()
+            // MangaDex caps feed responses at 500 items. Walk every page so
+            // long-running series do not lose chapters or update markers.
             let chapters = new Map()
-            for (let chapter of data['data']) {
+            let offset = 0
+            let latest = null
+            while (true) {
+                let url = `https://api.mangadex.org/manga/${id}/feed?limit=500&offset=${offset}&order[chapter]=asc&order[updatedAt]=asc`
+                let res = await fetch(url)
+                if (!res.ok) {
+                    throw new Error("Network response was not ok")
+                }
+                let data = await res.json()
+                for (let chapter of data['data'] || []) {
                 let id = chapter['id']
                 let chapterId = chapter['attributes']['chapter'] ?? "Oneshot"
                 let title = chapter['attributes']['title']
+                let language = chapter['attributes']['translatedLanguage'] || "und"
+                let languageLabel = this.comic.languageLabel(language)
                 if (title) {
                     title = `${chapterId}: ${title}`
                 } else {
-                    title = chapterId
+                    title = `${chapterId}`
                 }
                 let volume = chapter['attributes']['volume']
                 if (volume) {
@@ -539,12 +555,40 @@ class MangaDex extends ComicSource {
                 } else {
                     volume = "No Volume"
                 }
-                if (chapters.get(volume) === undefined) {
-                    chapters.set(volume, new Map())
+                // Keep translations separate so selecting a chapter never
+                // silently switches to another language/version.
+                let groupName = `${volume} - ${languageLabel}`
+                if (chapters.get(groupName) === undefined) {
+                    chapters.set(groupName, new Map())
                 }
-                chapters.get(volume).set(id, title)
+                chapters.get(groupName).set(id, title)
+                let attrs = chapter['attributes']
+                let markerTime = attrs['publishedAt'] || attrs['updatedAt'] || ""
+                // Keep the identity compact while retaining enough detail to
+                // distinguish multiple translations published on one day.
+                let markerDate = markerTime ? markerTime.substring(0, 10) : ""
+                let marker = `${markerDate}|${id}|${language}`
+                if (latest == null || markerTime >= latest.time) {
+                    latest = {time: markerTime, marker: marker}
+                }
+                }
+                let page = data['data'] || []
+                offset += page.length
+                if (page.length === 0 || offset >= (data['total'] || offset)) break
             }
+            // Keep the marker attached to this result instead of a shared
+            // source field; follow-updates checks several comics in parallel.
+            chapters.latestChapterMarker = latest?.marker
             return chapters
+        },
+        languageLabel: (language) => {
+            let normalized = (language || "und").toLowerCase()
+            let labels = {
+                "zh": "CN", "zh-hk": "HK", "zh-tw": "TW", "zh-ro": "CN",
+                "en": "EN", "ja": "JP", "ko": "KR", "fr": "FR",
+                "de": "DE", "es": "ES", "pt-br": "PT-BR", "ru": "RU"
+            }
+            return labels[normalized] || normalized.toUpperCase()
         },
         getStats: async (id) => {
             let res = await fetch(`https://api.mangadex.org/statistics/manga/${id}`)
@@ -552,11 +596,14 @@ class MangaDex extends ComicSource {
                 throw new Error("Network response was not ok")
             }
             let data = await res.json()
+            let stats = data['statistics']?.[id] || {}
+            let rating = stats['rating'] || {}
+            let comments = stats['comments'] || {}
             return {
-                comments: data['statistics'][id]['comments']?.['repliesCount'] || 0,
-                threadId: data['statistics'][id]['comments']?.['threadId'],
-                follows: data['statistics'][id]['follows'] || 0,
-                rating: data['statistics'][id]['rating']['average'] || 0,
+                comments: comments['repliesCount'] || 0,
+                threadId: comments['threadId'],
+                follows: stats['follows'] || 0,
+                rating: rating['average'] || 0,
             }
         },
         /**
@@ -565,14 +612,16 @@ class MangaDex extends ComicSource {
          * @returns {Promise<ComicDetails>}
          */
         loadInfo: async (id) => {
-            let res = await Promise.all([
-                this.comic.getComic(id),
-                this.comic.getChapters(id),
-                this.comic.getStats(id)
-            ])
-            let comic = res[0]
-            let chapters = res[1]
-            let stats = res[2]
+            let comic = await this.comic.getComic(id)
+            let chapters = await this.comic.getChapters(id)
+            let chapterMarker = chapters.latestChapterMarker
+            let stats = {comments: 0, threadId: null, follows: 0, rating: 0}
+            try {
+                stats = await this.comic.getStats(id)
+            } catch (_) {
+                // Statistics are optional metadata; they must not make a
+                // chapter/update check fail when the endpoint is unavailable.
+            }
 
             return new ComicDetails({
                 id: comic.id,
@@ -586,7 +635,9 @@ class MangaDex extends ComicSource {
                     "Artists": comic.artists,
                 },
                 description: comic.description,
-                updateTime: comic.updateTime,
+                // Manga metadata changes frequently and are not chapter updates.
+                // Use the newest chapter marker for local follow-updates.
+                updateTime: chapterMarker || comic.updateTime,
                 uploadTime: comic.createTime,
                 status: comic.status,
                 chapters: chapters,
@@ -621,19 +672,53 @@ class MangaDex extends ComicSource {
             }
             let data = await res.json()
             let images = []
+            this.imageFallbacks = this.imageFallbacks || {}
+            let baseUrl = data['baseUrl'] || 'https://uploads.mangadex.org'
+            let original = data['chapter']['data'] || []
+            let saver = data['chapter']['dataSaver'] || []
+            let hash = data['chapter']['hash']
+            for (let i = 0; i < original.length; i++) {
+                let originalUrl = `${baseUrl}/data/${hash}/${original[i]}`
+                let saverUrl = saver[i] ? `${baseUrl}/data-saver/${hash}/${saver[i]}` : null
+                if (saverUrl) {
+                    this.imageFallbacks[originalUrl] = saverUrl
+                    this.imageFallbacks[saverUrl] = originalUrl
+                }
+            }
             let image_quality = this.loadSetting('image_quality')
             if (image_quality == "Original"){
-                for (let image of data['chapter']['data']) {
-                    images.push(`https://uploads.mangadex.org/data/${data['chapter']['hash']}/${image}`)
-                }          
+                for (let image of original) {
+                    images.push(`${baseUrl}/data/${hash}/${image}`)
+                }
             }else{
-                for (let image of data['chapter']['dataSaver']) {
-                    images.push(`https://uploads.mangadex.org/data-saver/${data['chapter']['hash']}/${image}`)
+                // A few chapters do not expose data-saver files.
+                let selected = saver.length > 0 ? saver : original
+                let prefix = saver.length > 0 ? 'data-saver' : 'data'
+                for (let image of selected) {
+                    images.push(`${baseUrl}/${prefix}/${hash}/${image}`)
                 }
             }
             return {
                 images: images
             }
+        },
+        onImageLoad: (url) => {
+            let headers = {
+                'Referer': 'https://mangadex.org/',
+                'Origin': 'https://mangadex.org',
+            }
+            let makeConfig = (target, seen) => {
+                let fallback = this.imageFallbacks?.[target]
+                let config = {url: target, headers: headers}
+                if (fallback && !seen[fallback]) {
+                    config.onLoadFailed = () => makeConfig(
+                        fallback,
+                        Object.assign({}, seen, {[target]: true}),
+                    )
+                }
+                return config
+            }
+            return makeConfig(url, {[url]: true})
         },
         /**
          * [Optional] load comments
@@ -663,7 +748,7 @@ class MangaDex extends ComicSource {
             let htmlText = await res.text();
             let document = new HtmlDocument(htmlText);
             let comments = [];
-            
+
             let messageElements = document.querySelectorAll("article.message");
             for(let msg of messageElements){
                 let id = msg.attributes['id'] || ""
@@ -673,7 +758,7 @@ class MangaDex extends ComicSource {
 
                 let avatarElement = msg.querySelector(".avatar img");
                 let avatar = avatarElement ? avatarElement.attributes['src'] : null;
-                if (avatar) {
+                if (avatar && avatar.startsWith('/')) {
                     avatar = "https://forums.mangadex.org" + avatar;
                 }
 
@@ -683,62 +768,57 @@ class MangaDex extends ComicSource {
                 let contentElement = msg.querySelector(".bbWrapper");
                 let content = "";
                 if (contentElement) {
-                    content = contentElement.innerHTML;
-                    content = contentElement.innerHTML.replace(/[\r\n\t]+/g, '');
+                    // Forum wrappers may contain lightbox/i18n scripts. Keep
+                    // only readable text (or image-only posts) so script JSON
+                    // and nested quote markup cannot become comment content.
+                    let raw = contentElement.innerHtml || '';
+                    raw = raw.replace(/<(script|style|noscript)[^>]*>[\s\S]*?<\/\1>/gi, '');
+                    raw = raw.replace(/<div class="bbCodeBlock-expandLink[^>]*>[\s\S]*?<\/div>/gi, '');
 
-                    // Remove "Click to expand" button
-                    content = content.replace(/<div class="bbCodeBlock-expandLink[^>]*>.*?<\/div>/gi, '');
-                    // Remove the script block
-                    content = content.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
-
-                    // Quote Style
-                    // TODO: Modify font color/size when venera supports it
-                    content = content.replace(/<blockquote[^>]*>/gi, '<span style="font-style:italic;font-weight:lighter">');
-                    content = content.replace(/<\/blockquote>/gi, '</span>');
-
-                    // Spoiler Style
-                    content = content.replace(/<button[^>]*class="[^"]*bbCodeSpoiler-button[^"]*"[^>]*>([\s\S]*?)<\/button>/gi, '<span style="font-weight:bold">[$1]</span>');
-
-                    // Process Image
-                    content = content.replace(/<img([^>]*)>/gi, (match, attrs) => {
-                        // Smilie Image
-                        if (attrs.includes('smilie')) {
-                            let altMatch = attrs.match(/alt="([^"]+)"/i);
-                            return altMatch ? altMatch[1] : ''; 
-                        }
-                        
-                        let srcMatch = attrs.match(/src="([^"]+)"/i);
+                    let imageUrls = [];
+                    raw = raw.replace(/<img([^>]*)>/gi, (match, attrs) => {
+                        if (attrs.includes('smilie')) return '';
+                        let srcMatch = attrs.match(/(?:src|data-src)="([^"]+)"/i);
                         if (srcMatch) {
                             let imgUrl = srcMatch[1];
-                            // Relative Path
-                            if (imgUrl.startsWith('/')) {
-                                imgUrl = "https://forums.mangadex.org" + imgUrl;
-                                return `<img${attrs.replace(srcMatch[0], `src="${imgUrl}"`)}>`;
-                            }
-                        }
-
-                        return match; 
-                    });
-
-                    // Process other tags
-                    content = content.replace(/<\/?([a-z0-9]+)[^>]*>/gi, (match, tag) => {
-                        const allowed = ['img', 'a', 'b', 'i', 'u', 's', 'br', 'span', 'strong'];
-                        if (allowed.includes(tag.toLowerCase())) {
-                            return match;
-                        }
-                        if (['div', 'p'].includes(tag.toLowerCase()) && match.startsWith('</')) {
-                            return '<br>';
+                            if (imgUrl.startsWith('/')) imgUrl = "https://forums.mangadex.org" + imgUrl;
+                            if (imgUrl.startsWith('http')) imageUrls.push(imgUrl);
                         }
                         return '';
                     });
+
+                    let plainText = raw
+                        .replace(/<br\s*\/?\s*>/gi, '\n')
+                        .replace(/<\/(div|p|li|blockquote|section)>/gi, '\n')
+                        .replace(/<[^>]+>/g, '')
+                        .replace(/&nbsp;/gi, ' ')
+                        .replace(/&amp;/gi, '&')
+                        .replace(/&lt;/gi, '<')
+                        .replace(/&gt;/gi, '>')
+                        .replace(/[ \t]+/g, ' ')
+                        .replace(/\n[ \t]+/g, '\n')
+                        .replace(/\n{3,}/g, '\n\n')
+                        .trim();
+                    if (plainText) {
+                        content = plainText;
+                    } else if (imageUrls.length > 0) {
+                        content = imageUrls.map((url) => `<img src="${url}">`).join('');
+                    }
                 }
 
+                let replyCount = null;
+                let replyLink = msg.querySelector(".message-replyLink");
+                if (replyLink) {
+                    let match = replyLink.text.match(/(\d+)/);
+                    if (match) replyCount = parseInt(match[1]);
+                }
                 comments.push(new Comment({
                     id: id,
                     userName: userName,
                     avatar: avatar,
                     content: content,
-                    time: time
+                    time: time,
+                    replyCount: replyCount,
                 }));
             }
 
@@ -766,7 +846,49 @@ class MangaDex extends ComicSource {
          * @returns {Promise<any>}
          */
         sendComment: async (comicId, subId, content, replyTo) => {
-            throw new Error("Not implemented")
+            let stats = await this.comic.getStats(comicId)
+            let threadId = stats.threadId
+            if (!threadId) throw new Error("This manga has no discussion thread")
+
+            let threadUrl = `https://forums.mangadex.org/threads/${threadId}/page-1`
+            let page = await fetch(threadUrl)
+            if (!page.ok) throw new Error(`Failed to load forum page: ${page.status}`)
+            let document = new HtmlDocument(await page.text())
+            let tokenInput = document.querySelector('input[name="_xfToken"]')
+            let token = tokenInput ? tokenInput.attributes['value'] : null
+            let form = document.querySelector('form[action*="/add-reply"]')
+            let action = form ? form.attributes['action'] : null
+            document.dispose()
+            if (!token || !action) {
+                throw new Error("Login required to comment on MangaDex")
+            }
+            if (action.startsWith('/')) action = `https://forums.mangadex.org${action}`
+            let fields = `_xfToken=${encodeURIComponent(token)}` +
+                `&message_html=${encodeURIComponent(content)}`
+            if (replyTo) fields += `&quote=${encodeURIComponent(replyTo)}`
+            let response = await fetch(action, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                    'Referer': threadUrl,
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: Convert.encodeUtf8(fields),
+            })
+            if (!response.ok) {
+                throw new Error(response.status === 401 || response.status === 403
+                    ? "Login required to comment on MangaDex"
+                    : `Failed to send comment: ${response.status}`)
+            }
+        },
+        // MangaDex does not expose a separate chapter-comment API. Chapter
+        // discussion is hosted in the same forum thread, so reuse the thread
+        // loader while keeping the reader's chapter-comment contract intact.
+        loadChapterComments: async (comicId, epId, page, replyTo) => {
+            return this.comic.loadComments(comicId, epId, page, replyTo)
+        },
+        sendChapterComment: async (comicId, epId, content, replyTo) => {
+            return this.comic.sendComment(comicId, epId, content, replyTo)
         },
         /**
          * [Optional] Handle tag click event
@@ -810,7 +932,7 @@ class MangaDex extends ComicSource {
                 if (url.includes('?')) {
                     url = url.split('?')[0];
                 }
-                let match = url.match(/\/(title|manga)\/([a-f0-9-]{36})/i); 
+                let match = url.match(/\/(title|manga)\/([a-f0-9-]{36})/i);
                 return match ? match[2] : null;
             }
         },
