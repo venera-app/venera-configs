@@ -21,13 +21,13 @@
         "name": "Picacg",
         "fileName": "picacg.js",
         "key": "picacg",
-        "version": "1.0.5"
+        "version": "1.0.6"
     },
     {
         "name": "nhentai",
         "fileName": "nhentai.js",
         "key": "nhentai",
-        "version": "1.0.6"
+        "version": "1.1.0"
     },
     {
         "name": "紳士漫畫",
@@ -53,14 +53,14 @@
         "name": "MangaDex",
         "fileName": "manga_dex.js",
         "key": "manga_dex",
-        "version": "1.1.0",
+        "version": "1.2.0",
         "description": "Account feature is not supported yet."
     },
     {
         "name": "爱看漫",
         "fileName": "ikmmh.js",
         "key": "ikmmh",
-        "version": "1.0.5"
+        "version": "1.0.6"
     },
     {
         "name": "少年ジャンプ＋",
@@ -138,7 +138,7 @@
         "name": "GoDa漫画",
         "fileName": "goda.js",
         "key": "goda",
-        "version": "1.0.0"
+        "version": "1.2.1"
     },
     {
         "name": "18漫画",
@@ -175,7 +175,7 @@
         "fileName": "hot_manga.js",
         "key": "hot_manga",
         "version": "1.0.1"
-	},
+    },
     {
         "name": "Kavita",
         "fileName": "kavita.js",
