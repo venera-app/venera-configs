@@ -2,7 +2,7 @@ class CopyManga extends ComicSource {
 
     name = "拷贝漫画M"
 
-    key = "copy_manga"
+    key = "copy_manga_multi_accounts"
 
     version = "1.4.1"
 
