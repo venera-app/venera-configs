@@ -17,6 +17,9 @@ jobs:
         with:
           node-version: 20
 
+      - name: Validate unique config IDs
+        run: node scripts/validate-config-ids.js
+
       - name: Fetch base branch
         run: git fetch origin "${{ github.base_ref }}"
 
