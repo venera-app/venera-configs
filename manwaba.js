@@ -8,7 +8,7 @@ class ManWaBa extends ComicSource {
   // unique id of the source
   key = "manwaba";
 
-  version = "1.0.4";
+  version = "1.0.5";
 
   minAppVersion = "1.4.0";
 
@@ -221,30 +221,42 @@ class ManWaBa extends ComicSource {
         "19r": "/cate/19plus",
         "台版": "/cate/taiwanver",
       };
-      let path = pathMap[param] || "/cate";
-      let url = `https://manwaxu.cc${path}${page > 1 ? `?page=${page}` : ""}`;
-      let res = await Network.get(url);
-      if (res.status !== 200) {
-        throw `Invalid status code: ${res.status}`;
+      const path = pathMap[param] || "/cate";
+      const pageSize = 36;
+      const status = Number(options?.[0] ?? 2);
+      const payload = {
+        page: { page, pageSize },
+        category: "comic",
+        sort: Number(options?.[2] ?? 0),
+        comic: {
+          status: status === 2 ? -1 : status,
+          day: Number(options?.[1] ?? 0),
+          tag: param || "",
+          level: 0,
+          areaId: 0,
+        },
+        video: { year: 0, typeId: 0, typeId1: 0, area: "", lang: "", status: -1, day: 0, level: 0 },
+        novel: { status: -1, day: 0, sortId: 0, level: 0 },
+      };
+      // The HTML category page is only the initial render; filters and pagination
+      // are loaded by the site's cate.js through this JSON API.
+      const response = await this.fetchJson(`${this.api}${path}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        payload: JSON.stringify(payload),
+      });
+      if (response.code !== 200 || !Array.isArray(response.data?.list)) {
+        throw new Error(response.message || "分类数据加载失败");
       }
-      let document = new HtmlDocument(res.body);
-      let data = document.querySelectorAll('a[href^="/comic/"]');
-
-      function parseComic(comic) {
-        let id = comic.attributes["href"].split("/").pop();
-        let title = comic.querySelector(".title")?.text ?? "";
-        let cover = comic.querySelector(".thumb_img")?.attributes["data-src"] ?? "";
-        let tags = comic.querySelectorAll(".badge span").map((tag) => tag.text);
-        return new Comic({
-          id: id,
-          title: title,
-          cover: cover,
-          tags: tags,
-        });
-      }
+      const data = response.data;
       return {
-        comics: data.map(parseComic),
-        maxPage: 100,
+        comics: data.list.map((item) => new Comic({
+          id: item.url.split("/").filter(Boolean).pop(),
+          title: item.title,
+          cover: item.pic,
+          tags: (item.tags || "").split(",").filter(Boolean),
+        })),
+        maxPage: Math.ceil(data.total / pageSize),
       };
     },
     // provide options for category comic loading
@@ -265,7 +277,7 @@ class ManWaBa extends ComicSource {
         ],
       },
       {
-        options: ["0-更新", "1-新作", "2-畅销", "3-热门", "4-收藏"],
+        options: ["0-更新", "1-新作", "3-热门"],
       },
     ],
   };

@@ -4,7 +4,7 @@ class CopyManga extends ComicSource {
 
     key = "copy_manga"
 
-    version = "1.4.3"
+    version = "1.4.4"
 
     minAppVersion = "1.6.0"
 
@@ -724,7 +724,11 @@ class CopyManga extends ComicSource {
             ])
 
             if (results[0].status !== 200) {
-                throw `Invalid status code: ${res.status}`;
+                let message = "";
+                try {
+                    message = JSON.parse(results[0].body).message || "";
+                } catch (_) {}
+                throw `Invalid status code: ${results[0].status}${message ? `, ${message}` : ""}`;
             }
 
             let data = JSON.parse(results[0].body).results;

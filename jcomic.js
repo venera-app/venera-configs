@@ -3,6 +3,21 @@
 const JCOMIC_BASE = "https://jcomic.net";
 const JCOMIC_REFERER = JCOMIC_BASE + "/";
 
+function getImageUrl(img) {
+  if (!img) return "";
+  const src = img.attributes["src"];
+  if (src) return src;
+  const locked = img.attributes["data-locked"] || "";
+  if (!locked.startsWith("JCOMIC_TRAPS_")) return "";
+  try {
+    const encoded = locked.slice("JCOMIC_TRAPS_".length).split("").reverse().join("");
+    const url = Convert.decodeUtf8(Convert.decodeBase64(encoded));
+    return /^https?:\/\//.test(url) ? url : "";
+  } catch (_) {
+    return "";
+  }
+}
+
 function trimTitle(raw) {
   if (!raw) return "";
   const idx = raw.lastIndexOf(" (");
@@ -47,7 +62,7 @@ function parseComicCard(card) {
     if (!id) return null;
 
     const img = card.querySelector("img.comic-thumb");
-    const cover = img ? img.attributes["src"] : "";
+    const cover = getImageUrl(img);
 
     const titleEl = card.querySelector("p.comic-title");
     const rawTitle = titleEl ? titleEl.text.trim() : id;
@@ -126,7 +141,7 @@ class JComic extends ComicSource {
   name = "jcomic.net";
   key = "jcomic";
 
-  version = "1.0.0";
+  version = "1.0.1";
   minAppVersion = "1.4.6";
 
   url =
@@ -359,7 +374,7 @@ class JComic extends ComicSource {
 
       // 封面
       const img = infoBlock.querySelector("img.comic-thumb");
-      const cover = img ? img.attributes["src"] : "";
+      const cover = getImageUrl(img);
 
       // 作者
       const authorButtons = infoBlock.querySelectorAll(
@@ -452,7 +467,10 @@ class JComic extends ComicSource {
 
       const doc = new HtmlDocument(resp.body);
       const imgs = doc.querySelectorAll("img.comic-thumb");
-      const images = Array.from(imgs).map((img) => img.attributes["src"]);
+      const images = Array.from(imgs).map(getImageUrl);
+      if (!images.length || images.some((image) => !image)) {
+        throw new Error("章节图片地址解析失败，网站格式可能已变更");
+      }
 
       return { images };
     },
