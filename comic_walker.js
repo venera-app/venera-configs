@@ -1,7 +1,7 @@
 class ComicWalker extends ComicSource {
   name = "カドコミ";
   key = "comic_walker";
-  version = "1.0.2";
+  version = "1.0.3";
   minAppVersion = "1.6.0";
   url =
     "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/comic_walker.js";
@@ -89,7 +89,12 @@ class ComicWalker extends ComicSource {
       }
     }
 
-    await this.refreshToken();
+    try {
+      await this.refreshToken();
+    } catch (_) {
+      // The anonymous token service may be temporarily unavailable.
+      // Defer the failure until a request actually needs authentication.
+    }
   }
 
   compareVersion(a, b) {

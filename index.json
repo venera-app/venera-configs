@@ -3,7 +3,7 @@
         "name": "拷贝漫画",
         "fileName": "copy_manga.js",
         "key": "copy_manga",
-        "version": "1.4.4"
+        "version": "1.4.5"
     },
     {
         "name": "Komiic",
@@ -33,14 +33,14 @@
         "name": "紳士漫畫",
         "fileName": "wnacg.js",
         "key": "wnacg",
-        "version": "1.0.6",
+        "version": "1.0.7",
         "description": "紳士漫畫漫畫源, 不能使用時請嘗試更換URL"
     },
     {
         "name": "ehentai",
         "fileName": "ehentai.js",
         "key": "ehentai",
-        "version": "1.1.8"
+        "version": "1.2.0"
     },
     {
         "name": "禁漫天堂",
@@ -54,7 +54,7 @@
         "fileName": "manga_dex.js",
         "key": "manga_dex",
         "version": "1.2.0",
-        "description": "Account feature is not supported yet."
+        "description": "Forum login and comments are supported."
     },
     {
         "name": "爱看漫",
@@ -108,7 +108,7 @@
         "name": "Lanraragi",
         "fileName": "lanraragi.js",
         "key": "lanraragi",
-        "version": "1.1.0"
+        "version": "1.2.0"
     },
     {
         "name": "Komga",
@@ -120,7 +120,7 @@
         "name": "カドコミ",
         "fileName": "comic_walker.js",
         "key": "comic_walker",
-        "version": "1.0.2"
+        "version": "1.0.3"
     },
     {
         "name": "漫画1234",
@@ -181,5 +181,18 @@
         "fileName": "kavita.js",
         "key": "kavita",
         "version": "1.0.0"
+    },
+    {
+        "name": "拷贝漫画(多账号)",
+        "fileName": "copy_manga_multi_accounts.js",
+        "key": "copy_manga_multi_accounts",
+        "version": "1.4.1"
+    },
+    {
+        "name": "MYCOMIC",
+        "fileName": "mycomic.js",
+        "key": "mycomic",
+        "version": "1.1.0",
+        "description": "mycomic.com漫画源, 遇到Cloudflare验证请在源设置中登录"
     }
 ]

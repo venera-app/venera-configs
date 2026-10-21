@@ -4,7 +4,7 @@ class CopyManga extends ComicSource {
 
     key = "copy_manga"
 
-    version = "1.4.4"
+    version = "1.4.5"
 
     minAppVersion = "1.6.0"
 
@@ -17,7 +17,7 @@ class CopyManga extends ComicSource {
         const reqIdUrl = "https://marketing.aiacgn.com/api/v2/adopr/query3/?format=json&ident=200100001";
         let reqId = "";
         try {
-            const response = await Network.get(reqIdUrl, this.headers);
+            const response = await this.networkGet(reqIdUrl, this.headers);
 
             if (response.status === 200) {
                 const data = JSON.parse(response.body);
@@ -153,6 +153,36 @@ class CopyManga extends ComicSource {
         return pseudoid;
     }
 
+    // 清除已保存的设备信息, 下次构造请求头时会重新生成
+    clearDeviceInfo() {
+        this.deleteData("_deviceinfo");
+        this.deleteData("_device");
+        this.deleteData("_pseudoid");
+    }
+
+    // 每次网络请求结束后调用; 若开启了对应设置则自动清除设备信息
+    afterRequest() {
+        if (this.loadSetting('auto_clear_device_info') === true) {
+            this.clearDeviceInfo();
+        }
+    }
+
+    async networkGet(url, headers) {
+        try {
+            return await Network.get(url, headers);
+        } finally {
+            this.afterRequest();
+        }
+    }
+
+    async networkPost(url, headers, data) {
+        try {
+            return await Network.post(url, headers, data);
+        } finally {
+            this.afterRequest();
+        }
+    }
+
     get apiUrl() {
         return `https://${this.loadSetting('base_url')}`
     }
@@ -169,7 +199,7 @@ class CopyManga extends ComicSource {
         let lastError;
         for (let i = 0; i <= retryCount; i++) {
             try {
-                return await Network.get(url, headers)
+                return await this.networkGet(url, headers)
             } catch (e) {
                 lastError = e
                 if (i === retryCount) break
@@ -192,7 +222,7 @@ class CopyManga extends ComicSource {
         login: async (account, pwd) => {
             let salt = randomInt(1000, 9999)
             let base64 = Convert.encodeBase64(Convert.encodeUtf8(`${pwd}-${salt}`))
-            let res = await Network.post(
+            let res = await this.networkPost(
                 `${this.apiUrl}/api/v3/login`,
                 {
                     ...this.headers,
@@ -564,7 +594,7 @@ class CopyManga extends ComicSource {
             let is_collect = isAdding ? 1 : 0
             let token = this.loadData("token");
             let reqId = await this.getReqID();
-            let comicData = await Network.get(
+            let comicData = await this.networkGet(
                 `${this.apiUrl}/api/v3/comic2/${comicId}?in_mainland=true&request_id=${reqId}&platform=3`,
                 this.headers
             )
@@ -572,7 +602,7 @@ class CopyManga extends ComicSource {
                 throw `Invalid status code: ${comicData.status}`
             }
             let comic_id = JSON.parse(comicData.body).results.comic.uuid
-            let res = await Network.post(
+            let res = await this.networkPost(
                 `${this.apiUrl}/api/v3/member/collect/comic`,
                 {
                     ...this.headers,
@@ -590,7 +620,7 @@ class CopyManga extends ComicSource {
         },
         loadComics: async (page, folder) => {
             let ordering = this.loadSetting('favorites_ordering') || '-datetime_updated';
-            var res = await Network.get(
+            var res = await this.networkGet(
                 `${this.apiUrl}/api/v3/member/collect/comics?limit=30&offset=${(page - 1) * 30}&free_type=1&ordering=${ordering}`,
                 this.headers
             )
@@ -641,7 +671,7 @@ class CopyManga extends ComicSource {
             let getChapters = async (id, groups) => {
                 let fetchSingle = async (id, path) => {
                     let reqId = await this.getReqID();
-                    let res = await Network.get(
+                    let res = await this.networkGet(
                         `${this.apiUrl}/api/v3/comic/${id}/group/${path}/chapters?limit=100&offset=0&in_mainland=true&request_id=${reqId}`,
                         this.headers
                     );
@@ -659,7 +689,7 @@ class CopyManga extends ComicSource {
                     if (maxChapter > 100) {
                         let offset = 100;
                         while (offset < maxChapter) {
-                            res = await Network.get(
+                            res = await this.networkGet(
                                 `${this.apiUrl}/api/v3/comic/${id}/group/${path}/chapters?limit=100&offset=${offset}`,
                                 this.headers
                             );
@@ -708,7 +738,7 @@ class CopyManga extends ComicSource {
             }
 
             let getFavoriteStatus = async (id) => {
-                let res = await Network.get(`${this.apiUrl}/api/v3/comic2/${id}/query`, this.headers);
+                let res = await this.networkGet(`${this.apiUrl}/api/v3/comic2/${id}/query`, this.headers);
                 if (res.status !== 200) {
                     throw `Invalid status code: ${res.status}`;
                 }
@@ -716,7 +746,7 @@ class CopyManga extends ComicSource {
             }
             let reqId = await this.getReqID();
             let results = await Promise.all([
-                Network.get(
+                this.networkGet(
                     `${this.apiUrl}/api/v3/comic2/${id}?in_mainland=true&request_id=${reqId}&platform=3`,
                     this.headers
                 ),
@@ -773,7 +803,7 @@ class CopyManga extends ComicSource {
             while (attempt < maxAttempts) {
                 try {
                     let reqId = await this.getReqID();
-                    res = await Network.get(
+                    res = await this.networkGet(
                         `${this.apiUrl}/api/v3/comic/${comicId}/chapter2/${epId}?in_mainland=true&request_id=${reqId}`,
                         {
                             ...this.headers
@@ -845,7 +875,7 @@ class CopyManga extends ComicSource {
             if (replyTo) {
                 url = url + `&reply_id=${replyTo}&_update=true`;
             }
-            let res = await Network.get(
+            let res = await this.networkGet(
                 url,
                 this.headers,
             );
@@ -883,7 +913,7 @@ class CopyManga extends ComicSource {
             if (!replyTo) {
                 replyTo = '';
             }
-            let res = await Network.post(
+            let res = await this.networkPost(
                 `${this.apiUrl}/api/v3/member/comment`,
                 {
                     ...this.headers,
@@ -905,7 +935,7 @@ class CopyManga extends ComicSource {
         },
         loadChapterComments: async (comicId, epId, page, replyTo) => {
             let url = `${this.apiUrl}/api/v3/roasts?chapter_id=${epId}&limit=20&offset=${(page - 1) * 20}`;
-            let res = await Network.get(
+            let res = await this.networkGet(
                 url,
                 this.headers,
             );
@@ -937,7 +967,7 @@ class CopyManga extends ComicSource {
             if (!token) {
                 throw "未登录"
             }
-            let res = await Network.post(
+            let res = await this.networkPost(
                 `${this.apiUrl}/api/v3/member/roast`,
                 {
                     ...this.headers,
@@ -1062,11 +1092,14 @@ class CopyManga extends ComicSource {
             type: "callback",
             buttonText: "点击清除设备信息",
             callback: () => {
-                this.deleteData("_deviceinfo");
-                this.deleteData("_device");
-                this.deleteData("_pseudoid");
+                this.clearDeviceInfo();
                 this.refreshAppApi();
             }
+        },
+        auto_clear_device_info: {
+            title: "每次请求后自动清除设备信息",
+            type: "switch",
+            default: false,
         },
         // version: {
         //     title: "拷贝版本（重启APP生效）",
@@ -1132,6 +1165,8 @@ class CopyManga extends ComicSource {
                     } catch (e) { }
                 }
             }
-        } catch (e) { }
+        } catch (e) { } finally {
+            this.afterRequest();
+        }
     }
 }
