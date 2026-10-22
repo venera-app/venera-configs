@@ -3,13 +3,7 @@
         "name": "拷贝漫画",
         "fileName": "copy_manga.js",
         "key": "copy_manga",
-        "version": "1.4.3"
-    },
-    {
-        "name": "拷贝漫画(多账号)",
-        "fileName": "copy_manga_multi_accounts.js",
-        "key": "copy_manga_multi_accounts",
-        "version": "1.4.1"
+        "version": "1.4.5"
     },
     {
         "name": "Komiic",
@@ -21,7 +15,7 @@
         "name": "包子漫画",
         "fileName": "baozi.js",
         "key": "baozi",
-        "version": "1.1.6"
+        "version": "1.1.7"
     },
     {
         "name": "Picacg",
@@ -39,14 +33,14 @@
         "name": "紳士漫畫",
         "fileName": "wnacg.js",
         "key": "wnacg",
-        "version": "1.0.6",
+        "version": "1.0.7",
         "description": "紳士漫畫漫畫源, 不能使用時請嘗試更換URL"
     },
     {
         "name": "ehentai",
         "fileName": "ehentai.js",
         "key": "ehentai",
-        "version": "1.1.8"
+        "version": "1.2.0"
     },
     {
         "name": "禁漫天堂",
@@ -72,7 +66,7 @@
         "name": "少年ジャンプ＋",
         "fileName": "shonen_jump_plus.js",
         "key": "shonen_jump_plus",
-        "version": "1.1.1"
+        "version": "1.1.2"
     },
     {
         "name": "hitomi.la",
@@ -90,7 +84,7 @@
         "name": "优酷漫画",
         "fileName": "ykmh.js",
         "key": "ykmh",
-        "version": "1.0.0"
+        "version": "1.0.1"
     },
     {
         "name": "再漫画",
@@ -108,31 +102,31 @@
         "name": "漫蛙吧",
         "fileName": "manwaba.js",
         "key": "manwaba",
-        "version": "1.0.2"
+        "version": "1.0.5"
     },
     {
         "name": "Lanraragi",
         "fileName": "lanraragi.js",
         "key": "lanraragi",
-        "version": "1.1.0"
+        "version": "1.2.0"
     },
     {
         "name": "Komga",
         "fileName": "komga.js",
         "key": "komga",
-        "version": "1.0.0"
+        "version": "1.0.1"
     },
     {
         "name": "カドコミ",
         "fileName": "comic_walker.js",
         "key": "comic_walker",
-        "version": "1.0.1"
+        "version": "1.0.3"
     },
     {
         "name": "漫画1234",
         "fileName": "mh1234.js",
         "key": "mh1234",
-        "version": "1.0.0"
+        "version": "1.1.0"
     },
     {
         "name": "CCC追漫台",
@@ -174,14 +168,14 @@
         "name": "jcomic.net",
         "fileName": "jcomic.js",
         "key": "jcomic",
-        "version": "1.0.0"
+        "version": "1.0.1"
     },
     {
         "name": "热辣漫画",
         "fileName": "hot_manga.js",
         "key": "hot_manga",
-        "version": "1.0.0"
-	},
+        "version": "1.0.1"
+    },
     {
         "name": "Kavita",
         "fileName": "kavita.js",
@@ -189,11 +183,10 @@
         "version": "1.0.0"
     },
     {
-        "name": "嗨皮漫画",
-        "fileName": "happy.js",
-        "key": "happy",
-        "version": "1.0.0",
-        "description": "中国大陆及日韩IP无法访问，遇到403可以尝试切换其他地区网络"
+        "name": "拷贝漫画(多账号)",
+        "fileName": "copy_manga_multi_accounts.js",
+        "key": "copy_manga_multi_accounts",
+        "version": "1.4.1"
     },
     {
         "name": "MYCOMIC",

@@ -7,14 +7,24 @@ class Wnacg extends ComicSource {
     // unique id of the source
     key = "wnacg"
 
-    version = "1.0.6"
+    version = "1.0.7"
 
     minAppVersion = "1.0.0"
 
     // update url
     url = "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/wnacg.js"
 
-    static domains = [];
+    static domains = [
+        "www.wn10.cfd",
+        "www.wn06.cfd",
+        "www.wn07.cfd",
+        "www.wn07.shop",
+    ];
+
+    static legacyDomains = [
+        "wnacg.com",
+        "www.wnacg.com",
+    ];
 
     get baseUrl() {
         let selection = this.loadSetting('domainSelection')
@@ -27,9 +37,13 @@ class Wnacg extends ComicSource {
             if (!domain0 || domain0.trim() === '') {
                 throw 'Custom domain is not set'
             }
-            return `https://${domain0.trim()}`
+            let domain = domain0.trim()
+            if (Wnacg.legacyDomains.includes(domain)) {
+                domain = Wnacg.domains[0]
+            }
+            return `https://${domain}`
         } else {
-            // 选择获取的域名 (Domain 1-3)
+            // 选择获取的域名 (Domain 1-4)
             let index = selection - 1
             if (index >= Wnacg.domains.length) {
                 throw 'Selected domain is unavailable'
@@ -110,10 +124,11 @@ class Wnacg extends ComicSource {
                     let match = href.match(/^https?:\/\/([^\/]+)/)
                     if (match) {
                         let domain = match[1]
-                        // 只提取有效的域名，排除 wn01.link 自身和其他无关链接
+                        // 只保留漫画站域名，排除发布页、浏览器下载页等无关链接
                         if (domain &&
                             domain.includes(".") &&
-                            !domain.includes("wn01.link") &&
+                            /^www\.wn\d+\./.test(domain) &&
+                            !domain.endsWith(".link") &&
                             !domain.includes("google.cn") &&
                             !domain.includes("cdn-cgi") &&
                             !seenDomains.has(domain)) {
@@ -124,25 +139,38 @@ class Wnacg extends ComicSource {
                 }
                 document.dispose()
 
+                let validDomains = []
+                for (let domain of domains) {
+                    try {
+                        let checkRes = await fetch(`https://${domain}/`)
+                        if (checkRes.status !== 200) continue
+                        let checkHtml = await checkRes.text()
+                        if (checkHtml.includes("gallary_wrap") && checkHtml.includes("photos-index-aid-")) {
+                            validDomains.push(domain)
+                        }
+                    } catch (e) { }
+                }
+                domains = validDomains
+
                 if (domains.length > 0) {
                     title = "Update Success"
-                    message = "Fetched: \n\n"
+                    message = "New domains:\n\n"
                 }
             }
         } catch (e) {
-            // 获取失败，使用自定义域名
+            // 获取失败，使用内置域名
         }
 
         if (domains.length == 0) {
             title = "Update Failed"
-            message = "Using Custom: \n\n"
+            message = `Using built-in domains:\n\n`
             domains = Wnacg.domains
         }
 
         for (let i = 0; i < domains.length; i++) {
-            message = message + `URL ${i + 1}: ${domains[i]}\n`
+            message = message + `Fetched Domain ${i + 1}: ${domains[i]}\n`
         }
-        message = message + `\n Total: ${domains.length} URLs\n\n Re-enter page to refresh`
+        message = message + `\nTotal: ${domains.length} domain(s)`
 
         if (showConfirmDialog) {
             UI.showDialog(
@@ -182,6 +210,41 @@ class Wnacg extends ComicSource {
         })
     }
 
+    parseExploreSections(html) {
+        let result = []
+        let sections = html.split('<div class="title_sort" class="cc">').slice(1)
+        for (let section of sections) {
+            let bodyStart = section.indexOf('<div class="bodywrap" class="cc">')
+            if (bodyStart < 0) continue
+
+            let titleDoc = new HtmlDocument(`<div class="title_sort" class="cc">${section.substring(0, bodyStart)}`)
+            let bodyDoc = new HtmlDocument(section.substring(bodyStart))
+            let titleBlock = titleDoc.querySelector("div.title_h2")
+            let linkBlock = titleDoc.querySelector("div.r > a")
+            if (!titleBlock || !linkBlock) {
+                titleDoc.dispose()
+                bodyDoc.dispose()
+                continue
+            }
+
+            let comics = []
+            for (let picBox of bodyDoc.querySelectorAll("div.pic_box")) {
+                let comicElement = picBox.parent
+                if (comicElement) {
+                    comics.push(this.parseComic(comicElement))
+                }
+            }
+            result.push({
+                title: titleBlock.text.replaceAll(/\s+/g, ''),
+                comics: comics,
+                viewMore: `category:${titleBlock.text.replaceAll(/\s+/g, '')}@${linkBlock.attributes["href"]}`
+            })
+            titleDoc.dispose()
+            bodyDoc.dispose()
+        }
+        return result
+    }
+
     // explore page list
     explore = [
         {
@@ -209,7 +272,12 @@ class Wnacg extends ComicSource {
                 let titleBlocks = document.querySelectorAll("div.title_sort");
                 let comicBlocks = document.querySelectorAll("div.bodywrap");
                 if (titleBlocks.length !== comicBlocks.length) {
-                    throw "Invalid Page"
+                    document.dispose()
+                    let result = this.parseExploreSections(res.body)
+                    if (result.length === 0) {
+                        throw "Invalid Page"
+                    }
+                    return result
                 }
                 let result = []
                 for (let i = 0; i < titleBlocks.length; i++) {
@@ -791,7 +859,7 @@ class Wnacg extends ComicSource {
                 title: "Custom Domain",
                 type: "input",
                 validator: String.raw`^(?!:\/\/)(?=.{1,253})([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$`,
-                default: 'wnacg.com',
+                default: 'www.wn06.cfd',
             },
         }
     }

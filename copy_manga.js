@@ -4,7 +4,7 @@ class CopyManga extends ComicSource {
 
     key = "copy_manga"
 
-    version = "1.4.3"
+    version = "1.4.5"
 
     minAppVersion = "1.6.0"
 
@@ -195,6 +195,19 @@ class CopyManga extends ComicSource {
         return this.loadSetting('image_quality') || this.defaultImageQuality
     }
 
+    async getWithRetry(url, headers = this.headers, retryCount = 2) {
+        let lastError;
+        for (let i = 0; i <= retryCount; i++) {
+            try {
+                return await this.networkGet(url, headers)
+            } catch (e) {
+                lastError = e
+                if (i === retryCount) break
+            }
+        }
+        throw lastError
+    }
+
     init() {
         // 用于储存 { 作者名 : 英文参数 }
         this.author_path_word_dict = {}
@@ -239,7 +252,7 @@ class CopyManga extends ComicSource {
             title: "拷贝漫画",
             type: "singlePageWithMultiPart",
             load: async () => {
-                let dataStr = await this.networkGet(
+                let dataStr = await this.getWithRetry(
                     `${this.apiUrl}/api/v3/h5/homeIndex`,
                     this.headers
                 )
@@ -388,7 +401,7 @@ class CopyManga extends ComicSource {
             }
 
 
-            let res = await this.networkGet(
+            let res = await this.getWithRetry(
                 category_url,
                 this.headers
             )
@@ -506,7 +519,7 @@ class CopyManga extends ComicSource {
             // 通过onClickTag传入时有"作者:"前缀，处理这种情况
             if (author && author in this.author_path_word_dict) {
                 let path_word = encodeURIComponent(this.author_path_word_dict[author]);
-                res = await this.networkGet(
+                res = await this.getWithRetry(
                     `${this.apiUrl}/api/v3/comics?limit=30&offset=${(page - 1) * 30}&ordering=-datetime_updated&author=${path_word}`,
                     this.headers
                 )
@@ -521,7 +534,7 @@ class CopyManga extends ComicSource {
                 let search_url = this.loadSetting('search_api') === "webAPI"
                     ? `${this.apiUrl}${CopyManga.searchApi}`
                     : `${this.apiUrl}/api/v3/search/comic`
-                res = await this.networkGet(
+                res = await this.getWithRetry(
                     `${search_url}?limit=30&offset=${(page - 1) * 30}&q=${keyword}&q_type=${q_type}`,
                     this.headers
                 )
@@ -741,7 +754,11 @@ class CopyManga extends ComicSource {
             ])
 
             if (results[0].status !== 200) {
-                throw `Invalid status code: ${results[0].status}`;
+                let message = "";
+                try {
+                    message = JSON.parse(results[0].body).message || "";
+                } catch (_) {}
+                throw `Invalid status code: ${results[0].status}${message ? `, ${message}` : ""}`;
             }
 
             let data = JSON.parse(results[0].body).results;
@@ -1129,15 +1146,27 @@ class CopyManga extends ComicSource {
 
     async refreshAppApi() {
         const url = "https://api.copy-manga.com/api/v3/system/network2?platform=3"
-        let res;
         try {
-            res = await fetch(url, { headers: this.headers });
-        } finally {
+            const res = await fetch(url, { headers: this.headers });
+            if (res.status === 200) {
+                let data = await res.json();
+                let apis = data.results?.api ?? [];
+                for (const item of apis) {
+                    let api = item?.[0];
+                    // Only copy-manga hosts are accepted, and the check sends no account headers,
+                    // so the user's token is never sent to an unrelated host.
+                    if (!api || !/copy/i.test(api)) continue;
+                    try {
+                        const check = await fetch(`https://${api}/api/v3/h5/homeIndex`, { headers: { "User-Agent": this.headers["User-Agent"] } });
+                        if (check.status === 200 && (await check.json())?.code === 200) {
+                            this.settings.base_url.default = api;
+                            return;
+                        }
+                    } catch (e) { }
+                }
+            }
+        } catch (e) { } finally {
             this.afterRequest();
-        }
-        if (res.status === 200) {
-            let data = await res.json();
-            this.settings.base_url = data.results.api[0][0];
         }
     }
 }

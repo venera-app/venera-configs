@@ -2,7 +2,7 @@
 class YKMHSource extends ComicSource {
     name = "优酷漫画"
     key = "ykmh"
-    version = "1.0.0"
+    version = "1.0.1"
     minAppVersion = "1.4.0"
     url = "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/ykmh.js"
 
@@ -300,7 +300,7 @@ class YKMHSource extends ComicSource {
     categoryComics = {
         load: async (category, param, options, page) => {
             let sort = "";
-            temp = options[1].split("-")[0]
+            let temp = options[1].split("-")[0]
             if(temp==0){sort=""}else{sort="-"}
             sort = sort + options[0].split("-")[0]
             let url;

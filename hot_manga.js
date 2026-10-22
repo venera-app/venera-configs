@@ -10,7 +10,7 @@ class HotManga extends ComicSource {
 
     key = "hot_manga"
 
-    version = "1.0.0"
+    version = "1.0.1"
 
     minAppVersion = "1.6.0"
 
@@ -18,7 +18,13 @@ class HotManga extends ComicSource {
 
     static defaultImageQuality = "1500"
 
-    static defaultApiUrl = 'api.2024manga.com'
+    static defaultApiUrl = 'mapi.fgjfghkkcenter.club'
+
+    static preferredApiUrls = [
+        'mapi.fgjfghkkcenter.club',
+        'mapi.elfgjfghkk.club',
+        'mapi.fgjfghkk.club',
+    ]
 
     get headers() {
         return {
@@ -39,8 +45,9 @@ class HotManga extends ComicSource {
         return this.loadSetting('image_quality') || HotManga.defaultImageQuality
     }
 
-    init() {
+    async init() {
         this.author_path_word_dict = {}
+        await this.refreshAppApi()
     }
 
     account = {
@@ -782,5 +789,20 @@ class HotManga extends ComicSource {
             }
         }
         return true
+    }
+
+    async refreshAppApi() {
+        const url = `${this.apiUrl}/api/v3/system/network2?format=json&platform=3`
+        try {
+            const res = await fetch(url, { headers: this.headers });
+            if (res.status === 200) {
+                let data = await res.json();
+                let apis = (data.results?.api || []).flat();
+                let api = HotManga.preferredApiUrls.find((item) => apis.includes(item)) || apis[0];
+                if (api) {
+                    this.settings.base_url.default = api;
+                }
+            }
+        } catch (e) { }
     }
 }
