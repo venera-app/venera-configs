@@ -144,3 +144,21 @@ test('Baozi defaults to a live compatible mirror and keeps source/index versions
   const index = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'index.json'), 'utf8'));
   assert.equal(c.source.version, index.find(x => x.fileName === 'baozi.js').version);
 });
+
+test('Komga initializes without removed default credential settings and uses saved login token', () => {
+  const c = load('komga.js');
+  const source = c.source;
+  source.loadSetting = key => {
+    if (!Object.prototype.hasOwnProperty.call(source.settings, key)) {
+      throw new Error(`Setting not found: ${key}`);
+    }
+    return source.settings[key].default;
+  };
+  assert.equal(Object.hasOwn(source.settings, 'default_username'), false);
+  assert.equal(Object.hasOwn(source.settings, 'default_password'), false);
+  assert.doesNotThrow(() => source.authToken);
+  assert.equal(source.authToken, null);
+  source.loadData = key => key === 'komga_auth' ? 'saved-basic-token' : null;
+  assert.equal(source.authToken, 'saved-basic-token');
+  assert.equal(source.headers.Authorization, 'Basic saved-basic-token');
+});
