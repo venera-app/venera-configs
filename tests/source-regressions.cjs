@@ -84,3 +84,63 @@ test('Index versions agree with all repaired sources', () => {
     assert.equal(load(file).source.version, index.find(x => x.fileName === file).version);
   }
 });
+
+test('Manga1234 follows the current site, parses comic IDs, and reads new reader chapters', async () => {
+  const calls = [];
+  const c = load('mh1234.js', {get: async url => {
+    calls.push(url);
+    return {status: 200, body: url.includes('reader.hqread.cc') ? 'reader' : 'fixture'};
+  }});
+  c.HtmlDocument = class {
+    constructor(html) { this.html = html; }
+    querySelectorAll(selector) {
+      if (this.html === 'reader' && selector === 'img.reader-image') {
+        return [{attributes: {'data-src': 'https://cdn.example/page.jpg?sig=abc'}}];
+      }
+      return [];
+    }
+    querySelector() { return null; }
+  };
+  assert.equal(c.source.baseUrl, 'https://www.wmh1234.com');
+  const card = {
+    attributes: {},
+    querySelector(selector) {
+      if (selector === "a[href*='/comic/']" || selector === 'a') return {attributes: {href: '/comic/9683.html'}};
+      if (selector === 'img') return {attributes: {'data-original': 'https://cdn.example/cover.jpg'}};
+      if (selector === '.comic-title' || selector === 'h3') return {text: '测试漫画'};
+      return null;
+    },
+  };
+  const comics = c.source.parseList({querySelectorAll: selector => selector === '.comic-card' ? [card] : []});
+  assert.equal(comics[0].id, '9683');
+  assert.equal(comics[0].title, '测试漫画');
+  assert.equal(comics[0].cover, 'https://cdn.example/cover.jpg');
+  const images = await c.source.comic.loadEp('9683', 'go:chapter-token');
+  assert.deepEqual(Array.from(images.images), ['https://cdn.example/page.jpg?sig=abc']);
+  assert.equal(calls[0], 'https://reader.hqread.cc/r/chapter-token');
+});
+
+test('Manga1234 search uses the redesigned site endpoint and encodes its keyword', async () => {
+  const calls = [];
+  const c = load('mh1234.js', {get: async url => {
+    calls.push(url);
+    return {status: 200, body: 'fixture'};
+  }});
+  c.HtmlDocument = class { querySelectorAll() { return []; } querySelector() { return null; } };
+  await c.source.search.load('斗罗 大陆', [], 2);
+  assert.equal(calls[0], 'https://www.wmh1234.com/index.php/search?key=%E6%96%97%E7%BD%97%20%E5%A4%A7%E9%99%86&page=2');
+});
+
+test('Baozi defaults to a live compatible mirror and keeps source/index versions aligned', async () => {
+  const calls = [];
+  const c = load('baozi.js', {get: async url => {
+    calls.push(url);
+    return {status: 200, body: JSON.stringify({items: [{comic_id: '42', name: 'fixture', topic_img: 'cover.jpg'}], next: false})};
+  }});
+  assert.equal(c.source.baseUrl, 'https://cn.webmota.com');
+  const result = await c.source.categoryComics.load('全部', 'all', ['all', 'all'], 1);
+  assert.match(calls[0], /^https:\/\/cn\.webmota\.com\/api\/bzmhq\/amp_comic_list/);
+  assert.equal(result.comics[0].id, '42');
+  const index = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'index.json'), 'utf8'));
+  assert.equal(c.source.version, index.find(x => x.fileName === 'baozi.js').version);
+});
