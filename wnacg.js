@@ -7,7 +7,7 @@ class Wnacg extends ComicSource {
     // unique id of the source
     key = "wnacg"
 
-    version = "1.0.6"
+    version = "1.0.7"
 
     minAppVersion = "1.0.0"
 
@@ -42,37 +42,125 @@ class Wnacg extends ComicSource {
         if (domains.length != 0) Wnacg.domains = domains
     }
 
+    /**
+     * 登录 Cookie 使用的域名，同时覆盖裸域名和 www，例如 ".wnacg.com"
+     * @param url {string}
+     * @returns {string}
+     */
+    getCookieDomain(url) {
+        let host = url.match(/^https?:\/\/([^\/]+)/)[1]
+        return "." + host.replace(/^www\./, "")
+    }
+
+    /**
+     * 清除站点（裸域名和 www）下的所有 Cookie
+     * @param url {string}
+     */
+    clearLoginCookies(url) {
+        let domain = this.getCookieDomain(url)
+        Network.deleteCookies(`https://${domain.substring(1)}`)
+        Network.deleteCookies(`https://www${domain}`)
+    }
+
+    /**
+     * 用给定的 Cookie 替换站点的登录 Cookie。
+     * 必须先清除旧 Cookie：App 保存 Cookie 时若已存在同名 Cookie，会沿用旧 Cookie 的域名
+     * @param url {string}
+     * @param cookies {{name: string, value: string}[]}
+     */
+    setLoginCookies(url, cookies) {
+        let domain = this.getCookieDomain(url)
+        this.clearLoginCookies(url)
+        Network.setCookies(`https://${domain.substring(1)}`, cookies.map((c) => new Cookie({
+            name: c.name,
+            value: c.value,
+            domain: domain
+        })))
+    }
+
+    /**
+     * 检查当前域名下是否已登录：未登录时收藏夹页面会跳转到登录页
+     * @returns {Promise<boolean>}
+     */
+    async checkLogin() {
+        let res = await Network.get(`${this.baseUrl}/users-addfav-id-210814.html`, {})
+        return res.status === 200 && !res.body.includes("login_form")
+    }
+
     // [Optional] account related
     account = {
         /**
-         * login, return any value to indicate success
-         * @param account {string}
-         * @param pwd {string}
-         * @returns {Promise<any>}
+         * 网页登录。登录页有滑块验证码，无法直接用账号密码登录。
+         * App 在加载漫画源时就读取登录页地址（早于获取域名列表），因此固定使用主站
          */
-        login: async (account, pwd) => {
-            let res = await Network.post(
-                `${this.baseUrl}/users-check_login.html`,
-                {
-                    'content-type': 'application/x-www-form-urlencoded'
-                },
-                `login_name=${encodeURIComponent(account)}&login_pass=${encodeURIComponent(pwd)}`
-            )
-            if (res.status !== 200) {
-                throw 'Login failed'
-            }
-            let json = JSON.parse(res.body)
-            if (json['html'].includes('登錄成功')) {
-                return 'ok'
-            }
-            throw 'Login failed'
+        loginWithWebview: {
+            url: "https://www.wnacg.com/users-login.html",
+            /**
+             * check login status
+             * @param url {string} - current url
+             * @param title {string} - current title
+             * @returns {boolean} - return true if login success
+             */
+            checkStatus: (url, title) => {
+                // 登录通过 ajax 提交，成功后离开登录/注册页即视为登录完成
+                return /^https?:\/\/(www\.)?wnacg\.com(\/|$)/.test(url)
+                    && !/users-(login|reg|getpass|check_login)|cdn-cgi/.test(url)
+            },
+            onLoginSuccess: async () => {
+                // App 按当前页面的主机名（www.wnacg.com）保存 Cookie，
+                // 改为 ".wnacg.com" 以覆盖裸域名，并复制到当前选择的镜像域名
+                let cookies = await Network.getCookies("https://www.wnacg.com") ?? []
+                this.setLoginCookies("https://www.wnacg.com", cookies)
+                try {
+                    if (this.getCookieDomain(this.baseUrl) !== ".wnacg.com") {
+                        this.setLoginCookies(this.baseUrl, cookies)
+                    }
+                } catch (e) {
+                    // 未选择可用域名
+                }
+            },
+        },
+
+        loginWithCookies: {
+            fields: [
+                "Cookie",
+            ],
+            /**
+             * 粘贴浏览器中该站点的完整 Cookie，例如 "a=1; b=2"
+             * @param values {string[]} - same order as `fields`
+             * @returns {Promise<boolean>}
+             */
+            validate: async (values) => {
+                let text = (values[0] ?? "").trim().replace(/^cookie:\s*/i, "")
+                let cookies = []
+                for (let part of text.split(";")) {
+                    let index = part.indexOf("=")
+                    if (index <= 0) {
+                        continue
+                    }
+                    cookies.push({
+                        name: part.substring(0, index).trim(),
+                        value: part.substring(index + 1).trim()
+                    })
+                }
+                if (cookies.length === 0) {
+                    return false
+                }
+                this.setLoginCookies(this.baseUrl, cookies)
+                return await this.checkLogin()
+            },
         },
 
         /**
          * logout function, clear account related data
          */
         logout: () => {
-            Network.deleteCookies(this.baseUrl)
+            this.clearLoginCookies("https://www.wnacg.com")
+            try {
+                this.clearLoginCookies(this.baseUrl)
+            } catch (e) {
+                // 未选择可用域名
+            }
         },
 
         // {string?} - register url
@@ -791,7 +879,8 @@ class Wnacg extends ComicSource {
                 title: "Custom Domain",
                 type: "input",
                 validator: String.raw`^(?!:\/\/)(?=.{1,253})([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$`,
-                default: 'wnacg.com',
+                // wnacg.com 会 301 跳转到 www，跨主机跳转时请求会丢失 Cookie
+                default: 'www.wnacg.com',
             },
         }
     }
