@@ -10,11 +10,62 @@ const LRR_TAG_FILTER_PREFIXES = [
   LRR_TAG_PREFIXES.dateAdded,
   LRR_TAG_PREFIXES.source,
 ];
+const LRR_SORT_KEYS = ["title", "date_added", "lastread"];
+const LRR_ORDERS = ["asc", "desc"];
+const LRR_BOOLS = ["true", "false"];
+
+// Venera-Next may pass a select value as a JSON string ("false"). LANraragi
+// rejects that quoted token: its OpenAPI booleans accept true/false only.
+function unwrapLrrOption(value, fallback) {
+  let v = value;
+  if (typeof v === "string") {
+    const trimmed = v.trim();
+    if (
+      trimmed.length >= 2 &&
+      trimmed.startsWith('"') &&
+      trimmed.endsWith('"')
+    ) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (
+          typeof parsed === "string" ||
+          typeof parsed === "boolean" ||
+          typeof parsed === "number"
+        ) {
+          v = parsed;
+        }
+      } catch (_) {
+        v = trimmed.slice(1, -1);
+      }
+    }
+    if (typeof v === "string") {
+      const idx = v.indexOf("-");
+      if (idx > 0) v = v.slice(0, idx);
+    }
+  }
+  if (v === true) return "true";
+  if (v === false) return "false";
+  if (v === undefined || v === null || v === "") return fallback;
+  return String(v);
+}
+
+function lrrChoice(value, fallback, allowed) {
+  const token = unwrapLrrOption(value, fallback);
+  return allowed.indexOf(token) >= 0 ? token : fallback;
+}
+
+function isLrrTankId(value) {
+  return /^TANK_[0-9]{10}$/.test(String(value || ""));
+}
+
+function isLrrArchiveId(value) {
+  return /^[a-f0-9]{40}$/i.test(String(value || ""));
+}
 
 class Lanraragi extends ComicSource {
   name = "Lanraragi";
   key = "lanraragi";
-  version = "1.2.0";
+  version = "1.2.1";
   minAppVersion = "1.4.0";
   url = resolvePluginUpdateUrl("lanraragi.js");
 
@@ -68,7 +119,10 @@ class Lanraragi extends ComicSource {
 
   _mapArchiveComic(item, baseUrl) {
     const base = this._toAbsoluteBaseUrl(baseUrl);
-    const cover = buildSelfHostedUrl(base, LRR_ROUTES.archiveThumbnailPath(item.arcid));
+    // A grouped tank is not an archive. /api/archives/TANK_… returns 400.
+    const cover = isLrrTankId(item && item.arcid)
+      ? ""
+      : buildSelfHostedUrl(base, LRR_ROUTES.archiveThumbnailPath(item.arcid));
     const tagRating = this._extractRatingFromTags(item.tags);
     const stars = this._toStarsFromValue(tagRating ?? null);
     return new Comic({
@@ -277,19 +331,12 @@ class Lanraragi extends ComicSource {
 
   search = {
     load: async (keyword, options, page = 1) => {
-      const pick = (key, def) => {
-        let v = options && options[key];
-        if (typeof v === "string") {
-          const idx = v.indexOf("-");
-          if (idx > 0) v = v.slice(0, idx);
-        }
-        return v === undefined || v === null || v === "" ? def : v;
-      };
-      const sortby = pick(0, "title");
-      const order = pick(1, "asc");
-      const newonly = String(pick(2, "false"));
-      const untaggedonly = String(pick(3, "false"));
-      const groupby = String(pick(4, "true"));
+      const raw = (key) => options && options[key];
+      const sortby = lrrChoice(raw(0), "title", LRR_SORT_KEYS);
+      const order = lrrChoice(raw(1), "asc", LRR_ORDERS);
+      const newonly = lrrChoice(raw(2), "false", LRR_BOOLS);
+      const untaggedonly = lrrChoice(raw(3), "false", LRR_BOOLS);
+      const groupby = lrrChoice(raw(4), "true", LRR_BOOLS);
 
       const runSearch = createOffsetSearchLoader({
         path: LRR_ROUTES.searchPath,
@@ -464,8 +511,69 @@ class Lanraragi extends ComicSource {
     },
   };
 
+  async _loadTankInfo(id) {
+    const tankId = String(id || "");
+    if (!isLrrTankId(tankId)) throw "Invalid LANraragi tankoubon ID.";
+    const url = buildSelfHostedUrlFromSource(this, `/api/tankoubons/${tankId}`);
+    const res = await Network.get(url, this.headers);
+    if (res.status !== 200) throw `Invalid status code: ${res.status}`;
+    const data = JSON.parse(res.body);
+    const rawArchives = data && Array.isArray(data.archives) ? data.archives : [];
+    const archives = [];
+    const seen = {};
+    for (const raw of rawArchives) {
+      if (!isLrrArchiveId(raw)) continue;
+      const archiveId = String(raw).toLowerCase();
+      if (Object.prototype.hasOwnProperty.call(seen, archiveId)) continue;
+      seen[archiveId] = true;
+      archives.push(archiveId);
+      if (archives.length >= 2000) break;
+    }
+    if (!archives.length) throw "LANraragi tankoubon has no chapters.";
+
+    const titles = {};
+    const titled = archives.slice(0, 40);
+    await Promise.all(
+      titled.map(async (archiveId, index) => {
+        titles[archiveId] = "Chapter " + (index + 1);
+        try {
+          const metaUrl = buildSelfHostedUrlFromSource(
+            this,
+            LRR_ROUTES.archiveMetadataPath(archiveId),
+          );
+          const metaRes = await Network.get(metaUrl, this.headers);
+          if (metaRes.status !== 200) return;
+          const meta = JSON.parse(metaRes.body);
+          if (meta && typeof meta.title === "string" && meta.title.trim()) {
+            titles[archiveId] = meta.title.trim().slice(0, 300);
+          }
+        } catch (_) {}
+      }),
+    );
+    const chapters = {};
+    for (let i = 0; i < archives.length; i++) {
+      const archiveId = archives[i];
+      chapters[archiveId] = titles[archiveId] || "Chapter " + (i + 1);
+    }
+    const cover = buildSelfHostedUrlFromSource(
+      this,
+      LRR_ROUTES.archiveThumbnailPath(archives[0]),
+    );
+    return {
+      title: (data && (data.name || data.title)) || tankId,
+      cover,
+      description: (data && data.summary) || "",
+      tags: {},
+      stars: 0,
+      chapters,
+      isFavorite: false,
+      folders: [],
+    };
+  }
+
   comic = {
     loadInfo: async (id) => {
+      if (isLrrTankId(id)) return await this._loadTankInfo(id);
       const url = buildSelfHostedUrlFromSource(this, LRR_ROUTES.archiveMetadataPath(id));
       const res = await Network.get(url, this.headers);
       if (res.status !== 200) throw `Invalid status code: ${res.status}`;
@@ -570,8 +678,8 @@ class Lanraragi extends ComicSource {
         /* ignore category detection errors */
       }
 
-      const chapters = new Map();
-      chapters.set(id, data.title || "Local manga");
+      const chapters = {};
+      chapters[id] = data.title || "Local manga";
       let stars = this._toStarsFromValue(rating);
       // Ensure details page always has a numeric star value (0 if no rating),
       // otherwise UI may not allow submitting a rating.
@@ -589,6 +697,16 @@ class Lanraragi extends ComicSource {
       };
     },
     loadThumbnails: async (id, next) => {
+      if (isLrrTankId(id)) {
+        const info = await this._loadTankInfo(id);
+        const thumbnails = Object.keys(info.chapters || {}).map((archiveId) =>
+          buildSelfHostedUrlFromSource(
+            this,
+            LRR_ROUTES.archiveThumbnailPath(archiveId),
+          ),
+        );
+        return { thumbnails, next: null };
+      }
       const metaUrl = buildSelfHostedUrlFromSource(
         this,
         LRR_ROUTES.archiveMetadataPath(id),
@@ -658,8 +776,14 @@ class Lanraragi extends ComicSource {
       return "ok";
     },
     loadEp: async (comicId, epId) => {
+      const archiveId = isLrrArchiveId(epId)
+        ? String(epId).toLowerCase()
+        : isLrrArchiveId(comicId)
+          ? String(comicId).toLowerCase()
+          : "";
+      if (!archiveId) throw "Invalid LANraragi archive ID.";
       const base = (this.baseUrl || "").replace(/\/$/, "");
-      const url = buildSelfHostedUrlFromSource(this, LRR_ROUTES.archiveFilesPath(comicId), {
+      const url = buildSelfHostedUrlFromSource(this, LRR_ROUTES.archiveFilesPath(archiveId), {
         force: "false",
       });
       const res = await Network.get(url, this.headers);
