@@ -4,7 +4,7 @@ class Komga extends ComicSource {
 
 	key = "komga"
 
-	version = "1.0.0"
+	version = "1.0.1"
 
 	minAppVersion = "1.4.0"
 
@@ -42,17 +42,10 @@ class Komga extends ComicSource {
 	}
 
 	get authToken() {
-		const stored = this.loadData('komga_auth')
-		if (stored) {
-			return stored
-		}
-		const username = this.loadSetting('default_username')
-		const password = this.loadSetting('default_password')
-		if (!username || !password) {
-			return null
-		}
-		const encoded = Convert.encodeBase64(Convert.encodeUtf8(`${username}:${password}`))
-		return typeof encoded === 'string' ? encoded : Convert.decodeUtf8(encoded)
+		// Credentials are collected by account.login and stored as komga_auth.
+		// The legacy default_username/default_password settings are no longer
+		// declared; loading them makes source initialization fail in Venera.
+		return this.loadData('komga_auth') || null
 	}
 
 	get headers() {
@@ -297,7 +290,7 @@ class Komga extends ComicSource {
 				return {
 					comics: list.comics,
 					maxPage: Math.max(1, list.totalPages)
-				}				
+				}
 			}
 			if (category === 'collection' && param) {
 				const list = await this.fetchSeriesList(`/api/v1/collections/${param}/series`, query)

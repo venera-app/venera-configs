@@ -1,7 +1,7 @@
 class Comick extends ComicSource {
     name = "comick"
     key = "comick"
-    version = "1.2.0"
+    version = "1.2.1"
     minAppVersion = "1.4.0"
     // update url
     url = "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/comick.js"
@@ -518,35 +518,47 @@ class Comick extends ComicSource {
                 };
 
                 console.log(`开始加载章节列表，漫画slug: ${slug}`);
-                while (page <= lastPage) {
-                    let url = `https://comick.art/api/comics/${slug}/chapter-list?page=${page}`;
+                let fetchPage = async (pageNum) => {
+                    let url = `https://comick.art/api/comics/${slug}/chapter-list?page=${pageNum}`;
                     let resCh = await Network.get(url=url, headers=Comick.getRandomHeaders());
-                    console.log(`请求章节列表页面 ${page}，URL: ${resCh}`);
                     if (resCh.status !== 200) {
                         throw `Invalid status code: ${resCh.status}`;
                     }
-
                     let payload;
                     try {
                         payload = JSON.parse(resCh.body);
                     } catch (err) {
                         throw "Invalid chapter list response";
                     }
+                    return payload;
+                };
 
-                    let data = Array.isArray(payload?.data) ? payload.data : [];
-                    if (page === 1 && data.length > 0) {
-                        latestTimestamp = data[0].updated_at || data[0].publish_at || data[0].created_at || null;
+                // 先取第 1 页，拿到总页数
+                let firstPayload = await fetchPage(1);
+                let firstData = Array.isArray(firstPayload?.data) ? firstPayload.data : [];
+                if (firstData.length > 0) {
+                    latestTimestamp = firstData[0].updated_at || firstData[0].publish_at || firstData[0].created_at || null;
+                }
+                collectChapters(firstData);
+                let pagination = firstPayload?.pagination;
+                if (pagination && pagination.last_page != null) {
+                    let parsed = parseInt(pagination.last_page, 10);
+                    if (!Number.isNaN(parsed) && parsed > 0) {
+                        lastPage = parsed;
                     }
-                    collectChapters(data);
+                }
 
-                    let pagination = payload?.pagination;
-                    if (pagination && pagination.last_page != null) {
-                        let parsed = parseInt(pagination.last_page, 10);
-                        if (!Number.isNaN(parsed) && parsed > 0) {
-                            lastPage = parsed;
-                        }
+                // 其余页并发抓取（每批 6 个），长连载（如 43 页）不再因串行请求而超时
+                const CONCURRENCY = 6;
+                let nextPage = 2;
+                while (nextPage <= lastPage) {
+                    let batch = [];
+                    for (let p = nextPage; p < nextPage + CONCURRENCY && p <= lastPage; p++) {
+                        batch.push(fetchPage(p).then(payload => Array.isArray(payload?.data) ? payload.data : []));
                     }
-                    page += 1;
+                    let results = await Promise.all(batch);
+                    results.forEach(items => collectChapters(items));
+                    nextPage += CONCURRENCY;
                 }
 
                 let result = new Map();

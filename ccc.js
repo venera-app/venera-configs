@@ -8,7 +8,7 @@ class CCC extends ComicSource {
     // unique id of the source
     key = "ccc"
 
-    version = "1.0.1"
+    version = "1.0.2"
 
     minAppVersion = "1.6.0"
 
@@ -303,7 +303,7 @@ class CCC extends ComicSource {
          * @returns {Promise<{comics: Comic[], maxPage: number}>}
          */
         load: async (keyword, options, page) => {
-            options[0] = "&sort_by=" + options[0];
+            options[0] = options[0] ? "&sort_by=" + options[0] : "&sort_by=updated_at";
             if (options[1]) {
                 options[1] = "&type=" + options[1];
             }

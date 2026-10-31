@@ -5,7 +5,7 @@ class Baozi extends ComicSource {
   // 唯一标识符
   key = "baozi";
 
-  version = "1.1.6";
+  version = "1.1.7";
 
   minAppVersion = "1.0.0";
 
@@ -26,14 +26,14 @@ class Baozi extends ComicSource {
       title: "主域名",
       type: "select",
       options: [
-        { value: "bzmgcn.com" },
-        { value: "baozimhcn.com" },
-        { value: "webmota.com" },
         { value: "kukuc.co" },
         { value: "twmanga.com" },
         { value: "dinnerku.com" },
+        { value: "webmota.com" },
+        { value: "bzmgcn.com" },
+        { value: "baozimhcn.com" },
       ],
-      default: "bzmgcn.com",
+      default: "kukuc.co",
     },
     cdn_domains: {
       title: "图片资源站域名",
@@ -487,8 +487,8 @@ class Baozi extends ComicSource {
     loadEp: async (comicId, epId) => {
       const images = [];
 
-      // App版链接
-      let currentPageUrl = `https://appcn.baozimh.com/baozimhapp/comic/chapter/${comicId}/0_${epId}.html`;
+      // 章节页与主站同域，旧 appcn.baozimh.com 已失效(403)
+      let currentPageUrl = `${this.baseUrl}/comic/chapter/${comicId}/0_${epId}.html`;
 
       const res = await Network.get(currentPageUrl);
       if (res.status !== 200) {
@@ -497,10 +497,18 @@ class Baozi extends ComicSource {
 
       const doc = new HtmlDocument(res.body);
 
-      // 解析当前页图片(App 版)
-      const imageNodes = doc.querySelectorAll(".comic-contain > .chapter-img");
+      // 解析当前页图片（兼容旧版 .chapter-img 与新版 amp-img.comic-contain__item）
+      const readImg = (node) => {
+        if (!node) return null;
+        const direct = node.attributes?.["data-src"] || node.attributes?.["src"];
+        if (direct) return direct;
+        const inner = node.querySelector ? node.querySelector(".comic-contain__item") : null;
+        return inner?.attributes?.["data-src"] || inner?.attributes?.["src"] || null;
+      };
+      let imageNodes = doc.querySelectorAll(".comic-contain > .chapter-img");
+      if (imageNodes.length === 0) imageNodes = doc.querySelectorAll(".comic-contain .comic-contain__item");
       imageNodes.forEach((imgNode) => {
-        let imgUrl = imgNode.querySelector(".comic-contain__item")?.attributes?.["data-src"];
+        let imgUrl = readImg(imgNode);
         if (imgUrl) {
           const match = imgUrl.match(/^(https?:\/\/)?([^/\s:]+)(:\d+)?(\/[a-z]comic\/.*)/);
           if (match) {

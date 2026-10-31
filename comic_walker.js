@@ -1,14 +1,15 @@
 class ComicWalker extends ComicSource {
   name = "カドコミ";
   key = "comic_walker";
-  version = "1.0.1";
+  version = "1.0.3";
   minAppVersion = "1.6.0";
   url =
     "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/comic_walker.js";
 
   api_key = "ytBrdQ2ZYdRQguqEusVLxQVUgakNnVht";
 
-  latestVersion = "1.4.13";
+  latestVersion = "1.6.0";
+  minSupportedVersion = "1.6.0";
 
   api_base = "https://mobileapp.comic-walker.com";
 
@@ -82,7 +83,10 @@ class ComicWalker extends ComicSource {
 
     if (resp.status == 200) {
       const response = JSON.parse(resp.body);
-      this.latestVersion = response.version;
+      const version = response.results?.[0]?.version;
+      if (version && this.compareVersion(version, this.minSupportedVersion) >= 0) {
+        this.latestVersion = version;
+      }
     }
 
     try {
@@ -91,6 +95,17 @@ class ComicWalker extends ComicSource {
       // The anonymous token service may be temporarily unavailable.
       // Defer the failure until a request actually needs authentication.
     }
+  }
+
+  compareVersion(a, b) {
+    const left = String(a).split(".").map((n) => parseInt(n) || 0);
+    const right = String(b).split(".").map((n) => parseInt(n) || 0);
+    const length = Math.max(left.length, right.length);
+    for (let i = 0; i < length; i++) {
+      if ((left[i] || 0) > (right[i] || 0)) return 1;
+      if ((left[i] || 0) < (right[i] || 0)) return -1;
+    }
+    return 0;
   }
 
   explore = [

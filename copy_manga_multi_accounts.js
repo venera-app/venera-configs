@@ -4,7 +4,7 @@ class CopyManga extends ComicSource {
 
     key = "copy_manga_multi_accounts"
 
-    version = "1.4.1"
+    version = "1.4.2"
 
     minAppVersion = "1.6.0"
 
@@ -17,7 +17,7 @@ class CopyManga extends ComicSource {
         const reqIdUrl = "https://marketing.aiacgn.com/api/v2/adopr/query3/?format=json&ident=200100001";
         let reqId = "";
         try {
-            const response = await Network.get(reqIdUrl, this.headers);
+            const response = await Network.get(reqIdUrl, {});
 
             if (response.status === 200) {
                 const data = JSON.parse(response.body);
@@ -81,6 +81,17 @@ class CopyManga extends ComicSource {
     static defaultImageQuality = "1500"
 
     static defaultApiUrl = 'api.copy2000.online'
+
+    static trustedApiHosts = ["api.copy-manga.com", "api.copy2000.online"];
+
+    static normalizeApiHost(host) {
+        if (typeof host !== "string") return "";
+        return host.trim().toLowerCase().replace(/\.$/, "");
+    }
+
+    static isTrustedApiHost(host) {
+        return CopyManga.trustedApiHosts.includes(CopyManga.normalizeApiHost(host));
+    }
 
     static searchApi = "/api/kb/web/searchb/comics"
 
@@ -157,7 +168,11 @@ class CopyManga extends ComicSource {
     }
 
     get apiUrl() {
-        return `https://${this.loadSetting('base_url')}`
+        const configuredHost = CopyManga.normalizeApiHost(this.loadSetting('base_url'));
+        const host = CopyManga.isTrustedApiHost(configuredHost)
+            ? configuredHost
+            : CopyManga.defaultApiUrl;
+        return `https://${host}`;
     }
 
     get copyRegion() {
@@ -1399,11 +1414,23 @@ class CopyManga extends ComicSource {
     }
 
     async refreshAppApi() {
-        const url = "https://api.copy-manga.com/api/v3/system/network2?platform=3"
-        const res = await fetch(url, { headers: this.headers });
-        if (res.status === 200) {
-            let data = await res.json();
-            this.settings.base_url = data.results.api[0][0];
-        }
+        const url = "https://api.copy-manga.com/api/v3/system/network2?platform=3";
+        try {
+            const res = await fetch(url);
+            if (res.status !== 200) return;
+            const data = await res.json();
+            const apis = data.results?.api ?? [];
+            for (const item of apis) {
+                const api = CopyManga.normalizeApiHost(item?.[0]);
+                if (!CopyManga.isTrustedApiHost(api)) continue;
+                try {
+                    const check = await fetch(`https://${api}/api/v3/h5/homeIndex`);
+                    if (check.status === 200 && (await check.json())?.code === 200) {
+                        this.settings.base_url.default = api;
+                        return;
+                    }
+                } catch (e) { }
+            }
+        } catch (e) { }
     }
 }
