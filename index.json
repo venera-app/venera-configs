@@ -1,0 +1,223 @@
+[
+  {
+    "name": "包子漫画",
+    "fileName": "baozi.js",
+    "key": "baozi",
+    "version": "1.1.6",
+    "url": "https://cdn.jsdelivr.net/gh/mythic3011/venera-configs@main/dist/plugins/baozi.js"
+  },
+  {
+    "name": "CCC追漫台",
+    "fileName": "ccc.js",
+    "key": "ccc",
+    "version": "1.0.1",
+    "url": "https://cdn.jsdelivr.net/gh/mythic3011/venera-configs@main/dist/plugins/ccc.js"
+  },
+  {
+    "name": "カドコミ",
+    "fileName": "comic_walker.js",
+    "key": "comic_walker",
+    "version": "1.0.0",
+    "url": "https://cdn.jsdelivr.net/gh/mythic3011/venera-configs@main/dist/plugins/comic_walker.js"
+  },
+  {
+    "name": "comick",
+    "fileName": "comick.js",
+    "key": "comick",
+    "version": "1.2.0",
+    "url": "https://cdn.jsdelivr.net/gh/mythic3011/venera-configs@main/dist/plugins/comick.js"
+  },
+  {
+    "name": "拷贝漫画",
+    "fileName": "copy_manga.js",
+    "key": "copy_manga",
+    "version": "1.4.1",
+    "url": "https://cdn.jsdelivr.net/gh/mythic3011/venera-configs@main/dist/plugins/copy_manga.js"
+  },
+  {
+    "name": "ehentai",
+    "fileName": "ehentai.js",
+    "key": "ehentai",
+    "version": "1.2.0",
+    "url": "https://cdn.jsdelivr.net/gh/mythic3011/venera-configs@main/dist/plugins/ehentai.js"
+  },
+  {
+    "name": "GoDa漫画",
+    "fileName": "goda.js",
+    "key": "goda",
+    "version": "1.0.0",
+    "url": "https://cdn.jsdelivr.net/gh/mythic3011/venera-configs@main/dist/plugins/goda.js"
+  },
+  {
+    "name": "嗨皮漫画",
+    "fileName": "happy.js",
+    "key": "happy",
+    "version": "1.0.0",
+    "url": "https://cdn.jsdelivr.net/gh/mythic3011/venera-configs@main/dist/plugins/happy.js",
+    "description": "中国大陆及日韩IP无法访问，遇到403可以尝试切换其他地区网络"
+  },
+  {
+    "name": "H-Comic",
+    "fileName": "hcomic.js",
+    "key": "hcomic",
+    "version": "1.0.0",
+    "url": "https://cdn.jsdelivr.net/gh/mythic3011/venera-configs@main/dist/plugins/hcomic.js"
+  },
+  {
+    "name": "hitomi.la",
+    "fileName": "hitomi.js",
+    "key": "hitomi",
+    "version": "1.1.2",
+    "url": "https://cdn.jsdelivr.net/gh/mythic3011/venera-configs@main/dist/plugins/hitomi.js"
+  },
+  {
+    "name": "热辣漫画",
+    "fileName": "hot_manga.js",
+    "key": "hot_manga",
+    "version": "1.0.0",
+    "url": "https://cdn.jsdelivr.net/gh/mythic3011/venera-configs@main/dist/plugins/hot_manga.js"
+  },
+  {
+    "name": "爱看漫",
+    "fileName": "ikmmh.js",
+    "key": "ikmmh",
+    "version": "1.0.5",
+    "url": "https://cdn.jsdelivr.net/gh/mythic3011/venera-configs@main/dist/plugins/ikmmh.js"
+  },
+  {
+    "name": "jcomic.net",
+    "fileName": "jcomic.js",
+    "key": "jcomic",
+    "version": "1.0.0",
+    "url": "https://cdn.jsdelivr.net/gh/mythic3011/venera-configs@main/dist/plugins/jcomic.js"
+  },
+  {
+    "name": "禁漫天堂",
+    "fileName": "jm.js",
+    "key": "jm",
+    "version": "1.4.0",
+    "url": "https://cdn.jsdelivr.net/gh/mythic3011/venera-configs@main/dist/plugins/jm.js",
+    "description": "禁漫天堂漫畫源, 不能使用時請嘗試切換分流"
+  },
+  {
+    "name": "Kavita",
+    "fileName": "kavita.js",
+    "key": "kavita",
+    "version": "1.0.0",
+    "url": "https://cdn.jsdelivr.net/gh/mythic3011/venera-configs@main/dist/plugins/kavita.js"
+  },
+  {
+    "name": "Komga",
+    "fileName": "komga.js",
+    "key": "komga",
+    "version": "1.0.0",
+    "url": "https://cdn.jsdelivr.net/gh/mythic3011/venera-configs@main/dist/plugins/komga.js"
+  },
+  {
+    "name": "Komiic",
+    "fileName": "komiic.js",
+    "key": "Komiic",
+    "version": "1.0.3",
+    "url": "https://cdn.jsdelivr.net/gh/mythic3011/venera-configs@main/dist/plugins/komiic.js"
+  },
+  {
+    "name": "Lanraragi",
+    "fileName": "lanraragi.js",
+    "key": "lanraragi",
+    "version": "1.2.6",
+    "url": "https://cdn.jsdelivr.net/gh/mythic3011/venera-configs@main/dist/plugins/lanraragi.js"
+  },
+  {
+    "name": "MangaDex",
+    "fileName": "manga_dex.js",
+    "key": "manga_dex",
+    "version": "1.1.1",
+    "url": "https://cdn.jsdelivr.net/gh/mythic3011/venera-configs@main/dist/plugins/manga_dex.js",
+    "description": "Account feature is not supported yet."
+  },
+  {
+    "name": "漫画柜",
+    "fileName": "manhuagui.js",
+    "key": "ManHuaGui",
+    "version": "1.2.1",
+    "url": "https://cdn.jsdelivr.net/gh/mythic3011/venera-configs@main/dist/plugins/manhuagui.js"
+  },
+  {
+    "name": "漫画人",
+    "fileName": "manhuaren.js",
+    "key": "manhuaren",
+    "version": "1.0.0",
+    "url": "https://cdn.jsdelivr.net/gh/mythic3011/venera-configs@main/dist/plugins/manhuaren.js"
+  },
+  {
+    "name": "漫蛙吧",
+    "fileName": "manwaba.js",
+    "key": "manwaba",
+    "version": "1.0.2",
+    "url": "https://cdn.jsdelivr.net/gh/mythic3011/venera-configs@main/dist/plugins/manwaba.js"
+  },
+  {
+    "name": "漫画1234",
+    "fileName": "mh1234.js",
+    "key": "mh1234",
+    "version": "1.0.0",
+    "url": "https://cdn.jsdelivr.net/gh/mythic3011/venera-configs@main/dist/plugins/mh1234.js"
+  },
+  {
+    "name": "18漫画",
+    "fileName": "mh18.js",
+    "key": "mh18",
+    "version": "1.0.0",
+    "url": "https://cdn.jsdelivr.net/gh/mythic3011/venera-configs@main/dist/plugins/mh18.js"
+  },
+  {
+    "name": "漫小肆",
+    "fileName": "mxs.js",
+    "key": "mxs",
+    "version": "1.0.0",
+    "url": "https://cdn.jsdelivr.net/gh/mythic3011/venera-configs@main/dist/plugins/mxs.js"
+  },
+  {
+    "name": "nhentai",
+    "fileName": "nhentai.js",
+    "key": "nhentai",
+    "version": "1.0.9",
+    "url": "https://cdn.jsdelivr.net/gh/mythic3011/venera-configs@main/dist/plugins/nhentai.js"
+  },
+  {
+    "name": "Picacg",
+    "fileName": "picacg.js",
+    "key": "picacg",
+    "version": "1.0.5",
+    "url": "https://cdn.jsdelivr.net/gh/mythic3011/venera-configs@main/dist/plugins/picacg.js"
+  },
+  {
+    "name": "少年ジャンプ＋",
+    "fileName": "shonen_jump_plus.js",
+    "key": "shonen_jump_plus",
+    "version": "1.1.1",
+    "url": "https://cdn.jsdelivr.net/gh/mythic3011/venera-configs@main/dist/plugins/shonen_jump_plus.js"
+  },
+  {
+    "name": "紳士漫畫",
+    "fileName": "wnacg.js",
+    "key": "wnacg",
+    "version": "1.0.4",
+    "url": "https://cdn.jsdelivr.net/gh/mythic3011/venera-configs@main/dist/plugins/wnacg.js",
+    "description": "紳士漫畫漫畫源, 不能使用時請嘗試更換URL"
+  },
+  {
+    "name": "优酷漫画",
+    "fileName": "ykmh.js",
+    "key": "ykmh",
+    "version": "1.0.0",
+    "url": "https://cdn.jsdelivr.net/gh/mythic3011/venera-configs@main/dist/plugins/ykmh.js"
+  },
+  {
+    "name": "再漫画",
+    "fileName": "zaimanhua.js",
+    "key": "zaimanhua",
+    "version": "1.0.2",
+    "url": "https://cdn.jsdelivr.net/gh/mythic3011/venera-configs@main/dist/plugins/zaimanhua.js"
+  }
+]

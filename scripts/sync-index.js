@@ -19,10 +19,12 @@ function run(script, args = []) {
 if (checkMode) {
   run("validate-plugin-config.js");
   run("write-build-manifest.js", ["--check"]);
-  console.log("build-manifest is up to date");
+  run("write-public-index.js", ["--check"]);
+  console.log("build-manifest and index.json are up to date");
   process.exit(0);
 }
 
 run("validate-plugin-config.js");
 run("write-build-manifest.js");
-console.log("Updated build-manifest");
+run("write-public-index.js");
+console.log("Updated build-manifest and index.json");

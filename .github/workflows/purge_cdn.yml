@@ -49,7 +49,7 @@ jobs:
              DIFF_CMD="git diff --name-only $BEFORE $AFTER"
           fi
           
-          CHANGED_FILES=$($DIFF_CMD | grep -E '^(dist/plugins/.*\.js|\.generated/build-manifest\.json)$' || true)
+          CHANGED_FILES=$($DIFF_CMD | grep -E '^(dist/plugins/.*\.js|\.generated/build-manifest\.json|index\.json)$' || true)
           
           if [ -z "$CHANGED_FILES" ]; then
             echo "No CDN-served files changed"

@@ -1,6 +1,6 @@
 class Lanraragi extends ComicSource {
     constructor(...e) {
-        super(...e), this.name = "Lanraragi", this.key = "lanraragi", this.version = "1.2.1",
+        super(...e), this.name = "Lanraragi", this.key = "lanraragi", this.version = "1.2.6",
         this.minAppVersion = "1.4.0", this.url = resolvePluginUpdateUrl("lanraragi.js"),
         this.settings = {
             api: {
@@ -25,42 +25,50 @@ class Lanraragi extends ComicSource {
                 this.deleteData("account");
             }
         }, this.explore = [ {
-            title: "Lanraragi",
+            title: "Latest",
             type: "multiPageComicList",
-            load: async (e = 1) => {
-                const t = createOffsetSearchLoader({
-                    path: LRR_ROUTES.searchPath,
-                    getOffsetKey: () => "explore_start",
-                    buildQuery: (e, t) => ({
-                        sortby: "date_added",
-                        order: "desc",
-                        start: String(t)
-                    }),
-                    mapComic: (e, t) => this._mapArchiveComic(e, t.base)
-                }), r = await t(this, {
-                    page: e
-                });
-                return {
-                    comics: r.comics,
-                    maxPage: r.maxPage
-                };
-            }
+            load: e => this._loadArchivePage(e, "explore_start", {
+                sortby: "date_added",
+                order: "desc",
+                groupby_tanks: "true"
+            }, !1)
+        }, {
+            title: "New",
+            type: "multiPageComicList",
+            load: e => this._loadArchivePage(e, "explore_new", {
+                sortby: "date_added",
+                order: "desc",
+                newonly: "true",
+                groupby_tanks: "true"
+            }, !1)
+        }, {
+            title: "Recently read",
+            type: "multiPageComicList",
+            load: e => this._loadArchivePage(e, "explore_read", {
+                sortby: "lastread",
+                order: "desc",
+                groupby_tanks: "false"
+            }, !1)
+        }, {
+            title: "Random",
+            type: "multiPageComicList",
+            load: () => this._loadRandomExplore()
         } ], this.category = {
             title: "Lanraragi",
             parts: [ {
                 name: "ALL",
                 type: "dynamic",
                 loader: () => {
-                    const e = this.loadData("categories");
+                    const e = this._loadScopedList("categories");
                     if (!Array.isArray(e) || 0 === e.length) throw "Please check your API settings or categories.";
                     const t = [];
                     for (const i of e) {
-                        var r, o, a;
+                        var r, a, o;
                         if (!i) continue;
-                        const e = null != (r = null != (o = i.id) ? o : i._id) ? r : i.name, n = null != (a = i.name) ? a : String(e);
+                        const e = null != (r = null != (a = i.id) ? a : i._id) ? r : i.name, s = null != (o = i.name) ? o : String(e);
                         try {
                             t.push({
-                                label: n,
+                                label: s,
                                 target: new PageJumpTarget({
                                     page: "category",
                                     attributes: {
@@ -71,7 +79,7 @@ class Lanraragi extends ComicSource {
                             });
                         } catch (r) {
                             t.push({
-                                label: n,
+                                label: s,
                                 target: {
                                     page: "category",
                                     attributes: {
@@ -87,31 +95,16 @@ class Lanraragi extends ComicSource {
             } ],
             enableRankingPage: !1
         }, this.categoryComics = {
-            load: async (e, t, r, o) => {
-                const a = createOffsetSearchLoader({
-                    path: LRR_ROUTES.searchPath,
-                    getOffsetKey: e => `category_start_${String(e.category || "")}`,
-                    buildQuery: (e, t) => ({
-                        category: e.category || "",
-                        sortby: "date_added",
-                        order: "desc",
-                        start: String(t)
-                    }),
-                    mapComic: (e, t) => this._mapArchiveComic(e, t.base)
-                }), i = await a(this, {
-                    page: o,
-                    category: e
-                });
-                return {
-                    comics: i.comics,
-                    maxPage: i.maxPage
-                };
-            }
+            load: async (e, t, r, a) => await this._loadArchivePage(a, `category_start_${String(e || "")}`, {
+                category: e || "",
+                sortby: "date_added",
+                order: "desc"
+            }, !0)
         }, this.search = {
             load: async (e, t, r = 1) => {
-                const o = e => t && t[e], a = lrrChoice(o(0), "title", LRR_SORT_KEYS), i = lrrChoice(o(1), "asc", LRR_ORDERS), n = lrrChoice(o(2), "false", LRR_BOOLS), s = lrrChoice(o(3), "false", LRR_BOOLS), l = lrrChoice(o(4), "true", LRR_BOOLS), u = createOffsetSearchLoader({
+                const a = e => t && t[e], o = lrrChoice(a(0), "title", LRR_SORT_KEYS), i = lrrChoice(a(1), "asc", LRR_ORDERS), s = lrrChoice(a(2), "false", LRR_BOOLS), n = lrrChoice(a(3), "false", LRR_BOOLS), l = lrrChoice(a(4), "true", LRR_BOOLS), u = createOffsetSearchLoader({
                     path: LRR_ROUTES.searchPath,
-                    getOffsetKey: e => `search_start_${encodeURIComponent(String(e.keyword || ""))}`,
+                    getOffsetKey: e => `search_start_${this._serverStamp()}_${encodeURIComponent(String(e.keyword || ""))}`,
                     buildQuery: (e, t) => ({
                         filter: String(e.keyword || "").trim(),
                         sortby: e.sortby,
@@ -125,20 +118,20 @@ class Lanraragi extends ComicSource {
                 }), c = await u(this, {
                     page: r,
                     keyword: e,
-                    sortby: a,
+                    sortby: o,
                     order: i,
-                    newonly: n,
-                    untaggedonly: s,
+                    newonly: s,
+                    untaggedonly: n,
                     groupby: l
                 });
                 return {
-                    comics: c.comics,
+                    comics: await this._decorateListedComics(c.comics),
                     maxPage: c.maxPage
                 };
             },
             loadNext: async (e, t, r) => {
-                const o = "number" == typeof r && r > 0 ? r : 1;
-                return await this.search.load(e, t, o);
+                const a = "number" == typeof r && r > 0 ? r : 1;
+                return await this.search.load(e, t, a);
             },
             optionList: [ {
                 type: "select",
@@ -170,77 +163,89 @@ class Lanraragi extends ComicSource {
         }, this.favorites = {
             multiFolder: !0,
             singleFolderForSingleComic: !1,
-            addOrDelFavorite: async (e, t, r, o) => {
-                const a = this.headers || {};
-                if (!a || 0 === Object.keys(a).length) throw "API token required to modify favorites";
+            addOrDelFavorite: async (e, t, r, a) => {
+                const o = this.headers || {};
+                if (!o || 0 === Object.keys(o).length) throw "API token required to modify favorites";
                 if (!t || "-1" === String(t)) throw "Invalid folder id";
                 const i = buildSelfHostedUrlFromSource(this, LRR_ROUTES.categoryArchivePath(t, e));
-                let n;
-                if (n = r ? await Network.put(i, a) : await Network.delete(i, a), 200 !== n.status && 204 !== n.status) throw `Invalid status code: ${n.status}`;
+                let s;
+                if (s = r ? await Network.put(i, o) : await Network.delete(i, o), 200 !== s.status && 204 !== s.status) throw `Invalid status code: ${s.status}`;
                 return "ok";
             },
             loadFolders: async e => {
-                const t = this.loadData("favorites"), r = {};
+                const t = this._loadScopedList("favorites"), r = {};
                 if (Array.isArray(t)) for (const e of t) {
-                    var o, a, i;
+                    var a, o, i;
                     if (!e) continue;
-                    const t = null != (o = null != (a = e.id) ? a : e._id) ? o : e.name, n = null != (i = e.name) ? i : String(t);
-                    r[String(t)] = n;
+                    const t = null != (a = null != (o = e.id) ? o : e._id) ? a : e.name, s = null != (i = e.name) ? i : String(t);
+                    r[String(t)] = s;
                 }
-                const n = [];
+                const s = [];
                 if (e) try {
                     const t = await this.comic.loadInfo(e);
                     try {
                         if (t && (!0 === t.isFavorite || "true" === t.isFavorite)) {
-                            const e = Array.isArray(t.folders) ? t.folders.map(e => String(e)) : null, o = new Set(n);
-                            if (e && e.length > 0) for (const t of e) for (const [e, a] of Object.entries(r)) t !== e && t !== a || o.add(e);
-                            n.length = 0;
-                            for (const e of o) n.push(e);
+                            const e = Array.isArray(t.folders) ? t.folders.map(e => String(e)) : null, a = new Set(s);
+                            if (e && e.length > 0) for (const t of e) for (const [e, o] of Object.entries(r)) t !== e && t !== o || a.add(e);
+                            s.length = 0;
+                            for (const e of a) s.push(e);
                         }
                     } catch (e) {}
-                    const o = t.tags || {}, a = Object.keys(o);
-                    for (const e of a) if ("category" === String(e).toLowerCase()) {
-                        const t = o[e];
-                        if (Array.isArray(t)) for (const e of t) for (const [t, o] of Object.entries(r)) String(e) !== t && String(e) !== o || n.includes(t) || n.push(t);
+                    const a = t.tags || {}, o = Object.keys(a);
+                    for (const e of o) if ("category" === String(e).toLowerCase()) {
+                        const t = a[e];
+                        if (Array.isArray(t)) for (const e of t) for (const [t, a] of Object.entries(r)) String(e) !== t && String(e) !== a || s.includes(t) || s.push(t);
                     }
                 } catch (e) {}
                 return {
                     folders: r,
-                    favorited: n
+                    favorited: s
                 };
             },
-            loadComics: async (e, t) => await this.categoryComics.load(t, null, [], "number" == typeof e && e > 0 ? e : 1)
+            loadComics: async (e, t) => {
+                const r = "number" == typeof e && e > 0 ? e : 1;
+                return await this._loadArchivePage(r, `favorites_start_${String(t || "")}`, {
+                    category: t || "",
+                    sortby: "date_added",
+                    order: "desc"
+                }, !1);
+            }
         }, this.comic = {
             loadInfo: async e => {
                 if (isLrrTankId(e)) return await this._loadTankInfo(e);
+                if (isLrrArchiveId(e)) try {
+                    await this._ensureTankIndex();
+                    const t = this._memberTank && this._memberTank[String(e).toLowerCase()];
+                    if (isLrrTankId(t)) return await this._loadTankInfo(t);
+                } catch (e) {}
                 const t = buildSelfHostedUrlFromSource(this, LRR_ROUTES.archiveMetadataPath(e)), r = await Network.get(t, this.headers);
                 if (200 !== r.status) throw `Invalid status code: ${r.status}`;
-                const o = JSON.parse(r.body), a = buildSelfHostedUrlFromSource(this, LRR_ROUTES.archiveThumbnailPath(e));
-                let i = toSelfHostedTagArray(o.tags);
-                const n = extractSelfHostedTagValue(i, LRR_TAG_PREFIXES.rating);
+                const a = JSON.parse(r.body), o = buildSelfHostedUrlFromSource(this, LRR_ROUTES.archiveThumbnailPath(e));
+                let i = toSelfHostedTagArray(a.tags);
+                const s = extractSelfHostedTagValue(i, LRR_TAG_PREFIXES.rating);
                 i = removeSelfHostedTagsByPrefix(i, [ LRR_TAG_PREFIXES.rating ]);
-                let s = null;
+                let n = null;
                 const l = extractSelfHostedTagValue(i, LRR_TAG_PREFIXES.dateAdded);
-                l && (s = l, i = removeSelfHostedTagsByPrefix(i, [ LRR_TAG_PREFIXES.dateAdded ]));
+                l && (n = l, i = removeSelfHostedTagsByPrefix(i, [ LRR_TAG_PREFIXES.dateAdded ]));
                 const u = new Map, c = [];
                 for (const e of i) {
                     const t = e.indexOf(":");
                     if (t > 0) {
-                        const r = e.slice(0, t), o = e.slice(t + 1);
-                        u.has(r) || u.set(r, []), u.get(r).push(o);
+                        const r = e.slice(0, t), a = e.slice(t + 1);
+                        u.has(r) || u.set(r, []), u.get(r).push(a);
                     } else c.push(e);
                 }
                 const d = {};
-                for (const [e, t] of u.entries()) d[e] = t;
-                d.Tags = c, d.Pages = [ String(o.pagecount) ], d.Extension = [ o.extension ];
+                for (const [e, t] of u.entries()) if ("__proto__" !== e && "constructor" !== e && "prototype" !== e) d[e] = t; else for (const e of t) c.push(e);
+                d.Tags = c, d.Pages = [ String(a.pagecount) ], d.Extension = [ a.extension ];
                 const p = extractSelfHostedUrlEntriesFromTagMap(d, {
                     sourceNamespace: "source",
                     sourceScheme: "https",
                     skipKeys: [ "Extension", "Pages" ]
                 });
-                let h = o.summary || "";
+                let h = a.summary || "";
                 p.length && (h && (h += "\n"), h += "关联：" + p.join(", "));
-                let y = !1, f = [];
+                let g = !1, f = [];
                 try {
                     const t = buildSelfHostedUrlFromSource(this, LRR_ROUTES.archiveCategoriesPath(e)), r = await Network.get(t, this.headers);
                     if (200 === r.status) {
@@ -253,29 +258,29 @@ class Lanraragi extends ComicSource {
                         if (t && "object" == typeof t && (Array.isArray(t.categories) ? t = t.categories : Array.isArray(t.data) ? t = t.data : Array.isArray(t) || (t = [])),
                         Array.isArray(t) && t.length > 0) {
                             const r = [];
-                            for (const o of t) {
-                                const t = Array.isArray(o.archives) ? o.archives : [];
-                                Array.isArray(t) && t.some(t => String(t) === String(e)) && r.push(o);
+                            for (const a of t) {
+                                const t = Array.isArray(a.archives) ? a.archives : [];
+                                Array.isArray(t) && t.some(t => String(t) === String(e)) && r.push(a);
                             }
-                            r.length > 0 && (y = !0, f = r.map(e => {
-                                var t, r, o;
-                                return String(null != (t = null != (r = null != (o = e.id) ? o : e._id) ? r : e.name) ? t : e);
+                            r.length > 0 && (g = !0, f = r.map(e => {
+                                var t, r, a;
+                                return String(null != (t = null != (r = null != (a = e.id) ? a : e._id) ? r : e.name) ? t : e);
                             }));
                         }
                     }
                 } catch (e) {}
-                const g = {};
-                g[e] = o.title || "Local manga";
-                let m = this._toStarsFromValue(n);
+                const y = {};
+                y[e] = a.title || "Local manga";
+                let m = this._toStarsFromValue(s);
                 return null == m && (m = 0), {
-                    title: o.title || o.filename || e,
-                    cover: a,
+                    title: a.title || a.filename || e,
+                    cover: o,
                     description: h,
-                    uploadTime: s,
+                    uploadTime: n,
                     tags: d,
                     stars: m,
-                    chapters: g,
-                    isFavorite: y,
+                    chapters: y,
+                    isFavorite: g,
                     folders: f
                 };
             },
@@ -287,10 +292,10 @@ class Lanraragi extends ComicSource {
                         next: null
                     };
                 }
-                const r = buildSelfHostedUrlFromSource(this, LRR_ROUTES.archiveMetadataPath(e)), o = await Network.get(r, this.headers);
-                if (200 !== o.status) throw `Invalid status code: ${o.status}`;
-                const a = JSON.parse(o.body).pagecount || 1, i = [];
-                for (let t = 1; t <= a; t++) i.push(buildSelfHostedUrlFromSource(this, LRR_ROUTES.archiveThumbnailPath(e), {
+                const r = buildSelfHostedUrlFromSource(this, LRR_ROUTES.archiveMetadataPath(e)), a = await Network.get(r, this.headers);
+                if (200 !== a.status) throw `Invalid status code: ${a.status}`;
+                const o = JSON.parse(a.body).pagecount || 1, i = [];
+                for (let t = 1; t <= o; t++) i.push(buildSelfHostedUrlFromSource(this, LRR_ROUTES.archiveThumbnailPath(e), {
                     page: t
                 }));
                 return {
@@ -299,57 +304,90 @@ class Lanraragi extends ComicSource {
                 };
             },
             starRating: async (e, t) => {
+                if (isLrrTankId(e)) throw "Cannot rate a LANraragi tankoubon";
                 const r = this.headers || {};
                 if (!r || 0 === Object.keys(r).length) throw "API token required to submit rating";
-                const o = buildSelfHostedUrlFromSource(this, LRR_ROUTES.archiveMetadataPath(e)), a = await Network.get(o, r);
-                if (200 !== a.status) throw `Invalid status code: ${a.status}`;
+                const a = buildSelfHostedUrlFromSource(this, LRR_ROUTES.archiveMetadataPath(e)), o = await Network.get(a, r);
+                if (200 !== o.status) throw `Invalid status code: ${o.status}`;
                 let i = {};
                 try {
-                    i = JSON.parse(a.body);
+                    i = JSON.parse(o.body);
                 } catch (e) {
                     i = {};
                 }
-                let n = toSelfHostedTagArray(i.tags);
-                n = removeSelfHostedTagsByPrefix(n, [ LRR_TAG_PREFIXES.rating ], {
+                let s = toSelfHostedTagArray(i.tags);
+                s = removeSelfHostedTagsByPrefix(s, [ LRR_TAG_PREFIXES.rating ], {
                     caseSensitive: !1
-                }), t > 0 && n.push(buildSelfHostedEmojiRatingTag(t, {
+                }), t > 0 && s.push(buildSelfHostedEmojiRatingTag(t, {
                     prefix: LRR_TAG_PREFIXES.rating,
                     symbol: "⭐"
                 }));
-                const s = n.join(", "), l = `tags=${encodeURIComponent(s)}`, u = buildSelfHostedUrlFromSource(this, LRR_ROUTES.archiveMetadataPath(e)), c = await Network.put(u, Object.assign({}, r, {
+                const n = s.join(", "), l = `tags=${encodeURIComponent(n)}`, u = buildSelfHostedUrlFromSource(this, LRR_ROUTES.archiveMetadataPath(e)), c = await Network.put(u, Object.assign({}, r, {
                     "Content-Type": "application/x-www-form-urlencoded"
                 }), l);
                 if (200 !== c.status && 204 !== c.status) throw `Invalid status code: ${c.status}`;
                 return "ok";
             },
             loadEp: async (e, t) => {
-                const r = isLrrArchiveId(t) ? String(t).toLowerCase() : isLrrArchiveId(e) ? String(e).toLowerCase() : "";
-                if (!r) throw "Invalid LANraragi archive ID.";
-                const o = (this.baseUrl || "").replace(/\/$/, ""), a = buildSelfHostedUrlFromSource(this, LRR_ROUTES.archiveFilesPath(r), {
+                const r = String(e || ""), a = String(t || "");
+                let o = "";
+                if (isLrrTankId(r)) {
+                    if (!isLrrArchiveId(a)) throw "LANraragi tankoubon has no chapters.";
+                    if (o = a.toLowerCase(), !this._imageBelongs(r, o, o)) throw "LANraragi page belongs to another archive.";
+                } else {
+                    if (!isLrrArchiveId(r)) throw "Invalid LANraragi archive ID.";
+                    if (isLrrArchiveId(a) && a.toLowerCase() !== r.toLowerCase()) throw "LANraragi archive has no chapters.";
+                    o = r.toLowerCase();
+                }
+                const i = String(this.baseUrl || "").replace(/\/$/, ""), s = buildSelfHostedUrlFromSource(this, LRR_ROUTES.archiveFilesPath(o), {
                     force: "false"
-                }), i = await Network.get(a, this.headers);
-                if (200 !== i.status) throw `Invalid status code: ${i.status}`;
+                }), n = await Network.get(s, this.headers);
+                if (200 !== n.status) throw `Invalid status code: ${n.status}`;
+                const l = JSON.parse(n.body), u = l && Array.isArray(l.pages) ? l.pages : null;
+                if (!u || 0 === u.length) throw "LANraragi archive has no pages yet.";
+                if (u.length > 1e4) throw "Invalid LANraragi page list.";
+                const c = [];
+                for (const e of u) {
+                    if ("string" != typeof e) throw "Invalid LANraragi page URL.";
+                    c.push(lrrPageKey(o, e, i));
+                }
                 return {
-                    images: (JSON.parse(i.body).pages || []).map(e => {
-                        if (!e) return null;
-                        const t = String(e);
-                        return /^https?:\/\//i.test(t) ? t : `${o}${t.startsWith("/") ? t : "/" + t}`;
-                    }).filter(Boolean)
+                    images: c
                 };
             },
-            onImageLoad: (e, t, r) => ({
-                headers: this.headers
-            }),
-            onThumbnailLoad: e => ({
-                headers: this.headers
-            }),
+            onImageLoad: (e, t, r) => {
+                const a = String(e || "");
+                let o = "", i = "";
+                if (a.startsWith("lrr-page:")) {
+                    const e = /^lrr-page:([a-f0-9]{40}):/i.exec(a);
+                    if (!e) throw "Invalid LANraragi image key.";
+                    o = e[1].toLowerCase(), i = lrrResolvePageKey(a, this.baseUrl);
+                } else {
+                    const e = isLrrArchiveId(r) ? String(r).toLowerCase() : isLrrArchiveId(t) ? String(t).toLowerCase() : "";
+                    if (!e) throw "Invalid LANraragi image key.";
+                    o = e, i = lrrResolvePageKey(lrrPageKey(e, a, this.baseUrl), this.baseUrl);
+                }
+                if (!this._imageBelongs(t, r, o)) throw "LANraragi page belongs to another archive.";
+                return {
+                    url: i,
+                    headers: this._authHeaders()
+                };
+            },
+            onThumbnailLoad: e => {
+                const t = String(e || ""), r = String(this.baseUrl || "").replace(/\/+$/, "");
+                return t.startsWith(r + "/") ? {
+                    headers: this._authHeaders()
+                } : {
+                    headers: {}
+                };
+            },
             onClickTag: (e, t) => {
-                const r = e ? String(e) : "", o = r.toLowerCase();
-                if ("pages" === o || "extension" === o) return null;
-                let a = String(t);
-                return a.includes(" ") && (a = `"${a}"`), {
+                const r = e ? String(e) : "", a = r.toLowerCase();
+                if ("pages" === a || "extension" === a) return null;
+                let o = String(t);
+                return o.includes(" ") && (o = `"${o}"`), {
                     action: "search",
-                    keyword: r ? `${r}:${a}` : a,
+                    keyword: r ? `${r}:${o}` : o,
                     param: null
                 };
             },
@@ -410,28 +448,301 @@ class Lanraragi extends ComicSource {
         };
     }
     get baseUrl() {
-        return resolveSelfHostedBaseUrl(this.loadSetting("api"), this.settings.api.default);
+        return this._identity().baseUrl;
+    }
+    _identity() {
+        const e = this.loadSetting("api"), t = this.loadSetting("apiKey"), r = this._identityCache;
+        if (r && r.rawApi === e && r.rawKey === t) return r;
+        const a = resolveLrrBaseUrl(e, this.settings.api.default), o = String(t || "").trim();
+        if (o.length > 512 || /[\r\n\u0000-\u001f\u007f]/.test(o)) throw "Invalid LANraragi API Key.";
+        const i = o ? `Bearer ${encodeLrrBearer(o)}` : "", s = i ? {
+            Authorization: i
+        } : {}, n = i ? {
+            Accept: "application/json",
+            Authorization: i
+        } : {
+            Accept: "application/json"
+        }, l = {
+            rawApi: e,
+            rawKey: t,
+            baseUrl: a,
+            key: o,
+            stamp: lrrFingerprint(`${a}\n${o}`),
+            authHeaders: s,
+            headers: n
+        };
+        return this._identityCache = l, l;
+    }
+    _apiKey() {
+        return this._identity().key;
+    }
+    _serverStamp() {
+        return this._identity().stamp;
+    }
+    _authHeaders() {
+        const e = this._identity().authHeaders;
+        return e.Authorization ? {
+            Authorization: e.Authorization
+        } : {};
     }
     get headers() {
-        const e = this.loadSetting("apiKey");
-        return e ? withBearer({}, encodeSelfHostedToken(e)) : {};
+        const e = this._identity().headers;
+        return Object.assign({}, e);
+    }
+    _loadScopedList(e) {
+        if (this.loadData(`${e}_server`) !== this._serverStamp()) return [];
+        const t = this.loadData(e);
+        return Array.isArray(t) ? t : [];
+    }
+    _saveScopedList(e, t, r) {
+        this.saveData(e, r), this.saveData(`${e}_server`, t);
     }
     _toAbsoluteBaseUrl(e) {
-        let t = String(e || "").trim().replace(/\/+$/, "");
-        return t ? (/^https?:\/\//i.test(t) || (t = `http://${t.replace(/^\/+/, "")}`),
-        t) : "";
+        const t = String(e || "").trim();
+        return t ? resolveLrrBaseUrl(t, "") : "";
     }
     _mapArchiveComic(e, t) {
-        const r = this._toAbsoluteBaseUrl(t), o = isLrrTankId(e && e.arcid) ? "" : buildSelfHostedUrl(r, LRR_ROUTES.archiveThumbnailPath(e.arcid)), a = this._extractRatingFromTags(e.tags), i = this._toStarsFromValue(null != a ? a : null);
+        const r = this._toAbsoluteBaseUrl(t), a = isLrrTankId(e && e.arcid) ? "" : buildSelfHostedUrl(r, LRR_ROUTES.archiveThumbnailPath(e.arcid)), o = this._extractRatingFromTags(e.tags), i = this._toStarsFromValue(null != o ? o : null), s = e && null != e.pagecount ? String(e.pagecount).trim() : "", n = [ s ? s + "p" : "", !e || !0 !== e.isnew && "true" !== e.isnew && "1" !== e.isnew ? "" : "new" ].filter(Boolean).join(" · ");
         return new Comic({
             id: e.arcid,
             title: e.title || e.filename || e.arcid,
-            subTitle: "",
-            cover: o,
+            subTitle: n,
+            cover: a,
             tags: this._cleanListTags(e.tags),
-            description: "页数: " + (e.pagecount || "") + " | 新: " + (e.isnew || "") + " | 扩展: " + (e.extension || ""),
+            description: "",
             stars: i
         });
+    }
+    _acceptTankPage(e) {
+        return !e || "object" != typeof e || Array.isArray(e) || !Array.isArray(e.result) || e.result.length > 1e3 || !Number.isSafeInteger(Number(e.total)) || Number(e.total) < 0 || Number(e.total) > 1e5 ? null : e;
+    }
+    async _fetchTankPage(e, t, r) {
+        try {
+            const a = buildSelfHostedUrl(e, "/api/tankoubons", {
+                page: String(r)
+            }), o = await Network.get(a, t);
+            return o && 200 === o.status ? this._acceptTankPage(JSON.parse(o.body)) : null;
+        } catch (e) {
+            return null;
+        }
+    }
+    async _fetchTankPageBatch(e, t, r, a) {
+        const o = new Array(a);
+        let i = 0;
+        const s = async () => {
+            for (;i < a; ) {
+                const a = i;
+                i += 1, o[a] = await this._fetchTankPage(e, t, r + a);
+            }
+        }, n = Math.min(4, a), l = [];
+        for (let e = 0; e < n; e++) l.push(s());
+        return await Promise.all(l), o;
+    }
+    _absorbTankPage(e, t, r, a, o) {
+        for (const i of e.result) {
+            if (!i || "object" != typeof i || Array.isArray(i)) continue;
+            if (!isLrrTankId(i.id) || !Array.isArray(i.archives)) continue;
+            if (i.archives.length > 2e3) continue;
+            const e = [], s = Object.create(null);
+            for (const t of i.archives) {
+                if ("string" != typeof t || !isLrrArchiveId(t)) continue;
+                const r = t.toLowerCase();
+                s[r] || (s[r] = !0, e.push(r));
+            }
+            if (e.length) {
+                r[i.id] = e[0], "string" == typeof i.name && i.name.trim() && (a[i.id] = i.name.trim().slice(0, 300));
+                for (const r of e) {
+                    if (o[r]) continue;
+                    const e = t[r];
+                    e && e !== i.id ? (delete t[r], o[r] = !0) : t[r] = i.id;
+                }
+            }
+        }
+    }
+    async _ensureTankIndex() {
+        const e = this._identity(), t = e.baseUrl, r = e.key;
+        if (this._tankServer === t && this._tankAuth === r && this._memberTank) return;
+        if (this._tankIndexPromise && this._tankIndexBase === t && this._tankIndexAuth === r) return await this._tankIndexPromise;
+        const a = (this._tankGeneration || 0) + 1;
+        this._tankGeneration = a;
+        const o = this._loadTankIndex(t, r, Object.assign({}, e.headers), a);
+        this._tankIndexPromise = o, this._tankIndexBase = t, this._tankIndexAuth = r;
+        try {
+            await o;
+        } finally {
+            this._tankIndexPromise === o && (this._tankIndexPromise = null);
+        }
+    }
+    async _loadTankIndex(e, t, r, a) {
+        const o = Object.create(null), i = Object.create(null), s = Object.create(null), n = Object.create(null), l = await this._fetchTankPage(e, r, 1);
+        let u = 0, c = 0;
+        l && l.result.length > 0 && (this._absorbTankPage(l, o, i, s, n), u = l.result.length,
+        c = Number(l.total));
+        let d = 2;
+        for (;l && d <= 20 && u < c; ) {
+            const t = Math.min(4, 20 - d + 1), a = await this._fetchTankPageBatch(e, r, d, t);
+            let l = !1;
+            for (let e = 0; e < a.length; e++) {
+                const t = a[e];
+                if (!t || 0 === t.result.length) {
+                    l = !0;
+                    break;
+                }
+                if (this._absorbTankPage(t, o, i, s, n), u += t.result.length, c = Number(t.total),
+                d += 1, u >= c) {
+                    l = !0;
+                    break;
+                }
+            }
+            if (l) break;
+        }
+        this._tankGeneration === a && this._identity().baseUrl === e && this._identity().key === t && (this._memberTank = o,
+        this._tankCover = i, this._tankName = s, this._tankServer = e, this._tankAuth = t);
+    }
+    _tankListComic(e, t, r) {
+        const a = this._tankCover && this._tankCover[e], o = this._tankName && this._tankName[e], i = isLrrArchiveId(a) ? buildSelfHostedUrl(this._toAbsoluteBaseUrl(this.baseUrl), LRR_ROUTES.archiveThumbnailPath(String(a).toLowerCase())) : "", s = r && "object" == typeof r ? r : {};
+        return new Comic({
+            id: e,
+            title: o || t || e,
+            subTitle: s.subTitle || "",
+            cover: i,
+            tags: s.tags || [],
+            description: s.description || "",
+            stars: null == s.stars ? null : s.stars
+        });
+    }
+    async _fetchTankCard(e) {
+        try {
+            const t = buildSelfHostedUrlFromSource(this, `/api/tankoubons/${e}`), r = await Network.get(t, this.headers);
+            if (!r || 200 !== r.status) return null;
+            const a = JSON.parse(r.body);
+            if (!a || "object" != typeof a || Array.isArray(a)) return null;
+            const o = Array.isArray(a.archives) ? a.archives : [];
+            let i = "";
+            for (const e of o) if (isLrrArchiveId(e)) {
+                i = String(e).toLowerCase();
+                break;
+            }
+            return {
+                name: "string" == typeof a.name ? a.name.trim().slice(0, 300) : "",
+                cover: i
+            };
+        } catch (e) {
+            return null;
+        }
+    }
+    async _fillListedTanks(e) {
+        const t = this._serverStamp();
+        this._tankCards && this._tankCards.stamp === t || (this._tankCards = {
+            stamp: t,
+            byId: Object.create(null)
+        });
+        const r = [];
+        for (const t of e) this._tankCards.byId[t] || r.push(t);
+        if (!r.length) return;
+        const a = new Array(r.length);
+        let o = 0;
+        const i = async () => {
+            for (;o < r.length; ) {
+                const e = o;
+                o += 1, a[e] = await this._fetchTankCard(r[e]);
+            }
+        }, s = Math.min(4, r.length), n = [];
+        for (let e = 0; e < s; e++) n.push(i());
+        if (await Promise.all(n), this._tankCards && this._tankCards.stamp === t) for (let e = 0; e < r.length; e++) a[e] && (this._tankCards.byId[r[e]] = a[e]);
+    }
+    _tankListComicFromCard(e, t) {
+        const r = isLrrArchiveId(t && t.cover) ? buildSelfHostedUrl(this._toAbsoluteBaseUrl(this.baseUrl), LRR_ROUTES.archiveThumbnailPath(t.cover)) : e.cover || "";
+        return new Comic({
+            id: e.id,
+            title: t && t.name || e.title || e.id,
+            subTitle: e.subTitle || "",
+            cover: r,
+            tags: e.tags || [],
+            description: e.description || "",
+            stars: null == e.stars ? null : e.stars
+        });
+    }
+    async _decorateListedComics(e) {
+        const t = Array.isArray(e) ? e : [], r = [], a = Object.create(null);
+        for (const e of t) e && isLrrTankId(e.id) && !a[e.id] && (a[e.id] = !0, r.push(e.id));
+        if (!r.length) return t;
+        const o = this._identity(), i = this._tankServer === o.baseUrl && this._tankAuth === o.key && this._memberTank;
+        if (!i) try {
+            await this._fillListedTanks(r);
+        } catch (e) {
+            return t;
+        }
+        const s = !i && this._tankCards && this._tankCards.stamp === this._serverStamp() ? this._tankCards.byId : null;
+        return t.map(e => {
+            if (!e || !isLrrTankId(e.id)) return e;
+            if (i) return this._tankListComic(e.id, e.title, e);
+            const t = s && s[e.id];
+            return t ? this._tankListComicFromCard(e, t) : e;
+        });
+    }
+    async _loadRandomExplore() {
+        const e = buildSelfHostedUrlFromSource(this, `${LRR_ROUTES.searchPath}/random`, {
+            count: String(20),
+            groupby_tanks: "true"
+        }), t = await Network.get(e, this.headers);
+        if (!t || 200 !== t.status) throw `Invalid status code: ${t ? t.status : 0}`;
+        let r;
+        try {
+            r = JSON.parse(t.body);
+        } catch (e) {
+            throw "Invalid LANraragi search response.";
+        }
+        const a = r && Array.isArray(r.data) ? r.data : [], o = [];
+        for (const e of a) e && "object" == typeof e && !Array.isArray(e) && e.arcid && o.push(this._mapArchiveComic(e, this.baseUrl));
+        return {
+            comics: await this._decorateListedComics(o),
+            maxPage: 1
+        };
+    }
+    async _collapseTankItems(e) {
+        const t = Array.isArray(e) ? e : [];
+        try {
+            await this._ensureTankIndex();
+        } catch (e) {}
+        const r = [], a = {};
+        for (const e of t) {
+            if (!e || "object" != typeof e || Array.isArray(e)) continue;
+            if (isLrrTankId(e.arcid)) {
+                if (a[e.arcid]) continue;
+                a[e.arcid] = !0, r.push(this._tankListComic(e.arcid, e.title || e.filename));
+                continue;
+            }
+            const t = String(e.arcid || "");
+            if (!isLrrArchiveId(t)) {
+                r.push(this._mapArchiveComic(e, this.baseUrl));
+                continue;
+            }
+            const o = this._memberTank && this._memberTank[t.toLowerCase()];
+            isLrrTankId(o) ? a[o] || (a[o] = !0, r.push(this._tankListComic(o, e.title || e.filename))) : r.push(this._mapArchiveComic(e, this.baseUrl));
+        }
+        return r;
+    }
+    async _loadArchivePage(e, t, r, a) {
+        const o = createOffsetSearchLoader({
+            path: LRR_ROUTES.searchPath,
+            getOffsetKey: () => `${t}_${this._serverStamp()}`,
+            buildQuery: (e, t) => Object.assign({}, r, {
+                start: String(t)
+            }),
+            mapComic: (e, t) => this._mapArchiveComic(e, t.base)
+        }), i = await o(this, {
+            page: e
+        });
+        if (!a) return {
+            comics: await this._decorateListedComics(i.comics),
+            maxPage: i.maxPage
+        };
+        const s = i.data && Array.isArray(i.data.data) ? i.data.data : [];
+        return {
+            comics: await this._collapseTankItems(s),
+            maxPage: i.maxPage
+        };
     }
     _toStarsFromValue(e) {
         if (null == e) return null;
@@ -442,9 +753,9 @@ class Lanraragi extends ComicSource {
             if (e >= 0) return Math.max(0, Math.min(5, e));
         }
         if (t.includes("/")) {
-            const e = t.split("/"), r = parseFloat(e[0]), o = parseFloat(e[1]) || 10;
-            if (!isNaN(r) && !isNaN(o) && o > 0) {
-                const e = r / o * 5;
+            const e = t.split("/"), r = parseFloat(e[0]), a = parseFloat(e[1]) || 10;
+            if (!isNaN(r) && !isNaN(a) && a > 0) {
+                const e = r / a * 5;
                 return Math.round(2 * e) / 2;
             }
         }
@@ -481,62 +792,76 @@ class Lanraragi extends ComicSource {
         });
     }
     async init() {
+        let e = "";
         try {
-            const e = buildSelfHostedUrlFromSource(this, LRR_ROUTES.categoriesPath()), t = await Network.get(e, this.headers);
-            if (200 !== t.status) return void this.saveData("categories", []);
-            let r = [];
+            e = this._serverStamp();
+            const t = buildSelfHostedUrlFromSource(this, LRR_ROUTES.categoriesPath()), r = await Network.get(t, this.headers);
+            if (this._serverStamp() !== e) return;
+            if (200 !== r.status) return this._saveScopedList("categories", e, []), void this._saveScopedList("favorites", e, []);
+            let a = [];
             try {
-                r = JSON.parse(t.body);
+                a = JSON.parse(r.body);
             } catch (e) {
-                r = [];
+                a = [];
             }
-            if (Array.isArray(r) || (r = []), this.saveData("categories", r), this.saveData("categories_ts", Date.now()),
-            Array.isArray(r)) {
-                const e = Array.isArray(r) ? r.filter(e => e && ("" === e.search || null === e.search || void 0 === e.search)) : [];
-                this.saveData("favorites", e), this.saveData("favorites_ts", Date.now());
-            } else this.saveData("favorites", []);
-        } catch (e) {
-            this.saveData("categories", []);
+            Array.isArray(a) || (a = []), this._saveScopedList("categories", e, a), this.saveData("categories_ts", Date.now());
+            const o = a.filter(e => e && ("" === e.search || null === e.search || void 0 === e.search));
+            this._saveScopedList("favorites", e, o), this.saveData("favorites_ts", Date.now());
+        } catch (t) {
+            e && this._serverStamp() === e && (this._saveScopedList("categories", e, []), this._saveScopedList("favorites", e, []));
         }
     }
     async _loadTankInfo(e) {
         const t = String(e || "");
         if (!isLrrTankId(t)) throw "Invalid LANraragi tankoubon ID.";
-        const r = buildSelfHostedUrlFromSource(this, `/api/tankoubons/${t}`), o = await Network.get(r, this.headers);
-        if (200 !== o.status) throw `Invalid status code: ${o.status}`;
-        const a = JSON.parse(o.body), i = a && Array.isArray(a.archives) ? a.archives : [], n = [], s = {};
+        const r = buildSelfHostedUrlFromSource(this, `/api/tankoubons/${t}`), a = await Network.get(r, this.headers);
+        if (200 !== a.status) throw `Invalid status code: ${a.status}`;
+        const o = JSON.parse(a.body), i = o && Array.isArray(o.archives) ? o.archives : [], s = [], n = {};
         for (const e of i) {
             if (!isLrrArchiveId(e)) continue;
             const t = String(e).toLowerCase();
-            if (!Object.prototype.hasOwnProperty.call(s, t) && (s[t] = !0, n.push(t), n.length >= 2e3)) break;
+            if (!Object.prototype.hasOwnProperty.call(n, t) && (n[t] = !0, s.push(t), s.length >= 2e3)) break;
         }
-        if (!n.length) throw "LANraragi tankoubon has no chapters.";
-        const l = {}, u = n.slice(0, 40);
+        if (!s.length) throw "LANraragi tankoubon has no chapters.";
+        this._tankChapters || (this._tankChapters = Object.create(null)), this._tankChapters[t] = s;
+        const l = {}, u = s.slice(0, 40);
         await Promise.all(u.map(async (e, t) => {
             l[e] = "Chapter " + (t + 1);
             try {
                 const t = buildSelfHostedUrlFromSource(this, LRR_ROUTES.archiveMetadataPath(e)), r = await Network.get(t, this.headers);
                 if (200 !== r.status) return;
-                const o = JSON.parse(r.body);
-                o && "string" == typeof o.title && o.title.trim() && (l[e] = o.title.trim().slice(0, 300));
+                const a = JSON.parse(r.body);
+                a && "string" == typeof a.title && a.title.trim() && (l[e] = a.title.trim().slice(0, 300));
             } catch (e) {}
         }));
         const c = {};
-        for (let e = 0; e < n.length; e++) {
-            const t = n[e];
+        for (let e = 0; e < s.length; e++) {
+            const t = s[e];
             c[t] = l[t] || "Chapter " + (e + 1);
         }
-        const d = buildSelfHostedUrlFromSource(this, LRR_ROUTES.archiveThumbnailPath(n[0]));
+        const d = buildSelfHostedUrlFromSource(this, LRR_ROUTES.archiveThumbnailPath(s[0]));
         return {
-            title: a && (a.name || a.title) || t,
+            title: o && (o.name || o.title) || t,
             cover: d,
-            description: a && a.summary || "",
+            description: o && o.summary || "",
             tags: {},
             stars: 0,
             chapters: c,
             isFavorite: !1,
             folders: []
         };
+    }
+    _imageBelongs(e, t, r) {
+        const a = String(r || "").toLowerCase(), o = String(t || ""), i = String(e || "");
+        if (isLrrArchiveId(o) && o.toLowerCase() !== a) return !1;
+        if (isLrrArchiveId(i)) return i.toLowerCase() === a;
+        if (!isLrrTankId(i)) return !1;
+        const s = this._tankChapters && this._tankChapters[i];
+        if (s) return s.indexOf(a) >= 0;
+        const n = this._memberTank && this._memberTank[a];
+        if (n) return n === i;
+        const l = this._tankCover && this._tankCover[i];
+        return l ? l === a : isLrrArchiveId(o) && o.toLowerCase() === a;
     }
 }
 
@@ -545,27 +870,27 @@ function runtimeGet(e, t) {
 }
 
 async function getRuntimeJson(e, t, r) {
-    const o = await runtimeGet(e, t);
-    return assertRuntimeStatus(o, 200, r || e), parseRuntimeJsonBody(o, r || e);
+    const a = await runtimeGet(e, t);
+    return assertRuntimeStatus(a, 200, r || e), parseRuntimeJsonBody(a, r || e);
 }
 
 async function getRuntimeDocument(e, t, r) {
-    const o = await runtimeGet(e, t);
-    return assertRuntimeStatus(o, 200, r || e), new HtmlDocument(o.body);
+    const a = await runtimeGet(e, t);
+    return assertRuntimeStatus(a, 200, r || e), new HtmlDocument(a.body);
 }
 
-async function getSelfHostedJson(e, t, r, o) {
+async function getSelfHostedJson(e, t, r, a) {
     if (!e || "object" != typeof e) throw new Error("getSelfHostedJson requires plugin source");
-    const a = o && "object" == typeof o && !Array.isArray(o) ? o : {}, i = a.headers || e.headers, n = await Network.get(e.buildUrl(t, r), i);
-    return ensureSelfHostedHttpOk(n, a), parseSelfHostedJsonBody(n.body);
+    const o = a && "object" == typeof a && !Array.isArray(a) ? a : {}, i = o.headers || e.headers, s = await Network.get(e.buildUrl(t, r), i);
+    return ensureSelfHostedHttpOk(s, o), parseSelfHostedJsonBody(s.body);
 }
 
-async function postSelfHostedJson(e, t, r, o, a) {
+async function postSelfHostedJson(e, t, r, a, o) {
     if (!e || "object" != typeof e) throw new Error("postSelfHostedJson requires plugin source");
-    const i = a && "object" == typeof a && !Array.isArray(a) ? a : {}, n = i.headers || e.headers, s = await Network.post(e.buildUrl(t, r), n, o);
-    return ensureSelfHostedHttpOk(s, i), {
-        body: parseSelfHostedJsonBody(s.body),
-        headers: s.headers || {}
+    const i = o && "object" == typeof o && !Array.isArray(o) ? o : {}, s = i.headers || e.headers, n = await Network.post(e.buildUrl(t, r), s, a);
+    return ensureSelfHostedHttpOk(n, i), {
+        body: parseSelfHostedJsonBody(n.body),
+        headers: n.headers || {}
     };
 }
 
@@ -577,8 +902,8 @@ function defaultManagedDomainKey(e) {
     }
 }
 
-function defaultManagedDispatch(e, t, r, o) {
-    return "GET" === e ? Network.get(t, r) : "POST" === e ? Network.post(t, r, o) : Network.sendRequest(e, t, r, o);
+function defaultManagedDispatch(e, t, r, a) {
+    return "GET" === e ? Network.get(t, r) : "POST" === e ? Network.post(t, r, a) : Network.sendRequest(e, t, r, a);
 }
 
 function defaultManagedRequestError(e, t, r) {
@@ -612,10 +937,10 @@ function parseRuntimeJsonBody(e, t) {
 }
 
 function ensureSelfHostedHttpOk(e, t) {
-    const r = t && "object" == typeof t && !Array.isArray(t) ? t : {}, o = r.unauthorizedMessage || "Login expired", a = r.requestFailedMessage || "请求失败";
-    if (!e) throw a;
-    if (401 === e.status || 403 === e.status) throw o;
-    if (e.status < 200 || e.status >= 300) throw `${a}: ${e.status}`;
+    const r = t && "object" == typeof t && !Array.isArray(t) ? t : {}, a = r.unauthorizedMessage || "Login expired", o = r.requestFailedMessage || "请求失败";
+    if (!e) throw o;
+    if (401 === e.status || 403 === e.status) throw a;
+    if (e.status < 200 || e.status >= 300) throw `${o}: ${e.status}`;
 }
 
 function parseSelfHostedJsonBody(e) {
@@ -631,15 +956,15 @@ function hasNonWhitespaceText(e) {
     return !1;
 }
 
-function defaultRequestKey(e, t, r, o) {
-    return o ? null : `${e}:${t}`;
+function defaultRequestKey(e, t, r, a) {
+    return a ? null : `${e}:${t}`;
 }
 
 function createDomainQueue(e, t, r) {
-    const o = (e.queues.get(t) || Promise.resolve()).then(r, r), a = o.then(() => {}, () => {});
-    return e.queues.set(t, a), a.finally(() => {
-        e.queues.get(t) === a && e.queues.delete(t);
-    }), o;
+    const a = (e.queues.get(t) || Promise.resolve()).then(r, r), o = a.then(() => {}, () => {});
+    return e.queues.set(t, o), o.finally(() => {
+        e.queues.get(t) === o && e.queues.delete(t);
+    }), a;
 }
 
 function markCooldown(e, t, r) {
@@ -648,54 +973,54 @@ function markCooldown(e, t, r) {
 
 ManagedRequestClient.prototype.get = function(e, t, r) {
     return this.send("GET", e, t || {}, null, r || {});
-}, ManagedRequestClient.prototype.post = function(e, t, r, o) {
-    return this.send("POST", e, t || {}, null == r ? null : r, o || {});
+}, ManagedRequestClient.prototype.post = function(e, t, r, a) {
+    return this.send("POST", e, t || {}, null == r ? null : r, a || {});
 }, ManagedRequestClient.prototype.head = function(e, t, r) {
     return this.send("HEAD", e, t || {}, null, r || {});
-}, ManagedRequestClient.prototype.send = async function(e, t, r, o, a) {
-    const i = this.source, n = a && "object" == typeof a && !Array.isArray(a) ? a : {}, s = null == n.mutation ? "GET" !== e : !0 === n.mutation, l = n.requestKey || defaultRequestKey(e, t, o, s), u = "function" == typeof this.hooks.domainKeyResolver ? this.hooks.domainKeyResolver : defaultManagedDomainKey, c = {
-        action: n.action || `${e} ${t}`,
+}, ManagedRequestClient.prototype.send = async function(e, t, r, a, o) {
+    const i = this.source, s = o && "object" == typeof o && !Array.isArray(o) ? o : {}, n = null == s.mutation ? "GET" !== e : !0 === s.mutation, l = s.requestKey || defaultRequestKey(e, t, a, n), u = "function" == typeof this.hooks.domainKeyResolver ? this.hooks.domainKeyResolver : defaultManagedDomainKey, c = {
+        action: s.action || `${e} ${t}`,
         requestKey: l,
-        domainKey: n.domainKey || u(t, e, o, n, i, this),
-        expectedStatus: null == n.expectedStatus ? 200 : n.expectedStatus,
-        maxRetries: null == n.maxRetries ? "GET" === e ? 1 : 0 : n.maxRetries,
-        cooldownMs: null == n.cooldownMs ? 6e4 : n.cooldownMs,
-        classifyBody: null == n.classifyBody || n.classifyBody,
-        mutation: s,
-        allowDedup: null == n.allowDedup ? !s : n.allowDedup
+        domainKey: s.domainKey || u(t, e, a, s, i, this),
+        expectedStatus: null == s.expectedStatus ? 200 : s.expectedStatus,
+        maxRetries: null == s.maxRetries ? "GET" === e ? 1 : 0 : s.maxRetries,
+        cooldownMs: null == s.cooldownMs ? 6e4 : s.cooldownMs,
+        classifyBody: null == s.classifyBody || s.classifyBody,
+        mutation: n,
+        allowDedup: null == s.allowDedup ? !n : s.allowDedup
     }, d = i.requestState.cooldownUntil.get(c.domainKey);
     if (d && d > Date.now()) throw `${c.action} blocked: temporary cooldown in effect`;
     const p = this._resolveHeaders(e, t, r || {}, c), h = c.requestKey;
     if (c.allowDedup && h && i.requestState.inflight.has(h)) return i.requestState.inflight.get(h);
-    const y = createDomainQueue(i.requestState, c.domainKey, () => this._sendWithRetry(e, t, p, o, c));
-    c.allowDedup && h && i.requestState.inflight.set(h, y);
+    const g = createDomainQueue(i.requestState, c.domainKey, () => this._sendWithRetry(e, t, p, a, c));
+    c.allowDedup && h && i.requestState.inflight.set(h, g);
     try {
-        return await y;
+        return await g;
     } finally {
         c.allowDedup && h && i.requestState.inflight.delete(h);
     }
-}, ManagedRequestClient.prototype._resolveHeaders = function(e, t, r, o) {
-    return "function" == typeof this.hooks.buildHeaders ? this.hooks.buildHeaders(e, t, r, o, this.source, this) : this.source && "function" == typeof this.source.buildRequestHeaders ? this.source.buildRequestHeaders(e, t, r || {}, o || {}) : r || {};
-}, ManagedRequestClient.prototype._sendWithRetry = async function(e, t, r, o, a) {
+}, ManagedRequestClient.prototype._resolveHeaders = function(e, t, r, a) {
+    return "function" == typeof this.hooks.buildHeaders ? this.hooks.buildHeaders(e, t, r, a, this.source, this) : this.source && "function" == typeof this.source.buildRequestHeaders ? this.source.buildRequestHeaders(e, t, r || {}, a || {}) : r || {};
+}, ManagedRequestClient.prototype._sendWithRetry = async function(e, t, r, a, o) {
     let i = 0;
-    const n = Math.max(0, a.maxRetries) + 1;
-    for (;i < n; ) {
-        let s;
+    const s = Math.max(0, o.maxRetries) + 1;
+    for (;i < s; ) {
+        let n;
         i += 1;
         try {
-            s = await this._dispatch(e, t, r, o, a);
+            n = await this._dispatch(e, t, r, a, o);
         } catch (e) {
-            if (i >= n) throw defaultManagedRequestError(this.source, a.action, e);
+            if (i >= s) throw defaultManagedRequestError(this.source, o.action, e);
             continue;
         }
-        if (this._shouldCooldown(s, a)) throw this._markCooldown(a.domainKey, a.cooldownMs),
-        defaultManagedResponseError(this.source, a.action, s);
-        if (s.status === a.expectedStatus) return s;
-        if (i >= n || a.mutation) throw defaultManagedResponseError(this.source, a.action, s);
+        if (this._shouldCooldown(n, o)) throw this._markCooldown(o.domainKey, o.cooldownMs),
+        defaultManagedResponseError(this.source, o.action, n);
+        if (n.status === o.expectedStatus) return n;
+        if (i >= s || o.mutation) throw defaultManagedResponseError(this.source, o.action, n);
     }
-    throw `${a.action} failed after retries`;
-}, ManagedRequestClient.prototype._dispatch = function(e, t, r, o, a) {
-    return "function" == typeof this.hooks.dispatch ? this.hooks.dispatch(e, t, r, o, a, this.source, this) : defaultManagedDispatch(e, t, r, o);
+    throw `${o.action} failed after retries`;
+}, ManagedRequestClient.prototype._dispatch = function(e, t, r, a, o) {
+    return "function" == typeof this.hooks.dispatch ? this.hooks.dispatch(e, t, r, a, o, this.source, this) : defaultManagedDispatch(e, t, r, a);
 }, ManagedRequestClient.prototype._shouldCooldown = function(e, t) {
     if (403 === e.status || 429 === e.status) return !0;
     if (!t.classifyBody) return !1;
@@ -746,10 +1071,10 @@ const httpRequestApi = {
 };
 
 function withAuthorization(e, t, r) {
-    const o = {
+    const a = {
         ...e || {}
     };
-    return r ? (o.Authorization = `${t} ${r}`, o) : o;
+    return r ? (a.Authorization = `${t} ${r}`, a) : a;
 }
 
 function withBearer(e, t) {
@@ -847,37 +1172,37 @@ function normalizeSelfHostedPathSegment(e) {
 }
 
 function joinSelfHostedPath(e, t) {
-    const r = normalizeSelfHostedPathRoot(e, "/"), o = Array.isArray(t) ? t : [];
-    let a = r;
-    for (const e of o) {
+    const r = normalizeSelfHostedPathRoot(e, "/"), a = Array.isArray(t) ? t : [];
+    let o = r;
+    for (const e of a) {
         const t = normalizeSelfHostedPathSegment(e);
-        t && (a = `${a}/${t}`);
+        t && (o = `${o}/${t}`);
     }
-    return a;
+    return o;
 }
 
 function createSelfHostedRouteHelpers(e) {
-    const t = e && "object" == typeof e && !Array.isArray(e) ? e : {}, r = normalizeSelfHostedPathRoot(t.apiRoot, "/api"), o = normalizeSelfHostedPathRoot(t.archivesRoot, `${r}/archives`), a = normalizeSelfHostedPathRoot(t.categoriesRoot, `${r}/categories`), i = normalizeSelfHostedPathRoot(t.searchPath, `${r}/search`);
+    const t = e && "object" == typeof e && !Array.isArray(e) ? e : {}, r = normalizeSelfHostedPathRoot(t.apiRoot, "/api"), a = normalizeSelfHostedPathRoot(t.archivesRoot, `${r}/archives`), o = normalizeSelfHostedPathRoot(t.categoriesRoot, `${r}/categories`), i = normalizeSelfHostedPathRoot(t.searchPath, `${r}/search`);
     return {
         apiRoot: r,
-        archivesRoot: o,
-        categoriesRoot: a,
+        archivesRoot: a,
+        categoriesRoot: o,
         searchPath: i,
-        categoriesPath: () => a,
-        categoryArchivePath: (e, t) => joinSelfHostedPath(a, [ e, t ]),
-        archivePath: e => joinSelfHostedPath(o, [ e ]),
-        archiveMetadataPath: e => joinSelfHostedPath(o, [ e, "metadata" ]),
-        archiveThumbnailPath: e => joinSelfHostedPath(o, [ e, "thumbnail" ]),
-        archiveCategoriesPath: e => joinSelfHostedPath(o, [ e, "categories" ]),
-        archiveFilesPath: e => joinSelfHostedPath(o, [ e, "files" ])
+        categoriesPath: () => o,
+        categoryArchivePath: (e, t) => joinSelfHostedPath(o, [ e, t ]),
+        archivePath: e => joinSelfHostedPath(a, [ e ]),
+        archiveMetadataPath: e => joinSelfHostedPath(a, [ e, "metadata" ]),
+        archiveThumbnailPath: e => joinSelfHostedPath(a, [ e, "thumbnail" ]),
+        archiveCategoriesPath: e => joinSelfHostedPath(a, [ e, "categories" ]),
+        archiveFilesPath: e => joinSelfHostedPath(a, [ e, "files" ])
     };
 }
 
 function normalizeWebSourceBaseUrl(e, t) {
-    const r = t && "object" == typeof t && !Array.isArray(t) ? t : {}, o = "string" == typeof r.defaultScheme ? r.defaultScheme.trim() : "";
-    let a = String(e || "").trim();
-    return a ? (o && !/^https?:\/\//i.test(a) && (a = `${o.replace(/:$/, "")}://${a}`),
-    a.replace(/\/+$/, "")) : "";
+    const r = t && "object" == typeof t && !Array.isArray(t) ? t : {}, a = "string" == typeof r.defaultScheme ? r.defaultScheme.trim() : "";
+    let o = String(e || "").trim();
+    return o ? (a && !/^https?:\/\//i.test(o) && (o = `${a.replace(/:$/, "")}://${o}`),
+    o.replace(/\/+$/, "")) : "";
 }
 
 function normalizeWebSourcePath(e, t) {
@@ -886,31 +1211,31 @@ function normalizeWebSourcePath(e, t) {
 }
 
 function joinWebSourcePath(e, t) {
-    const r = normalizeWebSourcePath(e, "/"), o = Array.isArray(t) ? t : [];
-    let a = r;
-    for (const e of o) {
+    const r = normalizeWebSourcePath(e, "/"), a = Array.isArray(t) ? t : [];
+    let o = r;
+    for (const e of a) {
         const t = String(null == e ? "" : e).trim().replace(/^\/+|\/+$/g, "");
-        t && (a = `${a}/${t}`);
+        t && (o = `${o}/${t}`);
     }
-    return a;
+    return o;
 }
 
 function buildWebSourceQuery(e) {
     if (!e || "object" != typeof e) return "";
     const t = [];
     for (const r of Object.keys(e)) {
-        const o = e[r];
-        if (null != o && "" !== o) if (Array.isArray(o)) for (const e of o) null != e && "" !== e && t.push(`${encodeURIComponent(r)}=${encodeURIComponent(String(e))}`); else t.push(`${encodeURIComponent(r)}=${encodeURIComponent(String(o))}`);
+        const a = e[r];
+        if (null != a && "" !== a) if (Array.isArray(a)) for (const e of a) null != e && "" !== e && t.push(`${encodeURIComponent(r)}=${encodeURIComponent(String(e))}`); else t.push(`${encodeURIComponent(r)}=${encodeURIComponent(String(a))}`);
     }
     return t.join("&");
 }
 
 function buildWebSourceUrl(e, t, r) {
-    const o = normalizeWebSourceBaseUrl(e || ""), a = normalizeWebSourcePath(t, "");
-    let i = a;
-    /^https?:\/\//i.test(a) || a.startsWith("//") || (i = a ? `${o}${a.startsWith("/") ? "" : "/"}${a}` : o);
-    const n = buildWebSourceQuery(r);
-    return n ? `${i}${i.includes("?") ? "&" : "?"}${n}` : i;
+    const a = normalizeWebSourceBaseUrl(e || ""), o = normalizeWebSourcePath(t, "");
+    let i = o;
+    /^https?:\/\//i.test(o) || o.startsWith("//") || (i = o ? `${a}${o.startsWith("/") ? "" : "/"}${o}` : a);
+    const s = buildWebSourceQuery(r);
+    return s ? `${i}${i.includes("?") ? "&" : "?"}${s}` : i;
 }
 
 function toWebSourceAbsoluteUrl(e, t) {
@@ -921,8 +1246,8 @@ function toWebSourceAbsoluteUrl(e, t) {
 }
 
 function replaceWebSourceBaseUrl(e, t, r) {
-    const o = String(e || "").trim(), a = normalizeWebSourceBaseUrl(t || ""), i = normalizeWebSourceBaseUrl(r || "");
-    return o && a && i ? o === a ? i : o.startsWith(`${a}/`) ? `${i}${o.slice(a.length)}` : o : o;
+    const a = String(e || "").trim(), o = normalizeWebSourceBaseUrl(t || ""), i = normalizeWebSourceBaseUrl(r || "");
+    return a && o && i ? a === o ? i : a.startsWith(`${o}/`) ? `${i}${a.slice(o.length)}` : a : a;
 }
 
 function ensureWebSourceTrailingSlash(e) {
@@ -938,99 +1263,99 @@ function normalizeSelfHostedBaseUrl(e) {
 function normalizeSelfHostedRoutePath(e, t) {
     const r = String(null == e ? t || "" : e).trim();
     if (!r) return "";
-    const o = r.replace(/\/+$/, "");
-    return o.startsWith("/") ? o : `/${o}`;
+    const a = r.replace(/\/+$/, "");
+    return a.startsWith("/") ? a : `/${a}`;
 }
 
 function joinSelfHostedRoutePath(e, t) {
-    const r = normalizeSelfHostedRoutePath(e, "/"), o = Array.isArray(t) ? t : [];
-    let a = r;
-    for (const e of o) {
+    const r = normalizeSelfHostedRoutePath(e, "/"), a = Array.isArray(t) ? t : [];
+    let o = r;
+    for (const e of a) {
         const t = String(null == e ? "" : e).trim().replace(/^\/+|\/+$/g, "");
-        t && (a = `${a}/${t}`);
+        t && (o = `${o}/${t}`);
     }
-    return a;
+    return o;
 }
 
 function createKomgaRouteHelpers(e) {
-    const t = e && "object" == typeof e && !Array.isArray(e) ? e : {}, r = normalizeSelfHostedRoutePath(t.apiV1Root, "/api/v1"), o = normalizeSelfHostedRoutePath(t.apiV2Root, "/api/v2"), a = normalizeSelfHostedRoutePath(t.seriesWebRoot, "/series"), i = normalizeSelfHostedRoutePath(t.booksWebRoot, "/books"), n = joinSelfHostedRoutePath(r, [ "series" ]), s = joinSelfHostedRoutePath(r, [ "books" ]), l = joinSelfHostedRoutePath(r, [ "collections" ]);
+    const t = e && "object" == typeof e && !Array.isArray(e) ? e : {}, r = normalizeSelfHostedRoutePath(t.apiV1Root, "/api/v1"), a = normalizeSelfHostedRoutePath(t.apiV2Root, "/api/v2"), o = normalizeSelfHostedRoutePath(t.seriesWebRoot, "/series"), i = normalizeSelfHostedRoutePath(t.booksWebRoot, "/books"), s = joinSelfHostedRoutePath(r, [ "series" ]), n = joinSelfHostedRoutePath(r, [ "books" ]), l = joinSelfHostedRoutePath(r, [ "collections" ]);
     return {
         apiV1Root: r,
-        apiV2Root: o,
-        seriesWebRoot: a,
+        apiV2Root: a,
+        seriesWebRoot: o,
         booksWebRoot: i,
         librariesPath: () => joinSelfHostedRoutePath(r, [ "libraries" ]),
         seriesTagsPath: () => joinSelfHostedRoutePath(r, [ "tags", "series" ]),
         languagesPath: () => joinSelfHostedRoutePath(r, [ "languages" ]),
         collectionsPath: () => l,
         genresPath: () => joinSelfHostedRoutePath(r, [ "genres" ]),
-        currentUserPath: () => joinSelfHostedRoutePath(o, [ "users", "me" ]),
-        seriesPath: () => n,
-        latestSeriesPath: () => joinSelfHostedRoutePath(n, [ "latest" ]),
-        updatedSeriesPath: () => joinSelfHostedRoutePath(n, [ "updated" ]),
+        currentUserPath: () => joinSelfHostedRoutePath(a, [ "users", "me" ]),
+        seriesPath: () => s,
+        latestSeriesPath: () => joinSelfHostedRoutePath(s, [ "latest" ]),
+        updatedSeriesPath: () => joinSelfHostedRoutePath(s, [ "updated" ]),
         collectionSeriesPath: e => joinSelfHostedRoutePath(l, [ e, "series" ]),
-        seriesDetailsPath: e => joinSelfHostedRoutePath(n, [ e ]),
-        seriesBooksPath: e => joinSelfHostedRoutePath(n, [ e, "books" ]),
-        seriesThumbnailPath: e => joinSelfHostedRoutePath(n, [ e, "thumbnail" ]),
-        seriesWebPath: e => joinSelfHostedRoutePath(a, [ e ]),
-        bookDetailsPath: e => joinSelfHostedRoutePath(s, [ e ]),
-        bookThumbnailPath: e => joinSelfHostedRoutePath(s, [ e, "thumbnail" ]),
-        bookPagesPath: e => joinSelfHostedRoutePath(s, [ e, "pages" ]),
-        bookPageImagePath: (e, t) => joinSelfHostedRoutePath(s, [ e, "pages", t ]),
+        seriesDetailsPath: e => joinSelfHostedRoutePath(s, [ e ]),
+        seriesBooksPath: e => joinSelfHostedRoutePath(s, [ e, "books" ]),
+        seriesThumbnailPath: e => joinSelfHostedRoutePath(s, [ e, "thumbnail" ]),
+        seriesWebPath: e => joinSelfHostedRoutePath(o, [ e ]),
+        bookDetailsPath: e => joinSelfHostedRoutePath(n, [ e ]),
+        bookThumbnailPath: e => joinSelfHostedRoutePath(n, [ e, "thumbnail" ]),
+        bookPagesPath: e => joinSelfHostedRoutePath(n, [ e, "pages" ]),
+        bookPageImagePath: (e, t) => joinSelfHostedRoutePath(n, [ e, "pages", t ]),
         bookWebPath: e => joinSelfHostedRoutePath(i, [ e ])
     };
 }
 
 function createKavitaRouteHelpers(e) {
-    const t = e && "object" == typeof e && !Array.isArray(e) ? e : {}, r = normalizeSelfHostedRoutePath(t.apiRoot, "/api"), o = normalizeSelfHostedRoutePath(t.libraryRoot, `${r}/Library`), a = normalizeSelfHostedRoutePath(t.metadataRoot, `${r}/Metadata`), i = normalizeSelfHostedRoutePath(t.metadataLegacyRoot, `${r}/metadata`), n = normalizeSelfHostedRoutePath(t.accountRoot, `${r}/Account`), s = normalizeSelfHostedRoutePath(t.seriesRoot, `${r}/Series`), l = normalizeSelfHostedRoutePath(t.imageRoot, `${r}/Image`), u = normalizeSelfHostedRoutePath(t.readerRoot, `${r}/Reader`), c = normalizeSelfHostedRoutePath(t.searchRoot, `${r}/Search`);
+    const t = e && "object" == typeof e && !Array.isArray(e) ? e : {}, r = normalizeSelfHostedRoutePath(t.apiRoot, "/api"), a = normalizeSelfHostedRoutePath(t.libraryRoot, `${r}/Library`), o = normalizeSelfHostedRoutePath(t.metadataRoot, `${r}/Metadata`), i = normalizeSelfHostedRoutePath(t.metadataLegacyRoot, `${r}/metadata`), s = normalizeSelfHostedRoutePath(t.accountRoot, `${r}/Account`), n = normalizeSelfHostedRoutePath(t.seriesRoot, `${r}/Series`), l = normalizeSelfHostedRoutePath(t.imageRoot, `${r}/Image`), u = normalizeSelfHostedRoutePath(t.readerRoot, `${r}/Reader`), c = normalizeSelfHostedRoutePath(t.searchRoot, `${r}/Search`);
     return {
         apiRoot: r,
-        libraryRoot: o,
-        metadataRoot: a,
+        libraryRoot: a,
+        metadataRoot: o,
         metadataLegacyRoot: i,
-        accountRoot: n,
-        seriesRoot: s,
+        accountRoot: s,
+        seriesRoot: n,
         imageRoot: l,
         readerRoot: u,
         searchRoot: c,
-        librariesPath: () => joinSelfHostedRoutePath(o, [ "libraries" ]),
-        genresPath: () => joinSelfHostedRoutePath(a, [ "genres" ]),
+        librariesPath: () => joinSelfHostedRoutePath(a, [ "libraries" ]),
+        genresPath: () => joinSelfHostedRoutePath(o, [ "genres" ]),
         peopleByRolePath: () => joinSelfHostedRoutePath(i, [ "people-by-role" ]),
-        loginPath: () => joinSelfHostedRoutePath(n, [ "login" ]),
-        seriesV2Path: () => joinSelfHostedRoutePath(s, [ "v2" ]),
-        seriesDetailsPath: e => joinSelfHostedRoutePath(s, [ e ]),
-        seriesMetadataPath: () => joinSelfHostedRoutePath(s, [ "metadata" ]),
-        seriesVolumesPath: () => joinSelfHostedRoutePath(s, [ "volumes" ]),
+        loginPath: () => joinSelfHostedRoutePath(s, [ "login" ]),
+        seriesV2Path: () => joinSelfHostedRoutePath(n, [ "v2" ]),
+        seriesDetailsPath: e => joinSelfHostedRoutePath(n, [ e ]),
+        seriesMetadataPath: () => joinSelfHostedRoutePath(n, [ "metadata" ]),
+        seriesVolumesPath: () => joinSelfHostedRoutePath(n, [ "volumes" ]),
         seriesCoverPath: () => joinSelfHostedRoutePath(l, [ "series-cover" ]),
-        chapterPath: () => joinSelfHostedRoutePath(s, [ "chapter" ]),
+        chapterPath: () => joinSelfHostedRoutePath(n, [ "chapter" ]),
         readerImagePath: () => joinSelfHostedRoutePath(u, [ "image" ]),
         searchPath: () => joinSelfHostedRoutePath(c, [ "search" ])
     };
 }
 
 function resolveSelfHostedBaseUrl(e, t, r) {
-    const o = r && "object" == typeof r && !Array.isArray(r) ? r : {}, a = "string" == typeof t ? t : "";
-    let i = normalizeSelfHostedBaseUrl("string" == typeof e && e.trim() ? e.trim() : a);
+    const a = r && "object" == typeof r && !Array.isArray(r) ? r : {}, o = "string" == typeof t ? t : "";
+    let i = normalizeSelfHostedBaseUrl("string" == typeof e && e.trim() ? e.trim() : o);
     if (!i) return i;
-    const n = "string" == typeof o.defaultScheme ? o.defaultScheme.trim() : "";
-    return n && !/^https?:\/\//i.test(i) && (i = `${n.replace(/:$/, "")}://${i}`), normalizeSelfHostedBaseUrl(i);
+    const s = "string" == typeof a.defaultScheme ? a.defaultScheme.trim() : "";
+    return s && !/^https?:\/\//i.test(i) && (i = `${s.replace(/:$/, "")}://${i}`), normalizeSelfHostedBaseUrl(i);
 }
 
 function buildSelfHostedQuery(e) {
     if (!e) return "";
     const t = [];
     for (const r of Object.keys(e)) {
-        const o = e[r];
-        if (null != o) if (Array.isArray(o)) for (const e of o) null != e && t.push(`${encodeURIComponent(r)}=${encodeURIComponent(String(e))}`); else t.push(`${encodeURIComponent(r)}=${encodeURIComponent(String(o))}`);
+        const a = e[r];
+        if (null != a) if (Array.isArray(a)) for (const e of a) null != e && t.push(`${encodeURIComponent(r)}=${encodeURIComponent(String(e))}`); else t.push(`${encodeURIComponent(r)}=${encodeURIComponent(String(a))}`);
     }
     return t.join("&");
 }
 
 function buildSelfHostedUrl(e, t, r) {
-    let o = t;
-    /^https?:\/\//i.test(t) || (o = `${normalizeSelfHostedBaseUrl(e || "")}${String(t).startsWith("/") ? "" : "/"}${t}`);
-    const a = buildSelfHostedQuery(r);
-    return a ? `${o}?${a}` : o;
+    let a = t;
+    /^https?:\/\//i.test(t) || (a = `${normalizeSelfHostedBaseUrl(e || "")}${String(t).startsWith("/") ? "" : "/"}${t}`);
+    const o = buildSelfHostedQuery(r);
+    return o ? `${a}?${o}` : a;
 }
 
 function buildSelfHostedUrlFromSource(e, t, r) {
@@ -1049,8 +1374,8 @@ function readSelfHostedOffset(e, t, r) {
 
 function updateSelfHostedOffset(e, t, r) {
     if (!e || "object" != typeof e) throw new Error("updateSelfHostedOffset requires plugin source");
-    const o = Number(e.loadData(t) || 0);
-    e.saveData(t, o + (r || 0));
+    const a = Number(e.loadData(t) || 0);
+    e.saveData(t, a + (r || 0));
 }
 
 "undefined" != typeof module && module && module.exports && (module.exports = {
@@ -1139,11 +1464,11 @@ const pluginSourcePagingApi = {
 };
 
 function resolveMappedCategoryTagAction(e, t, r) {
-    const o = r && "object" == typeof r && !Array.isArray(r) ? r : {}, a = null == o.namespace ? "标签" : String(o.namespace);
-    if (String(e) !== a) throw o.unsupportedMessage || "Unsupported tag namespace";
-    const i = o.mapping && "object" == typeof o.mapping ? o.mapping : {}, n = String(null == t ? "" : t), s = i[n], l = "function" == typeof o.keywordFormatter ? o.keywordFormatter(n, s, e) : n, u = "function" == typeof o.paramFormatter ? o.paramFormatter(n, s, e) : String(s);
+    const a = r && "object" == typeof r && !Array.isArray(r) ? r : {}, o = null == a.namespace ? "标签" : String(a.namespace);
+    if (String(e) !== o) throw a.unsupportedMessage || "Unsupported tag namespace";
+    const i = a.mapping && "object" == typeof a.mapping ? a.mapping : {}, s = String(null == t ? "" : t), n = i[s], l = "function" == typeof a.keywordFormatter ? a.keywordFormatter(s, n, e) : s, u = "function" == typeof a.paramFormatter ? a.paramFormatter(s, n, e) : String(n);
     return {
-        action: o.action || "category",
+        action: a.action || "category",
         keyword: l,
         param: u
     };
@@ -1154,20 +1479,20 @@ function createMappedCategoryTagActionResolver(e) {
 }
 
 function createSelfHostedReferenceCacheFeature(e) {
-    const t = e && "object" == typeof e && !Array.isArray(e) ? e : {}, r = Number(t.ttlMs || 3e5), o = String(t.metaTimestampKey || ""), a = t.resetData && "object" == typeof t.resetData ? t.resetData : {}, i = "function" == typeof t.hasToken ? t.hasToken : () => !1, n = "function" == typeof t.loadPayload ? t.loadPayload : null, s = "function" == typeof t.savePayload ? t.savePayload : null, l = "function" == typeof t.shouldRethrow ? t.shouldRethrow : null;
-    if (!o || !n || !s) throw new Error("Invalid createSelfHostedReferenceCacheFeature options");
+    const t = e && "object" == typeof e && !Array.isArray(e) ? e : {}, r = Number(t.ttlMs || 3e5), a = String(t.metaTimestampKey || ""), o = t.resetData && "object" == typeof t.resetData ? t.resetData : {}, i = "function" == typeof t.hasToken ? t.hasToken : () => !1, s = "function" == typeof t.loadPayload ? t.loadPayload : null, n = "function" == typeof t.savePayload ? t.savePayload : null, l = "function" == typeof t.shouldRethrow ? t.shouldRethrow : null;
+    if (!a || !s || !n) throw new Error("Invalid createSelfHostedReferenceCacheFeature options");
     const u = e => {
-        for (const [t, r] of Object.entries(a)) Array.isArray(r) ? e.saveData(t, r.slice()) : r && "object" == typeof r ? e.saveData(t, {
+        for (const [t, r] of Object.entries(o)) Array.isArray(r) ? e.saveData(t, r.slice()) : r && "object" == typeof r ? e.saveData(t, {
             ...r
         }) : e.saveData(t, r);
     };
     return async function(e, t) {
         if (!e || "object" != typeof e) throw new Error("refreshSelfHostedReferenceData requires plugin source");
         if (!i(e)) return void u(e);
-        const a = Date.now(), c = Number(e.loadData(o) || 0);
-        if (!(!t && c > 0 && a - c < r)) try {
-            const t = await n(e);
-            await s(e, t, a), e.saveData(o, a);
+        const o = Date.now(), c = Number(e.loadData(a) || 0);
+        if (!(!t && c > 0 && o - c < r)) try {
+            const t = await s(e);
+            await n(e, t, o), e.saveData(a, o);
         } catch (t) {
             if (u(e), l && l(t, e)) throw t;
         }
@@ -1183,7 +1508,7 @@ function createSafeInitFeature(e) {
     };
 }
 
-function createStaticCategoryPart(e, t, r, o) {
+function createStaticCategoryPart(e, t, r, a) {
     return {
         name: e,
         type: "dynamic",
@@ -1194,7 +1519,7 @@ function createStaticCategoryPart(e, t, r, o) {
                     page: "category",
                     attributes: {
                         category: r,
-                        param: null == o ? null : o
+                        param: null == a ? null : a
                     }
                 }
             } ];
@@ -1203,24 +1528,24 @@ function createStaticCategoryPart(e, t, r, o) {
 }
 
 function createStoredCategoryPart(e) {
-    const t = e && "object" == typeof e && !Array.isArray(e) ? e : {}, r = String(t.partName || ""), o = String(t.storageKey || ""), a = "function" == typeof t.getLabel ? t.getLabel : null, i = "function" == typeof t.getCategory ? t.getCategory : null, n = "function" == typeof t.getParam ? t.getParam : null, s = !0 === t.usePageJumpTarget, l = "function" == typeof t.getSource ? t.getSource : null;
-    if (!(r && o && a && i && n)) throw new Error("Invalid createStoredCategoryPart options");
+    const t = e && "object" == typeof e && !Array.isArray(e) ? e : {}, r = String(t.partName || ""), a = String(t.storageKey || ""), o = "function" == typeof t.getLabel ? t.getLabel : null, i = "function" == typeof t.getCategory ? t.getCategory : null, s = "function" == typeof t.getParam ? t.getParam : null, n = !0 === t.usePageJumpTarget, l = "function" == typeof t.getSource ? t.getSource : null;
+    if (!(r && a && o && i && s)) throw new Error("Invalid createStoredCategoryPart options");
     return {
         name: r,
         type: "dynamic",
         loader: function() {
-            const e = l ? l() : this, t = e && "function" == typeof e.loadData ? e.loadData(o) : null;
+            const e = l ? l() : this, t = e && "function" == typeof e.loadData ? e.loadData(a) : null;
             if (!Array.isArray(t) || !t.length) return [];
             const r = [];
             for (const e of t) {
-                const t = a(e), o = i(e), l = n(e);
-                if (!t || !o) continue;
+                const t = o(e), a = i(e), l = s(e);
+                if (!t || !a) continue;
                 const u = {
-                    category: o,
+                    category: a,
                     param: null == l ? null : l
                 };
                 let c;
-                c = s && "function" == typeof PageJumpTarget ? new PageJumpTarget({
+                c = n && "function" == typeof PageJumpTarget ? new PageJumpTarget({
                     page: "category",
                     attributes: u
                 }) : {
@@ -1237,73 +1562,73 @@ function createStoredCategoryPart(e) {
 }
 
 function createOffsetSearchLoader(e) {
-    const t = e && "object" == typeof e && !Array.isArray(e) ? e : {}, r = String(t.path || "/api/search"), o = "function" == typeof t.getOffsetKey ? t.getOffsetKey : null, a = "function" == typeof t.buildQuery ? t.buildQuery : null, i = "function" == typeof t.mapComic ? t.mapComic : null, n = "function" == typeof t.onResponse ? t.onResponse : null, s = String(t.statusErrorPrefix || "Invalid status code");
-    if (!o || !a || !i) throw new Error("Invalid createOffsetSearchLoader options");
+    const t = e && "object" == typeof e && !Array.isArray(e) ? e : {}, r = String(t.path || "/api/search"), a = "function" == typeof t.getOffsetKey ? t.getOffsetKey : null, o = "function" == typeof t.buildQuery ? t.buildQuery : null, i = "function" == typeof t.mapComic ? t.mapComic : null, s = "function" == typeof t.onResponse ? t.onResponse : null, n = String(t.statusErrorPrefix || "Invalid status code");
+    if (!a || !o || !i) throw new Error("Invalid createOffsetSearchLoader options");
     return async function(e, t) {
         if (!e || "object" != typeof e) throw new Error("runOffsetSearch requires plugin source");
-        const l = t && "object" == typeof t && !Array.isArray(t) ? t : {}, u = Number(l.page || 1), c = stripSelfHostedTrailingSlash(e.baseUrl), d = o(l), p = readSelfHostedOffset(e, d, u), h = buildSelfHostedQueryFromSource(a(l, p)), y = h ? `${c}${r}?${h}` : `${c}${r}`, f = await Network.get(y, e.headers);
-        if (200 !== f.status) throw `${s}: ${f.status}`;
-        const g = parseSelfHostedJsonBody(f.body) || {}, m = Array.isArray(g.data) ? g.data : [], C = m.map(t => i(t, {
+        const l = t && "object" == typeof t && !Array.isArray(t) ? t : {}, u = Number(l.page || 1), c = stripSelfHostedTrailingSlash(e.baseUrl), d = a(l), p = readSelfHostedOffset(e, d, u), h = buildSelfHostedQueryFromSource(o(l, p)), g = h ? `${c}${r}?${h}` : `${c}${r}`, f = await Network.get(g, e.headers);
+        if (200 !== f.status) throw `${n}: ${f.status}`;
+        const y = parseSelfHostedJsonBody(f.body) || {}, m = Array.isArray(y.data) ? y.data : [], C = m.map(t => i(t, {
             source: e,
             base: c,
             input: l
         })), S = m.length;
         updateSelfHostedOffset(e, d, S);
-        const L = "number" == typeof g.recordsFiltered && g.recordsFiltered >= 0 ? g.recordsFiltered : p + S, k = S || 1, P = Math.max(1, Math.ceil(L / k));
-        return n && n({
+        const L = "number" == typeof y.recordsFiltered && y.recordsFiltered >= 0 ? y.recordsFiltered : p + S, k = S || 1, b = Math.max(1, Math.ceil(L / k));
+        return s && s({
             source: e,
             input: l,
             start: p,
             returned: S,
-            data: g,
+            data: y,
             list: m,
             comics: C
         }), {
             comics: C,
-            maxPage: P,
-            data: g
+            maxPage: b,
+            data: y
         };
     };
 }
 
 function toSelfHostedTagArray(e, t) {
-    const r = t && "object" == typeof t && !Array.isArray(t) ? t : {}, o = "string" == typeof r.delimiter ? r.delimiter : ",", a = "function" == typeof r.normalizeTag ? r.normalizeTag : e => String(e).trim();
-    return e ? Array.isArray(e) ? e.map(e => a(e)).filter(Boolean) : String(e).split(o).map(e => a(e)).filter(Boolean) : [];
+    const r = t && "object" == typeof t && !Array.isArray(t) ? t : {}, a = "string" == typeof r.delimiter ? r.delimiter : ",", o = "function" == typeof r.normalizeTag ? r.normalizeTag : e => String(e).trim();
+    return e ? Array.isArray(e) ? e.map(e => o(e)).filter(Boolean) : String(e).split(a).map(e => o(e)).filter(Boolean) : [];
 }
 
 function startsWithSelfHostedTagPrefix(e, t, r) {
-    const o = String(e || ""), a = String(t || "");
-    return !!a && (!1 === r ? o.toLowerCase().startsWith(a.toLowerCase()) : o.startsWith(a));
+    const a = String(e || ""), o = String(t || "");
+    return !!o && (!1 === r ? a.toLowerCase().startsWith(o.toLowerCase()) : a.startsWith(o));
 }
 
 function extractSelfHostedTagValue(e, t, r) {
-    const o = r && "object" == typeof r && !Array.isArray(r) ? r : {}, a = !1 !== o.caseSensitive, i = "function" == typeof o.transform ? o.transform : e => e, n = toSelfHostedTagArray(e, o), s = String(t || "");
-    for (const e of n) if (startsWithSelfHostedTagPrefix(e, s, a)) return i(String(e).slice(s.length).trim(), e);
+    const a = r && "object" == typeof r && !Array.isArray(r) ? r : {}, o = !1 !== a.caseSensitive, i = "function" == typeof a.transform ? a.transform : e => e, s = toSelfHostedTagArray(e, a), n = String(t || "");
+    for (const e of s) if (startsWithSelfHostedTagPrefix(e, n, o)) return i(String(e).slice(n.length).trim(), e);
     return null;
 }
 
 function removeSelfHostedTagsByPrefix(e, t, r) {
-    const o = r && "object" == typeof r && !Array.isArray(r) ? r : {}, a = !1 !== o.caseSensitive, i = toSelfHostedTagArray(e, o), n = Array.isArray(t) ? t.map(e => String(e)) : [ String(t || "") ];
-    return i.filter(e => !n.some(t => startsWithSelfHostedTagPrefix(e, t, a)));
+    const a = r && "object" == typeof r && !Array.isArray(r) ? r : {}, o = !1 !== a.caseSensitive, i = toSelfHostedTagArray(e, a), s = Array.isArray(t) ? t.map(e => String(e)) : [ String(t || "") ];
+    return i.filter(e => !s.some(t => startsWithSelfHostedTagPrefix(e, t, o)));
 }
 
 function filterSelfHostedDisplayTags(e, t) {
-    const r = t && "object" == typeof t && !Array.isArray(t) ? t : {}, o = Array.isArray(r.blockedPrefixes) ? r.blockedPrefixes : [], a = !0 === r.caseSensitive, i = !1 !== r.excludeUrlLike, n = "function" == typeof r.extraFilter ? r.extraFilter : null, s = toSelfHostedTagArray(e, r), l = [];
-    for (const e of s) o.some(t => startsWithSelfHostedTagPrefix(e, t, a)) || i && String(e).includes("://") || n && !n(e) || l.push(e);
+    const r = t && "object" == typeof t && !Array.isArray(t) ? t : {}, a = Array.isArray(r.blockedPrefixes) ? r.blockedPrefixes : [], o = !0 === r.caseSensitive, i = !1 !== r.excludeUrlLike, s = "function" == typeof r.extraFilter ? r.extraFilter : null, n = toSelfHostedTagArray(e, r), l = [];
+    for (const e of n) a.some(t => startsWithSelfHostedTagPrefix(e, t, o)) || i && String(e).includes("://") || s && !s(e) || l.push(e);
     return l;
 }
 
 function parseSelfHostedRatingValueFromTags(e, t) {
-    const r = t && "object" == typeof t && !Array.isArray(t) ? t : {}, o = String(r.prefix || "rating:"), a = Array.isArray(r.starSymbols) ? r.starSymbols : [ "⭐", "★" ], i = extractSelfHostedTagValue(e, o, {
+    const r = t && "object" == typeof t && !Array.isArray(t) ? t : {}, a = String(r.prefix || "rating:"), o = Array.isArray(r.starSymbols) ? r.starSymbols : [ "⭐", "★" ], i = extractSelfHostedTagValue(e, a, {
         caseSensitive: !0 === r.caseSensitive
     });
     if (!i) return null;
-    if (a.some(e => String(i).includes(e))) {
+    if (o.some(e => String(i).includes(e))) {
         let e = 0;
-        for (const t of a) {
-            const r = String(t).replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&"), o = String(i).match(new RegExp(r, "g"));
-            if (o && o.length > 0) {
-                e = o.length;
+        for (const t of o) {
+            const r = String(t).replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&"), a = String(i).match(new RegExp(r, "g"));
+            if (a && a.length > 0) {
+                e = a.length;
                 break;
             }
         }
@@ -1313,30 +1638,30 @@ function parseSelfHostedRatingValueFromTags(e, t) {
 }
 
 function extractSelfHostedUrlEntriesFromTagMap(e, t) {
-    const r = t && "object" == typeof t && !Array.isArray(t) ? t : {}, o = String(r.sourceNamespace || "source").toLowerCase(), a = String(r.sourceScheme || "https").replace(/:$/, ""), i = new Set(Array.isArray(r.skipKeys) ? r.skipKeys.map(e => String(e)) : []), n = [];
-    if (!e || "object" != typeof e) return n;
+    const r = t && "object" == typeof t && !Array.isArray(t) ? t : {}, a = String(r.sourceNamespace || "source").toLowerCase(), o = String(r.sourceScheme || "https").replace(/:$/, ""), i = new Set(Array.isArray(r.skipKeys) ? r.skipKeys.map(e => String(e)) : []), s = [];
+    if (!e || "object" != typeof e) return s;
     for (const t of Object.keys(e)) {
         if (i.has(t)) continue;
         const r = e[t];
         if (!Array.isArray(r)) continue;
-        const s = [];
-        for (const e of r) if ("string" == typeof e) if (e.includes("://")) n.push(e); else {
-            if (String(t).toLowerCase() === o) {
+        const n = [];
+        for (const e of r) if ("string" == typeof e) if (e.includes("://")) s.push(e); else {
+            if (String(t).toLowerCase() === a) {
                 let t = e;
-                t.startsWith("//") ? t = `${a}:${t}` : /^https?:\/\//i.test(t) || (t = `${a}://${t}`),
-                n.push(t);
+                t.startsWith("//") ? t = `${o}:${t}` : /^https?:\/\//i.test(t) || (t = `${o}://${t}`),
+                s.push(t);
                 continue;
             }
-            s.push(e);
-        } else s.push(e);
-        e[t] = s;
+            n.push(e);
+        } else n.push(e);
+        e[t] = n;
     }
-    return n;
+    return s;
 }
 
 function buildSelfHostedEmojiRatingTag(e, t) {
-    const r = t && "object" == typeof t && !Array.isArray(t) ? t : {}, o = String(r.prefix || "rating:"), a = String(r.symbol || "⭐"), i = Number(e) / 2;
-    return `${o}${a.repeat(i)}`;
+    const r = t && "object" == typeof t && !Array.isArray(t) ? t : {}, a = String(r.prefix || "rating:"), o = String(r.symbol || "⭐"), i = Number(e) / 2;
+    return `${a}${o.repeat(i)}`;
 }
 
 function unwrapCopyLikeComic(e) {
@@ -1345,12 +1670,12 @@ function unwrapCopyLikeComic(e) {
 
 function readCopyLikePath(e, t, r) {
     if (!Array.isArray(t) || 0 === t.length) return e;
-    let o = e;
+    let a = e;
     for (const e of t) {
-        if (null == o || "object" != typeof o || !(e in o)) return r;
-        o = o[e];
+        if (null == a || "object" != typeof a || !(e in a)) return r;
+        a = a[e];
     }
-    return o;
+    return a;
 }
 
 function parseCopyLikeThemeTags(e) {
@@ -1366,15 +1691,15 @@ function parseCopyLikeAuthorCount(e) {
 }
 
 function formatCopyLikeRankingDescription(e, t, r) {
-    const o = e && null != e.sort ? e.sort : null;
-    if (null == o) return null;
-    const a = e.rise_sort || 0;
-    return `${o} ${a > 0 ? "▲" : a < 0 ? "▽" : "-"}\n${r > 1 ? `${t} 等${r}位` : t}\n🔥${(Number(e.popular || 0) / 1e4).toFixed(1)}W`;
+    const a = e && null != e.sort ? e.sort : null;
+    if (null == a) return null;
+    const o = e.rise_sort || 0;
+    return `${a} ${o > 0 ? "▲" : o < 0 ? "▽" : "-"}\n${r > 1 ? `${t} 等${r}位` : t}\n🔥${(Number(e.popular || 0) / 1e4).toFixed(1)}W`;
 }
 
 function computeCopyLikeMaxPage(e, t) {
-    const r = Number.isFinite(Number(t)) && Number(t) > 0 ? Number(t) : 21, o = Number.isFinite(Number(e)) ? Number(e) : 0;
-    return Math.floor((o - o % r) / r) + 1;
+    const r = Number.isFinite(Number(t)) && Number(t) > 0 ? Number(t) : 21, a = Number.isFinite(Number(e)) ? Number(e) : 0;
+    return Math.floor((a - a % r) / r) + 1;
 }
 
 function createHtmlDocument(e) {
@@ -1464,25 +1789,25 @@ const parserCopyLikeApi = {
 function createCopyLikeComicParser(e) {
     const t = e || {};
     return e => {
-        const r = unwrapCopyLikeComic(e), o = parseCopyLikePrimaryAuthor(r), a = parseCopyLikeAuthorCount(r), i = {
+        const r = unwrapCopyLikeComic(e), a = parseCopyLikePrimaryAuthor(r), o = parseCopyLikeAuthorCount(r), i = {
             id: r.path_word,
             title: r.name,
-            subTitle: o,
+            subTitle: a,
             cover: r.cover,
             tags: parseCopyLikeThemeTags(r)
         };
         if (t.includeRankingDescription) {
-            const t = formatCopyLikeRankingDescription(e, o, a);
+            const t = formatCopyLikeRankingDescription(e, a, o);
             if (null != t) return i.description = t, i;
         }
         if (t.includeUpdateDescription && (i.description = r.datetime_updated), "function" == typeof t.describe) {
-            const n = t.describe({
+            const s = t.describe({
                 sourceComic: e,
                 comic: r,
-                author: o,
-                authorCount: a
+                author: a,
+                authorCount: o
             });
-            null != n && (i.description = n);
+            null != s && (i.description = s);
         }
         return i;
     };
@@ -1490,11 +1815,11 @@ function createCopyLikeComicParser(e) {
 
 function normalizeCopyLikeBaseUrl(e, t) {
     const r = String(t || "").trim().replace(/^https?:\/\//i, "").replace(/\/+$/, "");
-    let o = String(e || "").trim();
-    if (!o) return r;
-    o = o.replace(/^https?:\/\//i, "").replace(/\/+$/, "");
-    const a = o.indexOf("/");
-    return a >= 0 && (o = o.slice(0, a)), o || r;
+    let a = String(e || "").trim();
+    if (!a) return r;
+    a = a.replace(/^https?:\/\//i, "").replace(/\/+$/, "");
+    const o = a.indexOf("/");
+    return o >= 0 && (a = a.slice(0, o)), a || r;
 }
 
 function buildCopyLikeApiUrl(e, t) {
@@ -1565,23 +1890,23 @@ function withCopyLikeFormHeaders(e) {
 }
 
 function buildCopyLikeEndpointUrl(e, t) {
-    const r = String(e || "").replace(/\/+$/, ""), o = String(t || "");
-    return o ? o.startsWith("http://") || o.startsWith("https://") ? o : o.startsWith("/") ? `${r}${o}` : `${r}/${o}` : r;
+    const r = String(e || "").replace(/\/+$/, ""), a = String(t || "");
+    return a ? a.startsWith("http://") || a.startsWith("https://") ? a : a.startsWith("/") ? `${r}${a}` : `${r}/${a}` : r;
 }
 
 function buildCopyLikeQueryString(e) {
     const t = [];
     for (const r of e || []) {
         if (!Array.isArray(r) || r.length < 2) continue;
-        const e = r[0], o = r[1];
-        null != e && null != o && t.push(`${String(e)}=${String(o)}`);
+        const e = r[0], a = r[1];
+        null != e && null != a && t.push(`${String(e)}=${String(a)}`);
     }
     return t.join("&");
 }
 
 function buildCopyLikeUrlWithQuery(e, t, r) {
-    const o = buildCopyLikeEndpointUrl(e, t), a = buildCopyLikeQueryString(r);
-    return a ? `${o}?${a}` : o;
+    const a = buildCopyLikeEndpointUrl(e, t), o = buildCopyLikeQueryString(r);
+    return o ? `${a}?${o}` : a;
 }
 
 function buildCopyLikeRankingUrl(e) {
@@ -1595,8 +1920,8 @@ function buildCopyLikeComicsUrl(e) {
 }
 
 function buildCopyLikeSearchUrl(e) {
-    const t = e || {}, r = null == t.limit ? 20 : t.limit, o = null == t.keyword ? "" : encodeURIComponent(String(t.keyword));
-    return buildCopyLikeUrlWithQuery(t.apiUrl, t.endpointPath || COPY_LIKE_ENDPOINT_PATHS.SEARCH_COMIC, [ [ "platform", t.platform ], [ "q", o ], [ "limit", r ], [ "offset", null == t.offset ? buildOffsetByPage(t.page, r) : t.offset ], [ "free_type", t.freeType ], [ "_update", t.update ], [ "q_type", t.queryType ] ]);
+    const t = e || {}, r = null == t.limit ? 20 : t.limit, a = null == t.keyword ? "" : encodeURIComponent(String(t.keyword));
+    return buildCopyLikeUrlWithQuery(t.apiUrl, t.endpointPath || COPY_LIKE_ENDPOINT_PATHS.SEARCH_COMIC, [ [ "platform", t.platform ], [ "q", a ], [ "limit", r ], [ "offset", null == t.offset ? buildOffsetByPage(t.page, r) : t.offset ], [ "free_type", t.freeType ], [ "_update", t.update ], [ "q_type", t.queryType ] ]);
 }
 
 function buildCopyLikeHomeIndexComicsUrl(e) {
@@ -1642,18 +1967,18 @@ function parseCopyLikeDetailTags(e) {
 }
 
 function buildCopyLikeDetailTagMap(e, t) {
-    const r = t || {}, o = r.authorNamespace || "作者", a = r.updateNamespace || "更新", i = r.tagNamespace || "标签", n = r.statusNamespace || "状态", s = e && e.datetime_updated ? e.datetime_updated : "", l = e && e.status && e.status.display ? e.status.display : "";
+    const r = t || {}, a = r.authorNamespace || "作者", o = r.updateNamespace || "更新", i = r.tagNamespace || "标签", s = r.statusNamespace || "状态", n = e && e.datetime_updated ? e.datetime_updated : "", l = e && e.status && e.status.display ? e.status.display : "";
     return {
-        [o]: parseCopyLikeDetailAuthors(e),
-        [a]: [ s ],
+        [a]: parseCopyLikeDetailAuthors(e),
+        [o]: [ n ],
         [i]: parseCopyLikeDetailTags(e),
-        [n]: [ l ]
+        [s]: [ l ]
     };
 }
 
 function resolveCopyLikeTagAction(e, t, r) {
-    const o = r || {}, a = o.categoryNamespace || "标签", i = o.authorNamespace || "作者", n = o.unsupportedError || "未支持此类Tag检索";
-    if (e === a) return {
+    const a = r || {}, o = a.categoryNamespace || "标签", i = a.authorNamespace || "作者", s = a.unsupportedError || "未支持此类Tag检索";
+    if (e === o) return {
         action: "category",
         keyword: `${t}`,
         param: null
@@ -1663,16 +1988,16 @@ function resolveCopyLikeTagAction(e, t, r) {
         keyword: `${e}:${t}`,
         param: null
     };
-    throw n;
+    throw s;
 }
 
 function buildCopyLikeHomeSections(e, t, r) {
-    const o = {};
-    for (const a of t || []) {
-        const t = readCopyLikePath(e, a.path, []);
-        o[a.title] = Array.isArray(t) ? t.map(r) : [];
+    const a = {};
+    for (const o of t || []) {
+        const t = readCopyLikePath(e, o.path, []);
+        a[o.title] = Array.isArray(t) ? t.map(r) : [];
     }
-    return o;
+    return a;
 }
 
 async function loadCopyLikeHomeSectionsModule(e) {
@@ -1680,10 +2005,10 @@ async function loadCopyLikeHomeSectionsModule(e) {
 }
 
 async function loadCopyLikeListModule(e) {
-    const t = await getRuntimeJson(e.requestUrl, e.headers, e.context || "copy_like list"), r = readCopyLikePath(t, e.listPath || [ "results", "list" ], []), o = readCopyLikePath(t, e.totalPath || [ "results", "total" ], 0);
+    const t = await getRuntimeJson(e.requestUrl, e.headers, e.context || "copy_like list"), r = readCopyLikePath(t, e.listPath || [ "results", "list" ], []), a = readCopyLikePath(t, e.totalPath || [ "results", "total" ], 0);
     return {
         comics: Array.isArray(r) ? r.map(e.parseComic) : [],
-        maxPage: computeCopyLikeMaxPage(o, e.maxPageDivisor || 21)
+        maxPage: computeCopyLikeMaxPage(a, e.maxPageDivisor || 21)
     };
 }
 
@@ -1730,12 +2055,12 @@ function createCopyLikeExploreFeature(e) {
 }
 
 function createCopyLikeCategoryLoadFeature(e) {
-    return async (t, r, o, a) => loadCopyLikeListModule({
+    return async (t, r, a, o) => loadCopyLikeListModule({
         requestUrl: e.buildRequestUrl({
             category: t,
             param: r,
-            options: o,
-            page: a
+            options: a,
+            page: o
         }),
         headers: e.getHeaders(),
         parseComic: e.parseComic,
@@ -1747,10 +2072,10 @@ function createCopyLikeCategoryLoadFeature(e) {
 }
 
 function createCopyLikeSearchLoadFeature(e) {
-    return async (t, r, o) => loadCopyLikeSearchModule({
+    return async (t, r, a) => loadCopyLikeSearchModule({
         keyword: t,
         options: r,
-        page: o,
+        page: a,
         headers: e.getHeaders(),
         parseComic: e.parseComic,
         resolveAuthorPathWord: e.resolveAuthorPathWord,
@@ -1764,11 +2089,11 @@ function createCopyLikeSearchLoadFeature(e) {
 }
 
 function createCopyLikeCategoryRequestUrlBuilder(e) {
-    return ({category: t, param: r, options: o, page: a}) => {
-        const i = Array.isArray(o) ? o : [], n = !1 === e.normalizeOptions ? i : normalizeStarOptions(i), s = e.getApiUrl();
+    return ({category: t, param: r, options: a, page: o}) => {
+        const i = Array.isArray(a) ? a : [], s = !1 === e.normalizeOptions ? i : normalizeStarOptions(i), n = e.getApiUrl();
         if ("function" == typeof e.isRankingCategory && e.isRankingCategory(t, r)) return buildCopyLikeRankingUrl({
-            apiUrl: s,
-            page: a,
+            apiUrl: n,
+            page: o,
             limit: null == e.rankingLimit ? 30 : e.rankingLimit,
             freeType: e.rankingFreeType,
             audienceType: null == e.rankingAudienceOptionIndex ? void 0 : i[e.rankingAudienceOptionIndex],
@@ -1776,21 +2101,21 @@ function createCopyLikeCategoryRequestUrlBuilder(e) {
             dateType: null == e.rankingDateOptionIndex ? void 0 : i[e.rankingDateOptionIndex]
         });
         if ("function" == typeof e.isHomepageCategory && e.isHomepageCategory(t, r)) return buildCopyLikeHomeIndexComicsUrl({
-            apiUrl: s,
-            page: a,
+            apiUrl: n,
+            page: o,
             limit: null == e.homepageLimit ? 20 : e.homepageLimit,
             top: r,
             ordering: null == e.homepageOrderingOptionIndex ? void 0 : i[e.homepageOrderingOptionIndex]
         });
         const l = normalizeCopyLikeCategoryParam(t, e.categoryParamMap, r);
         return buildCopyLikeComicsUrl({
-            apiUrl: s,
-            page: a,
+            apiUrl: n,
+            page: o,
             limit: null == e.themedLimit ? 30 : e.themedLimit,
             freeType: e.themedFreeType,
-            ordering: null == e.themedOrderingOptionIndex ? void 0 : n[e.themedOrderingOptionIndex],
+            ordering: null == e.themedOrderingOptionIndex ? void 0 : s[e.themedOrderingOptionIndex],
             theme: l || "",
-            top: null == e.themedTopOptionIndex ? void 0 : n[e.themedTopOptionIndex]
+            top: null == e.themedTopOptionIndex ? void 0 : s[e.themedTopOptionIndex]
         });
     };
 }
@@ -1804,12 +2129,12 @@ function createCopyLikeSearchRequestUrlBuilders(e) {
             ordering: e.authorOrdering || "-datetime_updated",
             author: t
         }),
-        buildKeywordRequestUrl: ({keyword: t, options: r, page: o}) => {
-            const a = Array.isArray(r) ? r : [], i = null == e.queryTypeOptionIndex ? e.queryTypeDefault : null != a[e.queryTypeOptionIndex] ? a[e.queryTypeOptionIndex] : e.queryTypeDefault;
+        buildKeywordRequestUrl: ({keyword: t, options: r, page: a}) => {
+            const o = Array.isArray(r) ? r : [], i = null == e.queryTypeOptionIndex ? e.queryTypeDefault : null != o[e.queryTypeOptionIndex] ? o[e.queryTypeOptionIndex] : e.queryTypeDefault;
             return buildCopyLikeSearchUrl({
                 apiUrl: e.getApiUrl(),
                 endpointPath: "function" == typeof e.getKeywordEndpointPath ? e.getKeywordEndpointPath() : e.keywordEndpointPath,
-                page: o,
+                page: a,
                 limit: null == e.keywordLimit ? 20 : e.keywordLimit,
                 keyword: t,
                 queryType: i,
@@ -1931,8 +2256,8 @@ function normalizeMhLikePath(e, t) {
 }
 
 function buildMhLikeRelativeUrl(e, t) {
-    const r = String(e || "").replace(/\/+$/, ""), o = String(t || "").trim();
-    return o ? o.startsWith("http://") || o.startsWith("https://") ? o : o.startsWith("/") ? `${r}${o}` : `${r}/${o}` : r;
+    const r = String(e || "").replace(/\/+$/, ""), a = String(t || "").trim();
+    return a ? a.startsWith("http://") || a.startsWith("https://") ? a : a.startsWith("/") ? `${r}${a}` : `${r}/${a}` : r;
 }
 
 function buildMhLikeApiBaseUrl(e, t) {
@@ -1940,18 +2265,18 @@ function buildMhLikeApiBaseUrl(e, t) {
 }
 
 function buildMhLikeCategoryUrl(e) {
-    const t = e || {}, r = String(t.categoryPath || "").replace(/\/+$/, ""), o = normalizeMhLikePath(t.pageSegment, MH_LIKE_ENDPOINT_PATHS.CATEGORY_PAGE_SEGMENT);
-    return buildMhLikeRelativeUrl(t.baseUrl, `${r}${o}/${t.page}`);
+    const t = e || {}, r = String(t.categoryPath || "").replace(/\/+$/, ""), a = normalizeMhLikePath(t.pageSegment, MH_LIKE_ENDPOINT_PATHS.CATEGORY_PAGE_SEGMENT);
+    return buildMhLikeRelativeUrl(t.baseUrl, `${r}${a}/${t.page}`);
 }
 
 function buildMhLikeSearchUrl(e) {
-    const t = e || {}, r = normalizeMhLikePath(t.searchPath, MH_LIKE_ENDPOINT_PATHS.SEARCH), o = encodeURIComponent(String(null == t.keyword ? "" : t.keyword));
-    return buildMhLikeRelativeUrl(t.baseUrl, `${r}/${o}?page=${t.page}`);
+    const t = e || {}, r = normalizeMhLikePath(t.searchPath, MH_LIKE_ENDPOINT_PATHS.SEARCH), a = encodeURIComponent(String(null == t.keyword ? "" : t.keyword));
+    return buildMhLikeRelativeUrl(t.baseUrl, `${r}/${a}?page=${t.page}`);
 }
 
 function buildMhLikeChapterListUrl(e) {
-    const t = e || {}, r = normalizeMhLikePath(t.chapterListPath, MH_LIKE_ENDPOINT_PATHS.CHAPTER_LIST), o = null == t.mode ? "all" : t.mode, a = null == t.timestamp ? Date.now() : t.timestamp;
-    return buildMhLikeRelativeUrl(t.baseUrl, `${r}?mid=${t.mangaId}&mode=${o}&t=${a}`);
+    const t = e || {}, r = normalizeMhLikePath(t.chapterListPath, MH_LIKE_ENDPOINT_PATHS.CHAPTER_LIST), a = null == t.mode ? "all" : t.mode, o = null == t.timestamp ? Date.now() : t.timestamp;
+    return buildMhLikeRelativeUrl(t.baseUrl, `${r}?mid=${t.mangaId}&mode=${a}&t=${o}`);
 }
 
 function buildMhLikeChapterEndpointUrl(e) {
@@ -1994,11 +2319,11 @@ function createMhLikeRouteHelpers(e) {
             page: r,
             searchPath: t.searchPath
         }),
-        buildChapterListUrl: ({mangaId: e, timestamp: r, mode: o}) => buildMhLikeChapterListUrl({
+        buildChapterListUrl: ({mangaId: e, timestamp: r, mode: a}) => buildMhLikeChapterListUrl({
             baseUrl: t.baseUrl,
             mangaId: e,
             timestamp: r,
-            mode: o,
+            mode: a,
             chapterListPath: t.chapterListPath
         }),
         buildChapterInfoUrl: ({mangaId: e, chapterId: r}) => buildMhLikeChapterInfoUrl({
@@ -2032,22 +2357,22 @@ function parseMhLikeHomeSections(e, t) {
         title: "近期更新",
         comics: [],
         viewMore: null
-    } ], o = e.querySelector(".pb-unit-md");
-    if (o) for (let e of o.querySelectorAll(".slicarda")) r[0].comics.push(new Comic({
+    } ], a = e.querySelector(".pb-unit-md");
+    if (a) for (let e of a.querySelectorAll(".slicarda")) r[0].comics.push(new Comic({
         id: e.attributes.href,
         title: e.querySelector("h3").text,
         cover: e.querySelector("img").attributes.src
     }));
-    const a = e.querySelectorAll(".cardlist"), i = e.querySelectorAll(".hometitle");
+    const o = e.querySelectorAll(".cardlist"), i = e.querySelectorAll(".hometitle");
     for (let e = 0; e < i.length; e += 1) {
-        const o = i[e].querySelector("h2");
+        const a = i[e].querySelector("h2");
         r.push({
-            title: o.text,
-            comics: t(a[e]),
+            title: a.text,
+            comics: t(o[e]),
             viewMore: {
                 page: "category",
                 attributes: {
-                    category: o.text,
+                    category: a.text,
                     param: i[e].attributes.href
                 }
             }
@@ -2109,16 +2434,16 @@ function createMhLikeExploreFeature(e) {
 }
 
 function createMhLikeCategoryLoadFeature(e) {
-    return async (t, r, o, a) => loadMhLikePagedComicsFromUrl({
+    return async (t, r, a, o) => loadMhLikePagedComicsFromUrl({
         requestUrl: e.buildRequestUrl ? e.buildRequestUrl({
             category: t,
             params: r,
-            options: o,
-            page: a
+            options: a,
+            page: o
         }) : buildMhLikeCategoryUrl({
             baseUrl: e.getBaseUrl(),
             categoryPath: r,
-            page: a,
+            page: o,
             pageSegment: e.categoryPageSegment
         }),
         headers: e.getHeaders(),
@@ -2128,15 +2453,15 @@ function createMhLikeCategoryLoadFeature(e) {
 }
 
 function createMhLikeSearchLoadFeature(e) {
-    return async (t, r, o) => loadMhLikePagedComicsFromUrl({
+    return async (t, r, a) => loadMhLikePagedComicsFromUrl({
         requestUrl: e.buildRequestUrl ? e.buildRequestUrl({
             keyword: t,
             options: r,
-            page: o
+            page: a
         }) : buildMhLikeSearchUrl({
             baseUrl: e.getBaseUrl(),
             keyword: t,
-            page: o,
+            page: a,
             searchPath: e.searchPath
         }),
         headers: e.getHeaders(),
@@ -2146,12 +2471,12 @@ function createMhLikeSearchLoadFeature(e) {
 }
 
 async function loadMhLikeBaseComicInfo(e) {
-    const t = await getRuntimeDocument(e.detailUrl, e.headers, e.context || "mh_like comic detail"), r = t.querySelector(".text-xl").text.trim().split("   ")[0], o = t.querySelector(".object-cover").attributes.src, a = t.querySelector("p.text-medium").text;
+    const t = await getRuntimeDocument(e.detailUrl, e.headers, e.context || "mh_like comic detail"), r = t.querySelector(".text-xl").text.trim().split("   ")[0], a = t.querySelector(".object-cover").attributes.src, o = t.querySelector("p.text-medium").text;
     return {
         document: t,
         title: r,
-        cover: o,
-        description: a,
+        cover: a,
+        description: o,
         tags: parseMhLikeDetailTags(t),
         recommend: parseMhLikeRecommendComics(t),
         mangaId: t.querySelector("#mangachapters").attributes["data-mid"]
@@ -2181,11 +2506,11 @@ function createMhLikeSearchRequestUrlBuilder(e) {
 function createMhLikeChapterRequestUrlBuilders(e) {
     const t = e || {};
     return {
-        buildChapterListRequestUrl: ({mangaId: e, timestamp: r, mode: o}) => buildMhLikeChapterListUrl({
+        buildChapterListRequestUrl: ({mangaId: e, timestamp: r, mode: a}) => buildMhLikeChapterListUrl({
             baseUrl: t.getBaseUrl(),
             mangaId: e,
             timestamp: r,
-            mode: o,
+            mode: a,
             chapterListPath: t.chapterListPath
         }),
         buildChapterInfoRequestUrl: ({mangaId: e, chapterId: r}) => buildMhLikeChapterInfoUrl({
@@ -2274,21 +2599,21 @@ const PICACG_ENDPOINT_PATHS = {
 };
 
 function normalizePicacgBaseUrl(e, t) {
-    const r = "string" == typeof t ? String(t).trim() : "", o = "string" == typeof e && e.trim() ? e.trim() : r;
-    return String(o || "").replace(/\/+$/, "");
+    const r = "string" == typeof t ? String(t).trim() : "", a = "string" == typeof e && e.trim() ? e.trim() : r;
+    return String(a || "").replace(/\/+$/, "");
 }
 
 function buildPicacgEndpointUrl(e, t) {
-    const r = normalizePicacgBaseUrl(e), o = String(t || "").replace(/^\/+/, "");
-    return r ? o ? `${r}/${o}` : r : o;
+    const r = normalizePicacgBaseUrl(e), a = String(t || "").replace(/^\/+/, "");
+    return r ? a ? `${r}/${a}` : r : a;
 }
 
 function buildPicacgQueryString(e) {
     const t = [];
     for (const r of e || []) {
         if (!Array.isArray(r) || r.length < 2) continue;
-        const e = r[0], o = r[1];
-        null != e && null != o && t.push(`${String(e)}=${String(o)}`);
+        const e = r[0], a = r[1];
+        null != e && null != a && t.push(`${String(e)}=${String(a)}`);
     }
     return t.join("&");
 }
@@ -2307,8 +2632,8 @@ function createPicacgRequest(e, t) {
 }
 
 function resolvePicacgTagAction(e, t, r) {
-    const o = r && "object" == typeof r && !Array.isArray(r) ? r : {}, a = o.authorNamespace || PICACG_TAG_NAMESPACES.AUTHOR, i = o.categoryNamespace || PICACG_TAG_NAMESPACES.CATEGORIES;
-    return e === a ? {
+    const a = r && "object" == typeof r && !Array.isArray(r) ? r : {}, o = a.authorNamespace || PICACG_TAG_NAMESPACES.AUTHOR, i = a.categoryNamespace || PICACG_TAG_NAMESPACES.CATEGORIES;
+    return e === o ? {
         action: "category",
         keyword: t,
         param: "a"
@@ -2329,7 +2654,7 @@ function createPicacgRouteHelpers(e) {
         randomComicsRequest: () => createPicacgRequest(PICACG_ENDPOINT_PATHS.COMICS_RANDOM),
         latestComicsRequest: ({page: e, sort: t}) => createPicacgRequest(buildPicacgPathWithQuery(PICACG_ENDPOINT_PATHS.COMICS, [ [ "page", e ], [ "s", t ] ])),
         leaderboardRequest: ({option: e, categoryType: r}) => createPicacgRequest(buildPicacgPathWithQuery(PICACG_ENDPOINT_PATHS.COMICS_LEADERBOARD, [ [ "tt", e ], [ "ct", null == r ? t : r ] ])),
-        categoryComicsRequest: ({page: e, type: t, category: r, sort: o}) => createPicacgRequest(buildPicacgPathWithQuery(PICACG_ENDPOINT_PATHS.COMICS, [ [ "page", e ], [ t || "c", r ], [ "s", o ] ])),
+        categoryComicsRequest: ({page: e, type: t, category: r, sort: a}) => createPicacgRequest(buildPicacgPathWithQuery(PICACG_ENDPOINT_PATHS.COMICS, [ [ "page", e ], [ t || "c", r ], [ "s", a ] ])),
         advancedSearchRequest: ({page: e}) => createPicacgRequest(buildPicacgPathWithQuery(PICACG_ENDPOINT_PATHS.COMICS_ADVANCED_SEARCH, [ [ "page", e ] ])),
         comicFavoriteRequest: ({comicId: e}) => createPicacgRequest(`${PICACG_ENDPOINT_PATHS.COMICS}/${e}/favourite`),
         userFavoritesRequest: ({page: e, sort: t}) => createPicacgRequest(buildPicacgPathWithQuery(PICACG_ENDPOINT_PATHS.USERS_FAVOURITE, [ [ "page", e ], [ "s", t ] ])),
@@ -2472,15 +2797,15 @@ function __veneraGetRuntimeGlobal() {
 }
 
 function __veneraNormalizeAuthorityPart(e, t, r) {
-    const o = String(null == e ? "" : e).trim() || t;
-    return r ? o.replace(/^\/+|\/+$/g, "") : o;
+    const a = String(null == e ? "" : e).trim() || t;
+    return r ? a.replace(/^\/+|\/+$/g, "") : a;
 }
 
 function resolvePluginUpdateUrl(e) {
-    const t = __veneraGetRuntimeGlobal(), r = t.__VENERA_RELEASE_AUTHORITY__ && "object" == typeof t.__VENERA_RELEASE_AUTHORITY__ ? t.__VENERA_RELEASE_AUTHORITY__ : {}, o = __veneraNormalizeAuthorityPart(r.cdnOrigin, "https://cdn.jsdelivr.net", !1).replace(/\/+$/, ""), a = __veneraNormalizeAuthorityPart(r.providerPath, "gh", !0), i = __veneraNormalizeAuthorityPart(r.repository, "mythic3011/venera-configs", !0), n = __veneraNormalizeAuthorityPart(r.releaseRef, "main", !1), s = __veneraNormalizeAuthorityPart(r.artifactPathPrefix, "dist/plugins", !0), l = String(e || "").replace(/^\/+/, "");
-    if (!l) return `${o}/${a}/${i}@${n}`;
-    const u = s ? `${s}/${l}` : l;
-    return `${o}/${a}/${i}@${n}/${l.startsWith(`${s}/`) ? l : u}`;
+    const t = __veneraGetRuntimeGlobal(), r = t.__VENERA_RELEASE_AUTHORITY__ && "object" == typeof t.__VENERA_RELEASE_AUTHORITY__ ? t.__VENERA_RELEASE_AUTHORITY__ : {}, a = __veneraNormalizeAuthorityPart(r.cdnOrigin, "https://cdn.jsdelivr.net", !1).replace(/\/+$/, ""), o = __veneraNormalizeAuthorityPart(r.providerPath, "gh", !0), i = __veneraNormalizeAuthorityPart(r.repository, "mythic3011/venera-configs", !0), s = __veneraNormalizeAuthorityPart(r.releaseRef, "main", !1), n = __veneraNormalizeAuthorityPart(r.artifactPathPrefix, "dist/plugins", !0), l = String(e || "").replace(/^\/+/, "");
+    if (!l) return `${a}/${o}/${i}@${s}`;
+    const u = n ? `${n}/${l}` : l;
+    return `${a}/${o}/${i}@${s}/${l.startsWith(`${n}/`) ? l : u}`;
 }
 
 "undefined" != typeof module && module && module.exports && (module.exports = {
@@ -2598,7 +2923,7 @@ const LRR_ROUTES = createSelfHostedRouteHelpers(), LRR_TAG_PREFIXES = {
     rating: "rating:",
     dateAdded: "date_added:",
     source: "source:"
-}, LRR_TAG_FILTER_PREFIXES = [ LRR_TAG_PREFIXES.rating, LRR_TAG_PREFIXES.dateAdded, LRR_TAG_PREFIXES.source ], LRR_SORT_KEYS = [ "title", "date_added", "lastread" ], LRR_ORDERS = [ "asc", "desc" ], LRR_BOOLS = [ "true", "false" ];
+}, LRR_TAG_FILTER_PREFIXES = [ LRR_TAG_PREFIXES.rating, LRR_TAG_PREFIXES.dateAdded, LRR_TAG_PREFIXES.source ], LRR_SORT_KEYS = [ "title", "date_added", "lastread" ], LRR_ORDERS = [ "asc", "desc" ], LRR_BOOLS = [ "true", "false" ], LRR_TANK_INDEX_PAGES = 20, LRR_TANK_PAGE_FETCHES = 4, LRR_EXPLORE_RANDOM_COUNT = 20;
 
 function unwrapLrrOption(e, t) {
     let r = e;
@@ -2619,8 +2944,8 @@ function unwrapLrrOption(e, t) {
 }
 
 function lrrChoice(e, t, r) {
-    const o = unwrapLrrOption(e, t);
-    return r.indexOf(o) >= 0 ? o : t;
+    const a = unwrapLrrOption(e, t);
+    return r.indexOf(a) >= 0 ? a : t;
 }
 
 function isLrrTankId(e) {
@@ -2629,4 +2954,78 @@ function isLrrTankId(e) {
 
 function isLrrArchiveId(e) {
     return /^[a-f0-9]{40}$/i.test(String(e || ""));
+}
+
+function lrrPagePath(e) {
+    if ("string" != typeof e || 0 === e.length || e.length > 4096 || /[\u0000-\u001f\u007f\\?#]/.test(e) || "/" === e.charAt(0) || e.split("/").some(e => !e || "." === e || ".." === e) || /%(?:2e|2f|5c|00)/i.test(e)) throw "Unsafe LANraragi image filename.";
+    return e;
+}
+
+function lrrPageKey(e, t, r) {
+    const a = String(e || "").toLowerCase();
+    if (!isLrrArchiveId(a)) throw "Invalid LANraragi archive ID.";
+    if ("string" != typeof t || t.length > 8192) throw "Invalid LANraragi page URL.";
+    let o = t;
+    if (/^https?:\/\//i.test(o)) {
+        const e = String(r || "").replace(/\/+$/, "");
+        if (!o.startsWith(e + "/")) throw "Unexpected LANraragi page origin.";
+        o = o.slice(e.length + 1);
+    }
+    o = o.replace(/^\.\//, "").replace(/^\//, "");
+    const i = /^api\/archives\/([a-f0-9]{40})\/page[?&]path=([^&#]+)$/i.exec(o);
+    if (!i || i[1].toLowerCase() !== a) throw "Unexpected LANraragi page URL format.";
+    let s;
+    try {
+        s = decodeURIComponent(i[2].replace(/\+/g, " "));
+    } catch (e) {
+        throw "Invalid LANraragi image filename encoding.";
+    }
+    return "lrr-page:" + a + ":" + encodeURIComponent(lrrPagePath(s));
+}
+
+function lrrResolvePageKey(e, t) {
+    const r = /^lrr-page:([a-f0-9]{40}):(.+)$/i.exec(String(e || ""));
+    if (!r) throw "Invalid LANraragi image key.";
+    const a = r[1].toLowerCase();
+    let o;
+    try {
+        o = decodeURIComponent(r[2]);
+    } catch (e) {
+        throw "Invalid LANraragi image key encoding.";
+    }
+    return String(t || "").replace(/\/+$/, "") + "/api/archives/" + a + "/page?path=" + encodeURIComponent(lrrPagePath(o));
+}
+
+function lrrFingerprint(e) {
+    let t = 2166136261;
+    const r = String(e || "");
+    for (let e = 0; e < r.length; e++) t ^= r.charCodeAt(e), t = Math.imul(t, 16777619);
+    return (t >>> 0).toString(16);
+}
+
+function encodeLrrBearer(e) {
+    const t = encodeURIComponent(String(e)), r = [];
+    for (let e = 0; e < t.length; e++) "%" === t.charAt(e) ? (r.push(parseInt(t.slice(e + 1, e + 3), 16)),
+    e += 2) : r.push(t.charCodeAt(e));
+    const a = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let o = "";
+    for (let e = 0; e < r.length; e += 3) {
+        const t = r[e], i = e + 1 < r.length ? r[e + 1] : 0, s = e + 2 < r.length ? r[e + 2] : 0;
+        o += a.charAt(t >> 2), o += a.charAt((3 & t) << 4 | i >> 4), o += e + 1 < r.length ? a.charAt((15 & i) << 2 | s >> 6) : "=",
+        o += e + 2 < r.length ? a.charAt(63 & s) : "=";
+    }
+    return o;
+}
+
+function resolveLrrBaseUrl(e, t) {
+    let r = String(e || "").trim();
+    if (r || (r = String(t || "").trim()), !r || r.length > 2048 || /[\s\\\u0000-\u001f\u007f]/.test(r)) throw "Set a valid LANraragi API URL.";
+    /^https?:\/\//i.test(r) || (r = `http://${r.replace(/^\/+/, "")}`), r = r.replace(/\/+$/, "");
+    const a = /^(https?):\/\/([^/?#]+)(\/[^?#]*)?$/i.exec(r);
+    if (!a || /[@%]/.test(a[2]) || !/^(?:[A-Za-z0-9._-]+(?::[0-9]{1,5})?|\[[0-9a-fA-F:.]+\](?::[0-9]{1,5})?)$/.test(a[2])) throw "Set a valid LANraragi API URL.";
+    const o = /:([0-9]{1,5})$/.exec(a[2]);
+    if (o && (Number(o[1]) < 1 || Number(o[1]) > 65535)) throw "Invalid LANraragi server port.";
+    const i = a[3] || "";
+    if (i && (i.indexOf("//") >= 0 || /%2f|%5c|%2e|%00/i.test(i) || i.split("/").some(e => "." === e || ".." === e))) throw "Unsafe LANraragi base path.";
+    return r;
 }

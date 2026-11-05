@@ -6,6 +6,7 @@ const { spawnSync } = require("node:child_process");
 const {
   REPO_ROOT,
   BUILD_MANIFEST_PATH,
+  PUBLIC_INDEX_PATH,
   readJson,
   sha256Hex,
   buildPublicIndexEntries,
@@ -74,6 +75,20 @@ function checkEmbeddedPublicIndex(manifest) {
   return [];
 }
 
+function checkPublicIndexFile(manifest) {
+  const expected = buildPublicIndexEntries(manifest.plugins);
+  let current;
+  try {
+    current = readJson(PUBLIC_INDEX_PATH);
+  } catch (error) {
+    return [`index.json is missing or unreadable: ${error.message}`];
+  }
+  if (JSON.stringify(current) !== JSON.stringify(expected)) {
+    return ["index.json does not match plugin configs"];
+  }
+  return [];
+}
+
 function main() {
   runNodeScript(path.join("scripts", "build", "validate-plugin-config.js"));
   runNodeScript(path.join("scripts", "build", "write-build-manifest.js"), ["--check"]);
@@ -84,6 +99,7 @@ function main() {
     ...checkArtifactHashes(manifest),
     ...checkClassFirstArtifacts(manifest),
     ...checkEmbeddedPublicIndex(manifest),
+    ...checkPublicIndexFile(manifest),
   ];
 
   if (errors.length > 0) {

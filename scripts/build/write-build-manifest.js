@@ -107,4 +107,8 @@ function main() {
   process.stdout.write(`Wrote ${path.relative(REPO_ROOT, BUILD_MANIFEST_PATH)}\n`);
 }
 
-main();
+module.exports = { buildManifest };
+
+if (require.main === module) {
+  main();
+}

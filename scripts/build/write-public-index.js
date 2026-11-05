@@ -2,27 +2,39 @@
 
 const {
   BUILD_MANIFEST_PATH,
+  PUBLIC_INDEX_PATH,
+  buildPublicIndexEntries,
   readJson,
+  writeJson,
 } = require("./lib");
 
 const CHECK_MODE = process.argv.includes("--check");
 
-function main() {
-  const manifest = readJson(BUILD_MANIFEST_PATH);
-  const next = Array.isArray(manifest.publicIndex) ? manifest.publicIndex : null;
-
-  if (!next) {
-    throw new Error("build-manifest publicIndex is missing");
+function indexFromManifest(manifest) {
+  if (!manifest || !Array.isArray(manifest.plugins)) {
+    throw new Error("build-manifest plugins are missing");
   }
+  return buildPublicIndexEntries(manifest.plugins);
+}
+
+function main() {
+  const next = indexFromManifest(readJson(BUILD_MANIFEST_PATH));
 
   if (CHECK_MODE) {
-    console.log("build-manifest publicIndex is up to date");
+    const current = readJson(PUBLIC_INDEX_PATH);
+    if (JSON.stringify(current) !== JSON.stringify(next)) {
+      throw new Error("index.json is out of date");
+    }
+    console.log("index.json is up to date");
     return;
   }
 
-  console.log(
-    "write-public-index is deprecated: index data is embedded in .generated/build-manifest.json#publicIndex",
-  );
+  writeJson(PUBLIC_INDEX_PATH, next);
+  console.log("Updated index.json");
 }
 
-main();
+module.exports = { indexFromManifest };
+
+if (require.main === module) {
+  main();
+}

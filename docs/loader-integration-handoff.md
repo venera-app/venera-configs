@@ -7,6 +7,7 @@ This repository now produces integrity metadata for plugin artifacts through the
 - Plugin discovery and validation via `plugins/*/plugin.config.json`.
 - Deterministic artifact generation via `npm run generate`.
 - Public index embedding via `.generated/build-manifest.json#publicIndex`.
+- `index.json` generated from plugin configs, not a hand-written catalog.
 - Artifact integrity metadata (`sha256`, `bytes`) written into `.generated/build-manifest.json`.
 - Runtime compatibility smoke coverage via `npm run test:runtime`.
 - Dynamic execution audit via `npm run audit:unsafe-runtime-code`.

@@ -46,6 +46,7 @@ Primary generated outputs:
 
 - `.generated/build-manifest.json`
 - `dist/plugins/*.js`
+- `index.json`, written from plugin configs by the build
 - `publicIndex` entries embedded in the build manifest
 
 The loader should derive final URLs from release authority plus the generated
@@ -62,7 +63,7 @@ Treat these as compatibility surfaces:
 - `publicIndex` entry shape
 - release-authority base URL
 
-Do not hand-edit generated URLs or manifest entries.
+Do not hand-edit generated URLs, `index.json`, or manifest entries.
 
 `i18n/ehentai.json` remains only as legacy compatibility content.
 
@@ -210,7 +211,7 @@ artifact integrity。
 - `publicIndex` entry shape
 - release-authority base URL
 
-不要手動編輯生成後的 URL 或 manifest entry。`i18n/ehentai.json` 仍然只保留作 legacy
+不要手動編輯生成後的 URL、`index.json` 或 manifest entry。`i18n/ehentai.json` 仍然只保留作 legacy
 compatibility content。
 
 更新規則如下：
@@ -223,7 +224,7 @@ compatibility content。
 ### 生成內容
 
 `plugins/*/plugin.config.json` 會被掃描，`plugins/*/src` 會被建置成生成後的 plugin
-artifacts，`.generated/build-manifest.json` 會同時記錄 public index 與 integrity metadata。
+artifacts。`index.json` 由 plugin config 生成，`.generated/build-manifest.json` 會同時記錄 public index 與 integrity metadata。
 
 `dist/plugins/*.js` 會由對應的 `plugins/*/src` 生成，且要保持：
 

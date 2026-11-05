@@ -23,4 +23,4 @@ const result = spawnSync(
   },
 );
 
-process.exit(result.status || 0);
+process.exit(result.status === 0 ? 0 : result.status || 1);
