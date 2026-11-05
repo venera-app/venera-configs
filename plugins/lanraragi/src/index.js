@@ -13,7 +13,8 @@ const LRR_TAG_FILTER_PREFIXES = [
 const LRR_SORT_KEYS = ["title", "date_added", "lastread"];
 const LRR_ORDERS = ["asc", "desc"];
 const LRR_BOOLS = ["true", "false"];
-const LRR_TANK_INDEX_PAGES = 20;
+const LRR_TANK_INDEX_PAGES = 100;
+const LRR_TANK_INDEX_INCOMPLETE = "LANraragi tank index is incomplete.";
 const LRR_TANK_PAGE_FETCHES = 4;
 const LRR_EXPLORE_RANDOM_COUNT = 20;
 
@@ -207,7 +208,7 @@ function resolveLrrBaseUrl(rawValue, fallbackValue) {
 class Lanraragi extends ComicSource {
   name = "Lanraragi";
   key = "lanraragi";
-  version = "1.2.6";
+  version = "1.2.7";
   minAppVersion = "1.4.0";
   url = resolvePluginUpdateUrl("lanraragi.js");
 
@@ -469,6 +470,9 @@ class Lanraragi extends ComicSource {
       }
       if (stop) break;
     }
+    if (first && seen < total) {
+      throw LRR_TANK_INDEX_INCOMPLETE;
+    }
     if (
       this._tankGeneration !== generation ||
       this._identity().baseUrl !== base ||
@@ -640,7 +644,9 @@ class Lanraragi extends ComicSource {
     const list = Array.isArray(items) ? items : [];
     try {
       await this._ensureTankIndex();
-    } catch (_) {}
+    } catch (error) {
+      if (error === LRR_TANK_INDEX_INCOMPLETE) throw error;
+    }
     const comics = [];
     const shown = {};
     for (const item of list) {
@@ -668,26 +674,147 @@ class Lanraragi extends ComicSource {
     return comics;
   }
 
-  async _loadArchivePage(page, offsetKey, query, collapse) {
-    const runSearch = createOffsetSearchLoader({
-      path: LRR_ROUTES.searchPath,
-      getOffsetKey: () => `${offsetKey}_${this._serverStamp()}`,
-      buildQuery: (_input, start) => Object.assign({}, query, { start: String(start) }),
-      mapComic: (item, context) => this._mapArchiveComic(item, context.base),
-    });
-    const result = await runSearch(this, { page });
+  _lrrSearchScope(offsetKey, query) {
+    const source = query && typeof query === "object" ? query : {};
+    const fields = [
+      "filter",
+      "sortby",
+      "order",
+      "newonly",
+      "untaggedonly",
+      "groupby_tanks",
+      "category",
+    ];
+    const parts = [String(offsetKey || "")];
+    for (const field of fields) {
+      parts.push(source[field] == null ? "" : String(source[field]));
+    }
+    return parts.join("\u0001");
+  }
+
+  _lrrPageSizeKey(scope) {
+    return `lrr_page_size_${this._serverStamp()}_${scope}`;
+  }
+
+  _readLrrPageSize(scope) {
+    if (typeof this.loadData !== "function") return null;
+    const size = Number(this.loadData(this._lrrPageSizeKey(scope)));
+    return Number.isInteger(size) && size >= 1 ? size : null;
+  }
+
+  _storeLrrPageSize(scope, size) {
+    if (typeof this.saveData !== "function") return;
+    if (!Number.isInteger(size) || size < 1) return;
+    this.saveData(this._lrrPageSizeKey(scope), size);
+  }
+
+  _fullLrrPageSize(start, returned, total) {
+    if (!(returned > 0 && typeof total === "number" && start + returned < total)) {
+      return null;
+    }
+    return returned;
+  }
+
+  _lrrMaxPage(page, returned, total, size) {
+    if (total === 0) return 1;
+    if (typeof total === "number" && Number.isInteger(size) && size >= 1) {
+      return Math.max(1, Math.ceil(total / size));
+    }
+    if (typeof total === "number") return 1;
+    if (returned > 0) return page + 1;
+    return Math.max(1, page > 1 ? page - 1 : 1);
+  }
+
+  async _fetchLrrSearch(query, start) {
+    const url = buildSelfHostedUrlFromSource(
+      this,
+      LRR_ROUTES.searchPath,
+      Object.assign({}, query, { start: String(start) }),
+    );
+    const res = await Network.get(url, this.headers);
+    if (!res || res.status !== 200) {
+      throw `Invalid status code: ${res ? res.status : 0}`;
+    }
+    let data;
+    try {
+      data = JSON.parse(res.body);
+    } catch (_) {
+      throw "Invalid LANraragi search response.";
+    }
+    if (!data || typeof data !== "object" || Array.isArray(data)) data = {};
+    const list = Array.isArray(data.data) ? data.data : [];
+    const total =
+      typeof data.recordsFiltered === "number" && data.recordsFiltered >= 0
+        ? data.recordsFiltered
+        : null;
+    return { data, list, total };
+  }
+
+  async _packArchivePage(fetched, collapse, maxPage) {
     if (!collapse) {
+      const comics = fetched.list.map((item) => this._mapArchiveComic(item, this.baseUrl));
       return {
-        comics: await this._decorateListedComics(result.comics),
-        maxPage: result.maxPage,
+        comics: await this._decorateListedComics(comics),
+        maxPage,
       };
     }
-    const raw =
-      result.data && Array.isArray(result.data.data) ? result.data.data : [];
     return {
-      comics: await this._collapseTankItems(raw),
-      maxPage: result.maxPage,
+      comics: await this._collapseTankItems(fetched.list),
+      maxPage,
     };
+  }
+
+  async _loadArchivePage(page, offsetKey, query, collapse) {
+    const parsed = Number(page);
+    const requested = Number.isInteger(parsed) && parsed >= 1 ? parsed : 1;
+    const scope = this._lrrSearchScope(offsetKey, query);
+    let size = this._readLrrPageSize(scope);
+
+    if (requested > 1 && !size) {
+      const probe = await this._fetchLrrSearch(query, 0);
+      const learned = this._fullLrrPageSize(0, probe.list.length, probe.total);
+      if (!learned) {
+        return this._packArchivePage({ data: probe.data, list: [] }, collapse, 1);
+      }
+      this._storeLrrPageSize(scope, learned);
+      size = learned;
+      if ((requested - 1) * size >= probe.total) {
+        return this._packArchivePage(
+          { data: probe.data, list: [] },
+          collapse,
+          Math.max(1, Math.ceil(probe.total / size)),
+        );
+      }
+    }
+
+    const start = requested <= 1 ? 0 : (requested - 1) * size;
+    let fetched = await this._fetchLrrSearch(query, start);
+    const learned = this._fullLrrPageSize(start, fetched.list.length, fetched.total);
+    if (learned && learned !== size) {
+      this._storeLrrPageSize(scope, learned);
+      if (size && requested > 1) {
+        const corrected = (requested - 1) * learned;
+        if (corrected !== start) {
+          fetched = await this._fetchLrrSearch(query, corrected);
+          const again = this._fullLrrPageSize(
+            corrected,
+            fetched.list.length,
+            fetched.total,
+          );
+          if (again && again !== learned) this._storeLrrPageSize(scope, again);
+        }
+      }
+      size = learned;
+    } else if (learned) {
+      this._storeLrrPageSize(scope, learned);
+      size = learned;
+    }
+
+    return this._packArchivePage(
+      fetched,
+      collapse,
+      this._lrrMaxPage(requested, fetched.list.length, fetched.total, size),
+    );
   }
 
   // Parse various rating string/number formats and convert to 0-5 scale with 0.5 step
@@ -907,41 +1034,19 @@ class Lanraragi extends ComicSource {
   search = {
     load: async (keyword, options, page = 1) => {
       const raw = (key) => options && options[key];
-      const sortby = lrrChoice(raw(0), "title", LRR_SORT_KEYS);
-      const order = lrrChoice(raw(1), "asc", LRR_ORDERS);
-      const newonly = lrrChoice(raw(2), "false", LRR_BOOLS);
-      const untaggedonly = lrrChoice(raw(3), "false", LRR_BOOLS);
-      const groupby = lrrChoice(raw(4), "true", LRR_BOOLS);
-
-      const runSearch = createOffsetSearchLoader({
-        path: LRR_ROUTES.searchPath,
-        getOffsetKey: (input) =>
-          `search_start_${this._serverStamp()}_${encodeURIComponent(String(input.keyword || ""))}`,
-        buildQuery: (input, start) => ({
-          filter: String(input.keyword || "").trim(),
-          sortby: input.sortby,
-          order: input.order,
-          newonly: input.newonly,
-          untaggedonly: input.untaggedonly,
-          groupby_tanks: input.groupby,
-          start: String(start),
-        }),
-        mapComic: (item, context) =>
-          this._mapArchiveComic(item, context.base),
-      });
-      const result = await runSearch(this, {
+      return await this._loadArchivePage(
         page,
-        keyword,
-        sortby,
-        order,
-        newonly,
-        untaggedonly,
-        groupby,
-      });
-      return {
-        comics: await this._decorateListedComics(result.comics),
-        maxPage: result.maxPage,
-      };
+        "search",
+        {
+          filter: String(keyword || "").trim(),
+          sortby: lrrChoice(raw(0), "title", LRR_SORT_KEYS),
+          order: lrrChoice(raw(1), "asc", LRR_ORDERS),
+          newonly: lrrChoice(raw(2), "false", LRR_BOOLS),
+          untaggedonly: lrrChoice(raw(3), "false", LRR_BOOLS),
+          groupby_tanks: lrrChoice(raw(4), "true", LRR_BOOLS),
+        },
+        false,
+      );
     },
     loadNext: async (keyword, options, next) => {
       const page = typeof next === "number" && next > 0 ? next : 1;
@@ -987,6 +1092,7 @@ class Lanraragi extends ComicSource {
     singleFolderForSingleComic: false,
 
     addOrDelFavorite: async (comicId, folderId, isAdding, favoriteId) => {
+      if (isLrrTankId(comicId)) throw "Cannot favorite a LANraragi tankoubon";
       const hdrs = this.headers || {};
       if (!hdrs || Object.keys(hdrs).length === 0) {
         throw "API token required to modify favorites";
@@ -1181,7 +1287,9 @@ class Lanraragi extends ComicSource {
           const parent =
             this._memberTank && this._memberTank[String(id).toLowerCase()];
           if (isLrrTankId(parent)) return await this._loadTankInfo(parent);
-        } catch (_) {}
+        } catch (error) {
+          if (error === LRR_TANK_INDEX_INCOMPLETE) throw error;
+        }
       }
       const url = buildSelfHostedUrlFromSource(this, LRR_ROUTES.archiveMetadataPath(id));
       const res = await Network.get(url, this.headers);

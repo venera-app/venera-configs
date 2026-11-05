@@ -1,6 +1,6 @@
 class Lanraragi extends ComicSource {
     constructor(...e) {
-        super(...e), this.name = "Lanraragi", this.key = "lanraragi", this.version = "1.2.6",
+        super(...e), this.name = "Lanraragi", this.key = "lanraragi", this.version = "1.2.7",
         this.minAppVersion = "1.4.0", this.url = resolvePluginUpdateUrl("lanraragi.js"),
         this.settings = {
             api: {
@@ -102,32 +102,15 @@ class Lanraragi extends ComicSource {
             }, !0)
         }, this.search = {
             load: async (e, t, r = 1) => {
-                const a = e => t && t[e], o = lrrChoice(a(0), "title", LRR_SORT_KEYS), i = lrrChoice(a(1), "asc", LRR_ORDERS), s = lrrChoice(a(2), "false", LRR_BOOLS), n = lrrChoice(a(3), "false", LRR_BOOLS), l = lrrChoice(a(4), "true", LRR_BOOLS), u = createOffsetSearchLoader({
-                    path: LRR_ROUTES.searchPath,
-                    getOffsetKey: e => `search_start_${this._serverStamp()}_${encodeURIComponent(String(e.keyword || ""))}`,
-                    buildQuery: (e, t) => ({
-                        filter: String(e.keyword || "").trim(),
-                        sortby: e.sortby,
-                        order: e.order,
-                        newonly: e.newonly,
-                        untaggedonly: e.untaggedonly,
-                        groupby_tanks: e.groupby,
-                        start: String(t)
-                    }),
-                    mapComic: (e, t) => this._mapArchiveComic(e, t.base)
-                }), c = await u(this, {
-                    page: r,
-                    keyword: e,
-                    sortby: o,
-                    order: i,
-                    newonly: s,
-                    untaggedonly: n,
-                    groupby: l
-                });
-                return {
-                    comics: await this._decorateListedComics(c.comics),
-                    maxPage: c.maxPage
-                };
+                const a = e => t && t[e];
+                return await this._loadArchivePage(r, "search", {
+                    filter: String(e || "").trim(),
+                    sortby: lrrChoice(a(0), "title", LRR_SORT_KEYS),
+                    order: lrrChoice(a(1), "asc", LRR_ORDERS),
+                    newonly: lrrChoice(a(2), "false", LRR_BOOLS),
+                    untaggedonly: lrrChoice(a(3), "false", LRR_BOOLS),
+                    groupby_tanks: lrrChoice(a(4), "true", LRR_BOOLS)
+                }, !1);
             },
             loadNext: async (e, t, r) => {
                 const a = "number" == typeof r && r > 0 ? r : 1;
@@ -164,6 +147,7 @@ class Lanraragi extends ComicSource {
             multiFolder: !0,
             singleFolderForSingleComic: !1,
             addOrDelFavorite: async (e, t, r, a) => {
+                if (isLrrTankId(e)) throw "Cannot favorite a LANraragi tankoubon";
                 const o = this.headers || {};
                 if (!o || 0 === Object.keys(o).length) throw "API token required to modify favorites";
                 if (!t || "-1" === String(t)) throw "Invalid folder id";
@@ -217,7 +201,9 @@ class Lanraragi extends ComicSource {
                     await this._ensureTankIndex();
                     const t = this._memberTank && this._memberTank[String(e).toLowerCase()];
                     if (isLrrTankId(t)) return await this._loadTankInfo(t);
-                } catch (e) {}
+                } catch (e) {
+                    if (e === LRR_TANK_INDEX_INCOMPLETE) throw e;
+                }
                 const t = buildSelfHostedUrlFromSource(this, LRR_ROUTES.archiveMetadataPath(e)), r = await Network.get(t, this.headers);
                 if (200 !== r.status) throw `Invalid status code: ${r.status}`;
                 const a = JSON.parse(r.body), o = buildSelfHostedUrlFromSource(this, LRR_ROUTES.archiveThumbnailPath(e));
@@ -579,8 +565,8 @@ class Lanraragi extends ComicSource {
         l && l.result.length > 0 && (this._absorbTankPage(l, o, i, s, n), u = l.result.length,
         c = Number(l.total));
         let d = 2;
-        for (;l && d <= 20 && u < c; ) {
-            const t = Math.min(4, 20 - d + 1), a = await this._fetchTankPageBatch(e, r, d, t);
+        for (;l && d <= 100 && u < c; ) {
+            const t = Math.min(4, 100 - d + 1), a = await this._fetchTankPageBatch(e, r, d, t);
             let l = !1;
             for (let e = 0; e < a.length; e++) {
                 const t = a[e];
@@ -596,6 +582,7 @@ class Lanraragi extends ComicSource {
             }
             if (l) break;
         }
+        if (l && u < c) throw LRR_TANK_INDEX_INCOMPLETE;
         this._tankGeneration === a && this._identity().baseUrl === e && this._identity().key === t && (this._memberTank = o,
         this._tankCover = i, this._tankName = s, this._tankServer = e, this._tankAuth = t);
     }
@@ -704,7 +691,9 @@ class Lanraragi extends ComicSource {
         const t = Array.isArray(e) ? e : [];
         try {
             await this._ensureTankIndex();
-        } catch (e) {}
+        } catch (e) {
+            if (e === LRR_TANK_INDEX_INCOMPLETE) throw e;
+        }
         const r = [], a = {};
         for (const e of t) {
             if (!e || "object" != typeof e || Array.isArray(e)) continue;
@@ -723,26 +712,87 @@ class Lanraragi extends ComicSource {
         }
         return r;
     }
-    async _loadArchivePage(e, t, r, a) {
-        const o = createOffsetSearchLoader({
-            path: LRR_ROUTES.searchPath,
-            getOffsetKey: () => `${t}_${this._serverStamp()}`,
-            buildQuery: (e, t) => Object.assign({}, r, {
-                start: String(t)
-            }),
-            mapComic: (e, t) => this._mapArchiveComic(e, t.base)
-        }), i = await o(this, {
-            page: e
-        });
-        if (!a) return {
-            comics: await this._decorateListedComics(i.comics),
-            maxPage: i.maxPage
+    _lrrSearchScope(e, t) {
+        const r = t && "object" == typeof t ? t : {}, a = [ "filter", "sortby", "order", "newonly", "untaggedonly", "groupby_tanks", "category" ], o = [ String(e || "") ];
+        for (const e of a) o.push(null == r[e] ? "" : String(r[e]));
+        return o.join("");
+    }
+    _lrrPageSizeKey(e) {
+        return `lrr_page_size_${this._serverStamp()}_${e}`;
+    }
+    _readLrrPageSize(e) {
+        if ("function" != typeof this.loadData) return null;
+        const t = Number(this.loadData(this._lrrPageSizeKey(e)));
+        return Number.isInteger(t) && t >= 1 ? t : null;
+    }
+    _storeLrrPageSize(e, t) {
+        "function" == typeof this.saveData && (!Number.isInteger(t) || t < 1 || this.saveData(this._lrrPageSizeKey(e), t));
+    }
+    _fullLrrPageSize(e, t, r) {
+        return t > 0 && "number" == typeof r && e + t < r ? t : null;
+    }
+    _lrrMaxPage(e, t, r, a) {
+        return 0 === r ? 1 : "number" == typeof r && Number.isInteger(a) && a >= 1 ? Math.max(1, Math.ceil(r / a)) : "number" == typeof r ? 1 : t > 0 ? e + 1 : Math.max(1, e > 1 ? e - 1 : 1);
+    }
+    async _fetchLrrSearch(e, t) {
+        const r = buildSelfHostedUrlFromSource(this, LRR_ROUTES.searchPath, Object.assign({}, e, {
+            start: String(t)
+        })), a = await Network.get(r, this.headers);
+        if (!a || 200 !== a.status) throw `Invalid status code: ${a ? a.status : 0}`;
+        let o;
+        try {
+            o = JSON.parse(a.body);
+        } catch (e) {
+            throw "Invalid LANraragi search response.";
+        }
+        return o && "object" == typeof o && !Array.isArray(o) || (o = {}), {
+            data: o,
+            list: Array.isArray(o.data) ? o.data : [],
+            total: "number" == typeof o.recordsFiltered && o.recordsFiltered >= 0 ? o.recordsFiltered : null
         };
-        const s = i.data && Array.isArray(i.data.data) ? i.data.data : [];
+    }
+    async _packArchivePage(e, t, r) {
+        if (!t) {
+            const t = e.list.map(e => this._mapArchiveComic(e, this.baseUrl));
+            return {
+                comics: await this._decorateListedComics(t),
+                maxPage: r
+            };
+        }
         return {
-            comics: await this._collapseTankItems(s),
-            maxPage: i.maxPage
+            comics: await this._collapseTankItems(e.list),
+            maxPage: r
         };
+    }
+    async _loadArchivePage(e, t, r, a) {
+        const o = Number(e), i = Number.isInteger(o) && o >= 1 ? o : 1, s = this._lrrSearchScope(t, r);
+        let n = this._readLrrPageSize(s);
+        if (i > 1 && !n) {
+            const e = await this._fetchLrrSearch(r, 0), t = this._fullLrrPageSize(0, e.list.length, e.total);
+            if (!t) return this._packArchivePage({
+                data: e.data,
+                list: []
+            }, a, 1);
+            if (this._storeLrrPageSize(s, t), n = t, (i - 1) * n >= e.total) return this._packArchivePage({
+                data: e.data,
+                list: []
+            }, a, Math.max(1, Math.ceil(e.total / n)));
+        }
+        const l = i <= 1 ? 0 : (i - 1) * n;
+        let u = await this._fetchLrrSearch(r, l);
+        const c = this._fullLrrPageSize(l, u.list.length, u.total);
+        if (c && c !== n) {
+            if (this._storeLrrPageSize(s, c), n && i > 1) {
+                const e = (i - 1) * c;
+                if (e !== l) {
+                    u = await this._fetchLrrSearch(r, e);
+                    const t = this._fullLrrPageSize(e, u.list.length, u.total);
+                    t && t !== c && this._storeLrrPageSize(s, t);
+                }
+            }
+            n = c;
+        } else c && (this._storeLrrPageSize(s, c), n = c);
+        return this._packArchivePage(u, a, this._lrrMaxPage(i, u.list.length, u.total, n));
     }
     _toStarsFromValue(e) {
         if (null == e) return null;
@@ -1568,23 +1618,23 @@ function createOffsetSearchLoader(e) {
         if (!e || "object" != typeof e) throw new Error("runOffsetSearch requires plugin source");
         const l = t && "object" == typeof t && !Array.isArray(t) ? t : {}, u = Number(l.page || 1), c = stripSelfHostedTrailingSlash(e.baseUrl), d = a(l), p = readSelfHostedOffset(e, d, u), h = buildSelfHostedQueryFromSource(o(l, p)), g = h ? `${c}${r}?${h}` : `${c}${r}`, f = await Network.get(g, e.headers);
         if (200 !== f.status) throw `${n}: ${f.status}`;
-        const y = parseSelfHostedJsonBody(f.body) || {}, m = Array.isArray(y.data) ? y.data : [], C = m.map(t => i(t, {
+        const y = parseSelfHostedJsonBody(f.body) || {}, m = Array.isArray(y.data) ? y.data : [], S = m.map(t => i(t, {
             source: e,
             base: c,
             input: l
-        })), S = m.length;
-        updateSelfHostedOffset(e, d, S);
-        const L = "number" == typeof y.recordsFiltered && y.recordsFiltered >= 0 ? y.recordsFiltered : p + S, k = S || 1, b = Math.max(1, Math.ceil(L / k));
+        })), C = m.length;
+        updateSelfHostedOffset(e, d, C);
+        const L = "number" == typeof y.recordsFiltered && y.recordsFiltered >= 0 ? y.recordsFiltered : p + C, k = C || 1, b = Math.max(1, Math.ceil(L / k));
         return s && s({
             source: e,
             input: l,
             start: p,
-            returned: S,
+            returned: C,
             data: y,
             list: m,
-            comics: C
+            comics: S
         }), {
-            comics: C,
+            comics: S,
             maxPage: b,
             data: y
         };
@@ -2923,7 +2973,7 @@ const LRR_ROUTES = createSelfHostedRouteHelpers(), LRR_TAG_PREFIXES = {
     rating: "rating:",
     dateAdded: "date_added:",
     source: "source:"
-}, LRR_TAG_FILTER_PREFIXES = [ LRR_TAG_PREFIXES.rating, LRR_TAG_PREFIXES.dateAdded, LRR_TAG_PREFIXES.source ], LRR_SORT_KEYS = [ "title", "date_added", "lastread" ], LRR_ORDERS = [ "asc", "desc" ], LRR_BOOLS = [ "true", "false" ], LRR_TANK_INDEX_PAGES = 20, LRR_TANK_PAGE_FETCHES = 4, LRR_EXPLORE_RANDOM_COUNT = 20;
+}, LRR_TAG_FILTER_PREFIXES = [ LRR_TAG_PREFIXES.rating, LRR_TAG_PREFIXES.dateAdded, LRR_TAG_PREFIXES.source ], LRR_SORT_KEYS = [ "title", "date_added", "lastread" ], LRR_ORDERS = [ "asc", "desc" ], LRR_BOOLS = [ "true", "false" ], LRR_TANK_INDEX_PAGES = 100, LRR_TANK_INDEX_INCOMPLETE = "LANraragi tank index is incomplete.", LRR_TANK_PAGE_FETCHES = 4, LRR_EXPLORE_RANDOM_COUNT = 20;
 
 function unwrapLrrOption(e, t) {
     let r = e;

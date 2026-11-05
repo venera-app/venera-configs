@@ -16,7 +16,7 @@ test("lanraragi artifact boots under runtime shim", () => {
   vm.runInContext(`${source}\nthis.__Ctor__=Lanraragi;`, context, { filename: plugin.outputPath });
   const instance = new context.__Ctor__();
   assert.equal(instance.key, "lanraragi");
-  assert.equal(instance.version, "1.2.6");
+  assert.equal(instance.version, "1.2.7");
 });
 
 test("lanraragi search sends bare booleans and tanks are not archives", async () => {
@@ -401,4 +401,121 @@ test("lanraragi explore feeds stay on the search api", async () => {
     "http://10.0.0.102:3000/api/search/random?count=20&groupby_tanks=true",
   );
   assert.equal(calls.some((url) => url.includes("start=")), false);
+});
+
+test("lanraragi page jumps use the learned page size and a new query starts over", async () => {
+  const repoRoot = path.resolve(__dirname, "../..");
+  const source = fs.readFileSync(path.join(repoRoot, "dist/plugins/lanraragi.js"), "utf8");
+  const calls = [];
+  const context = createVeneraHostShim({
+    Network: {
+      get: async (url) => {
+        calls.push(String(url));
+        return {
+          status: 200,
+          body: JSON.stringify({
+            data: [
+              { arcid: "a".repeat(40), title: "A", tags: "" },
+              { arcid: "b".repeat(40), title: "B", tags: "" },
+            ],
+            recordsFiltered: 6,
+          }),
+        };
+      },
+    },
+  });
+  vm.runInContext(`${source}\nthis.__Ctor__=Lanraragi;`, context, {
+    filename: "dist/plugins/lanraragi.js",
+  });
+  const instance = new context.__Ctor__();
+  const store = new Map();
+  instance.loadSetting = () => "http://10.0.0.102:3000";
+  instance.loadData = (key) => (store.has(key) ? store.get(key) : null);
+  instance.saveData = (key, value) => store.set(key, value);
+
+  await instance.explore[0].load(1);
+  calls.length = 0;
+  await instance.explore[0].load(3);
+  assert.equal(calls.length, 1);
+  assert.equal(
+    calls[0],
+    "http://10.0.0.102:3000/api/search?sortby=date_added&order=desc&groupby_tanks=true&start=4",
+  );
+
+  calls.length = 0;
+  await instance.search.load("nest", { 0: "date_added", 1: "desc" }, 2);
+  assert.equal(
+    calls[0],
+    "http://10.0.0.102:3000/api/search?filter=nest&sortby=date_added&order=desc&newonly=false&untaggedonly=false&groupby_tanks=true&start=0",
+  );
+  assert.equal(calls[1].includes("start=2"), true);
+});
+
+test("lanraragi refuses to favorite a tank", async () => {
+  const repoRoot = path.resolve(__dirname, "../..");
+  const source = fs.readFileSync(path.join(repoRoot, "dist/plugins/lanraragi.js"), "utf8");
+  const calls = [];
+  const context = createVeneraHostShim({
+    Network: {
+      get: async () => ({ status: 200, body: "{}" }),
+      put: async (url) => {
+        calls.push(String(url));
+        return { status: 200, body: "" };
+      },
+      delete: async (url) => {
+        calls.push(String(url));
+        return { status: 200, body: "" };
+      },
+    },
+  });
+  vm.runInContext(`${source}\nthis.__Ctor__=Lanraragi;`, context, {
+    filename: "dist/plugins/lanraragi.js",
+  });
+  const instance = new context.__Ctor__();
+  instance.loadSetting = (key) => (key === "apiKey" ? "secret" : "http://10.0.0.102:3000");
+  await assert.rejects(
+    () => instance.favorites.addOrDelFavorite("TANK_1793486619", "SET_0000000001", true),
+    /Cannot favorite a LANraragi tankoubon/,
+  );
+  assert.equal(calls.length, 0);
+});
+
+test("lanraragi refuses a truncated tank index", async () => {
+  const repoRoot = path.resolve(__dirname, "../..");
+  const source = fs.readFileSync(path.join(repoRoot, "dist/plugins/lanraragi.js"), "utf8");
+  const context = createVeneraHostShim({
+    Network: {
+      get: async (url) => {
+        const target = String(url);
+        if (target.includes("/api/search")) {
+          return {
+            status: 200,
+            body: JSON.stringify({
+              data: [{ arcid: "a".repeat(40), title: "Chapter", tags: "" }],
+              recordsFiltered: 1,
+            }),
+          };
+        }
+        if (target.includes("page=1")) {
+          return {
+            status: 200,
+            body: JSON.stringify({
+              result: [{ id: "TANK_1793486766", name: "Partial", archives: ["a".repeat(40)] }],
+              total: 3,
+            }),
+          };
+        }
+        return { status: 200, body: JSON.stringify({ result: [], total: 3 }) };
+      },
+    },
+  });
+  vm.runInContext(`${source}\nthis.__Ctor__=Lanraragi;`, context, {
+    filename: "dist/plugins/lanraragi.js",
+  });
+  const instance = new context.__Ctor__();
+  instance.loadSetting = () => "http://10.0.0.102:3000";
+  await assert.rejects(
+    () => instance.categoryComics.load("SET_0000000001", null, [], 1),
+    /tank index is incomplete/,
+  );
 });
