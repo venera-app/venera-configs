@@ -16,7 +16,7 @@ test("lanraragi artifact boots under runtime shim", () => {
   vm.runInContext(`${source}\nthis.__Ctor__=Lanraragi;`, context, { filename: plugin.outputPath });
   const instance = new context.__Ctor__();
   assert.equal(instance.key, "lanraragi");
-  assert.equal(instance.version, "1.2.8");
+  assert.equal(instance.version, "1.2.9");
 });
 
 test("lanraragi search sends bare booleans and tanks are not archives", async () => {
@@ -191,6 +191,10 @@ test("lanraragi groups category members and never requests tank archive urls", a
 
   calls.length = 0;
   const listed = await instance.categoryComics.load("SET_0000000001", null, [], 1);
+  assert.equal(
+    calls.find((url) => url.includes("/api/search")),
+    "http://10.0.0.102:3000/api/search?category=SET_0000000001&sortby=date_added&order=desc&groupby_tanks=false&start=0",
+  );
   assert.equal(listed.comics.length, 1);
   assert.equal(listed.comics[0].id, tank);
   assert.equal(listed.comics[0].title, "Grouped Series");
@@ -204,6 +208,12 @@ test("lanraragi groups category members and never requests tank archive urls", a
   assert.equal(info.title, "Grouped Series");
   assert.equal(info.chapters[first], "Chapter");
   assert.equal(calls.some((url) => url.includes("/api/archives/" + tank)), false);
+  const tankUrl = "/api/tankoubons/" + tank;
+  const details = calls.filter((url) => url.includes(tankUrl)).length;
+  const metas = calls.filter((url) => url.includes("/metadata")).length;
+  await instance.comic.loadThumbnails(tank);
+  assert.equal(calls.filter((url) => url.includes(tankUrl)).length, details);
+  assert.equal(calls.filter((url) => url.includes("/metadata")).length, metas);
 });
 
 test("lanraragi accepts a bare LAN host and ignores another server's categories", async () => {
@@ -295,7 +305,7 @@ test("lanraragi loads later tank pages before grouping a category", async () => 
             }),
           };
         }
-        if (target.includes("page=1")) {
+        if (/[?&]page=0(?:&|$)/.test(target)) {
           return {
             status: 200,
             body: JSON.stringify({
@@ -304,7 +314,7 @@ test("lanraragi loads later tank pages before grouping a category", async () => 
             }),
           };
         }
-        if (target.includes("page=2")) {
+        if (/[?&]page=1(?:&|$)/.test(target)) {
           return {
             status: 200,
             body: JSON.stringify({
@@ -496,7 +506,7 @@ test("lanraragi refuses a truncated tank index", async () => {
             }),
           };
         }
-        if (target.includes("page=1")) {
+        if (/[?&]page=0(?:&|$)/.test(target)) {
           return {
             status: 200,
             body: JSON.stringify({
@@ -518,4 +528,92 @@ test("lanraragi refuses a truncated tank index", async () => {
     () => instance.categoryComics.load("SET_0000000001", null, [], 1),
     /tank index is incomplete/,
   );
+});
+
+test("lanraragi reads a sibling chapter after opening a tank member", async () => {
+  const repoRoot = path.resolve(__dirname, "../..");
+  const source = fs.readFileSync(path.join(repoRoot, "dist/plugins/lanraragi.js"), "utf8");
+  const tank = "TANK_1793486766";
+  const first = "a".repeat(40);
+  const second = "b".repeat(40);
+  const other = "c".repeat(40);
+  const context = createVeneraHostShim({
+    Network: {
+      get: async (url) => {
+        const target = String(url);
+        if (target.includes("/api/tankoubons?")) {
+          return {
+            status: 200,
+            body: JSON.stringify({
+              result: [{ id: tank, name: "Grouped Series", archives: [first, second] }],
+              total: 1,
+            }),
+          };
+        }
+        if (target.includes("/api/tankoubons/" + tank)) {
+          return {
+            status: 200,
+            body: JSON.stringify({ id: tank, name: "Grouped Series", archives: [first, second] }),
+          };
+        }
+        if (target.includes("/metadata")) {
+          return { status: 200, body: JSON.stringify({ title: "Chapter", tags: "" }) };
+        }
+        if (target.includes("/files")) {
+          const owner = target.includes(second) ? second : first;
+          return {
+            status: 200,
+            body: JSON.stringify({
+              pages: ["./api/archives/" + owner + "/page?path=1.jpg"],
+            }),
+          };
+        }
+        return { status: 200, body: "{}" };
+      },
+    },
+  });
+  vm.runInContext(`${source}\nthis.__Ctor__=Lanraragi;`, context, {
+    filename: "dist/plugins/lanraragi.js",
+  });
+  const instance = new context.__Ctor__();
+  instance.loadSetting = () => "http://10.0.0.102:3000";
+  const info = await instance.comic.loadInfo(first);
+  assert.equal(info.chapters[second], "Chapter");
+  const episode = await instance.comic.loadEp(first, second);
+  assert.equal(episode.images[0], "lrr-page:" + second + ":1.jpg");
+  const loaded = instance.comic.onImageLoad(episode.images[0], first, second);
+  assert.equal(
+    loaded.url,
+    "http://10.0.0.102:3000/api/archives/" + second + "/page?path=1.jpg",
+  );
+  await assert.rejects(
+    () => instance.comic.loadEp(first, other),
+    /LANraragi archive has no chapters/,
+  );
+});
+
+test("lanraragi does not replace tags when rating metadata is invalid", async () => {
+  const repoRoot = path.resolve(__dirname, "../..");
+  const source = fs.readFileSync(path.join(repoRoot, "dist/plugins/lanraragi.js"), "utf8");
+  const puts = [];
+  const archive = "d".repeat(40);
+  const context = createVeneraHostShim({
+    Network: {
+      get: async () => ({ status: 200, body: "{not-json" }),
+      put: async (url) => {
+        puts.push(String(url));
+        return { status: 200, body: "" };
+      },
+    },
+  });
+  vm.runInContext(`${source}\nthis.__Ctor__=Lanraragi;`, context, {
+    filename: "dist/plugins/lanraragi.js",
+  });
+  const instance = new context.__Ctor__();
+  instance.loadSetting = (key) => (key === "apiKey" ? "secret" : "http://10.0.0.102:3000");
+  await assert.rejects(
+    () => instance.comic.starRating(archive, 5),
+    /Invalid LANraragi metadata/,
+  );
+  assert.equal(puts.length, 0);
 });

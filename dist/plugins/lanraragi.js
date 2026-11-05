@@ -1,6 +1,6 @@
 class Lanraragi extends ComicSource {
     constructor(...e) {
-        super(...e), this.name = "Lanraragi", this.key = "lanraragi", this.version = "1.2.8",
+        super(...e), this.name = "Lanraragi", this.key = "lanraragi", this.version = "1.2.9",
         this.minAppVersion = "1.4.0", this.url = resolvePluginUpdateUrl("lanraragi.js"),
         this.settings = {
             api: {
@@ -98,7 +98,8 @@ class Lanraragi extends ComicSource {
             load: async (e, t, r, a) => await this._loadArchivePage(a, `category_start_${String(e || "")}`, {
                 category: e || "",
                 sortby: "date_added",
-                order: "desc"
+                order: "desc",
+                groupby_tanks: "false"
             }, !0)
         }, this.search = {
             load: async (e, t, r = 1) => {
@@ -191,7 +192,8 @@ class Lanraragi extends ComicSource {
                 return await this._loadArchivePage(r, `favorites_start_${String(t || "")}`, {
                     category: t || "",
                     sortby: "date_added",
-                    order: "desc"
+                    order: "desc",
+                    groupby_tanks: "false"
                 }, !1);
             }
         }, this.comic = {
@@ -204,7 +206,7 @@ class Lanraragi extends ComicSource {
                 } catch (e) {
                     if (e === LRR_TANK_INDEX_INCOMPLETE) throw e;
                 }
-                const t = buildSelfHostedUrlFromSource(this, LRR_ROUTES.archiveMetadataPath(e)), r = await Network.get(t, this.headers);
+                const t = buildSelfHostedUrlFromSource(this, LRR_ROUTES.archiveMetadataPath(e)), r = await this._get(t);
                 if (200 !== r.status) throw `Invalid status code: ${r.status}`;
                 const a = JSON.parse(r.body), o = buildSelfHostedUrlFromSource(this, LRR_ROUTES.archiveThumbnailPath(e));
                 let i = toSelfHostedTagArray(a.tags);
@@ -233,7 +235,7 @@ class Lanraragi extends ComicSource {
                 p.length && (h && (h += "\n"), h += "关联：" + p.join(", "));
                 let f = !1, g = [];
                 try {
-                    const t = buildSelfHostedUrlFromSource(this, LRR_ROUTES.archiveCategoriesPath(e)), r = await Network.get(t, this.headers);
+                    const t = buildSelfHostedUrlFromSource(this, LRR_ROUTES.archiveCategoriesPath(e)), r = await this._get(t);
                     if (200 === r.status) {
                         let t = [];
                         try {
@@ -278,7 +280,7 @@ class Lanraragi extends ComicSource {
                         next: null
                     };
                 }
-                const r = buildSelfHostedUrlFromSource(this, LRR_ROUTES.archiveMetadataPath(e)), a = await Network.get(r, this.headers);
+                const r = buildSelfHostedUrlFromSource(this, LRR_ROUTES.archiveMetadataPath(e)), a = await this._get(r);
                 if (200 !== a.status) throw `Invalid status code: ${a.status}`;
                 const o = JSON.parse(a.body).pagecount || 1, i = [];
                 for (let t = 1; t <= o; t++) i.push(buildSelfHostedUrlFromSource(this, LRR_ROUTES.archiveThumbnailPath(e), {
@@ -293,14 +295,15 @@ class Lanraragi extends ComicSource {
                 if (isLrrTankId(e)) throw "Cannot rate a LANraragi tankoubon";
                 const r = this.headers || {};
                 if (!r || 0 === Object.keys(r).length) throw "API token required to submit rating";
-                const a = buildSelfHostedUrlFromSource(this, LRR_ROUTES.archiveMetadataPath(e)), o = await Network.get(a, r);
+                const a = buildSelfHostedUrlFromSource(this, LRR_ROUTES.archiveMetadataPath(e)), o = await this._get(a);
                 if (200 !== o.status) throw `Invalid status code: ${o.status}`;
-                let i = {};
+                let i;
                 try {
                     i = JSON.parse(o.body);
                 } catch (e) {
-                    i = {};
+                    throw "Invalid LANraragi metadata.";
                 }
+                if (!i || "object" != typeof i || Array.isArray(i)) throw "Invalid LANraragi metadata.";
                 let s = toSelfHostedTagArray(i.tags);
                 s = removeSelfHostedTagsByPrefix(s, [ LRR_TAG_PREFIXES.rating ], {
                     caseSensitive: !1
@@ -322,12 +325,15 @@ class Lanraragi extends ComicSource {
                     if (o = a.toLowerCase(), !this._imageBelongs(r, o, o)) throw "LANraragi page belongs to another archive.";
                 } else {
                     if (!isLrrArchiveId(r)) throw "Invalid LANraragi archive ID.";
-                    if (isLrrArchiveId(a) && a.toLowerCase() !== r.toLowerCase()) throw "LANraragi archive has no chapters.";
-                    o = r.toLowerCase();
+                    {
+                        const e = r.toLowerCase(), t = isLrrArchiveId(a) ? a.toLowerCase() : e;
+                        if (t !== e && !this._sameTankChapter(e, t)) throw "LANraragi archive has no chapters.";
+                        o = t;
+                    }
                 }
                 const i = String(this.baseUrl || "").replace(/\/$/, ""), s = buildSelfHostedUrlFromSource(this, LRR_ROUTES.archiveFilesPath(o), {
                     force: "false"
-                }), n = await Network.get(s, this.headers);
+                }), n = await this._get(s);
                 if (200 !== n.status) throw `Invalid status code: ${n.status}`;
                 const l = JSON.parse(n.body), u = l && Array.isArray(l.pages) ? l.pages : null;
                 if (!u || 0 === u.length) throw "LANraragi archive has no pages yet.";
@@ -475,6 +481,21 @@ class Lanraragi extends ComicSource {
         const e = this._identity().headers;
         return Object.assign({}, e);
     }
+    _get(e) {
+        const t = this._identity(), r = t.stamp;
+        this._gets && this._gets.stamp === r || (this._gets = {
+            stamp: r,
+            map: Object.create(null)
+        });
+        const a = this._gets.map[e];
+        if (a) return a;
+        const o = Network.get(e, Object.assign({}, t.headers));
+        this._gets.map[e] = o;
+        const i = () => {
+            this._gets && this._gets.stamp === r && this._gets.map[e] === o && delete this._gets.map[e];
+        };
+        return Promise.resolve(o).then(i, i), o;
+    }
     _loadScopedList(e) {
         if (this.loadData(`${e}_server`) !== this._serverStamp()) return [];
         const t = this.loadData(e);
@@ -482,6 +503,15 @@ class Lanraragi extends ComicSource {
     }
     _saveScopedList(e, t, r) {
         this.saveData(e, r), this.saveData(`${e}_server`, t);
+    }
+    _categoriesFresh(e) {
+        if ("function" != typeof this.loadData) return !1;
+        if (this.loadData("categories_server") !== e) return !1;
+        if (this.loadData("favorites_server") !== e) return !1;
+        const t = Number(this.loadData("categories_ts"));
+        if (!Number.isFinite(t) || Date.now() - t >= 6e4) return !1;
+        const r = this.loadData("categories");
+        return Array.isArray(r) && r.length > 0;
     }
     _toAbsoluteBaseUrl(e) {
         const t = String(e || "").trim();
@@ -502,20 +532,20 @@ class Lanraragi extends ComicSource {
     _acceptTankPage(e) {
         return !e || "object" != typeof e || Array.isArray(e) || !Array.isArray(e.result) || e.result.length > 1e3 || !Number.isSafeInteger(Number(e.total)) || Number(e.total) < 0 || Number(e.total) > 1e5 ? null : e;
     }
-    async _fetchTankPage(e, t, r) {
+    async _fetchTankPage(e, t) {
         try {
-            const a = buildSelfHostedUrl(e, "/api/tankoubons", {
-                page: String(r)
-            }), o = await Network.get(a, t);
-            return o && 200 === o.status ? this._acceptTankPage(JSON.parse(o.body)) : null;
+            const r = buildSelfHostedUrl(e, "/api/tankoubons", {
+                page: String(t)
+            }), a = await this._get(r);
+            return a && 200 === a.status ? this._acceptTankPage(JSON.parse(a.body)) : null;
         } catch (e) {
             return null;
         }
     }
-    async _fetchTankPageBatch(e, t, r, a) {
-        const o = [];
-        for (let i = 0; i < a; i++) o.push(this._fetchTankPage(e, t, r + i));
-        return Promise.all(o);
+    async _fetchTankPageBatch(e, t, r) {
+        const a = [];
+        for (let o = 0; o < r; o++) a.push(this._fetchTankPage(e, t + o));
+        return Promise.all(a);
     }
     _absorbTankPage(e, t, r, a, o) {
         for (const i of e.result) {
@@ -544,7 +574,7 @@ class Lanraragi extends ComicSource {
         if (this._tankIndexPromise && this._tankIndexBase === t && this._tankIndexAuth === r) return await this._tankIndexPromise;
         const a = (this._tankGeneration || 0) + 1;
         this._tankGeneration = a;
-        const o = this._loadTankIndex(t, r, Object.assign({}, e.headers), a);
+        const o = this._loadTankIndex(t, r, a);
         this._tankIndexPromise = o, this._tankIndexBase = t, this._tankIndexAuth = r;
         try {
             await o;
@@ -552,31 +582,31 @@ class Lanraragi extends ComicSource {
             this._tankIndexPromise === o && (this._tankIndexPromise = null);
         }
     }
-    async _loadTankIndex(e, t, r, a) {
-        const o = Object.create(null), i = Object.create(null), s = Object.create(null), n = Object.create(null), l = await this._fetchTankPage(e, r, 1);
-        let u = 0, c = 0;
-        l && l.result.length > 0 && (this._absorbTankPage(l, o, i, s, n), u = l.result.length,
-        c = Number(l.total));
-        for (let t = 2; l && t <= 100 && u < c; t += 16) {
-            const a = Math.min(16, 100 - t + 1), l = await this._fetchTankPageBatch(e, r, t, a);
-            let d = !1;
-            for (let e = 0; e < l.length; e++) {
-                const t = l[e];
+    async _loadTankIndex(e, t, r) {
+        const a = Object.create(null), o = Object.create(null), i = Object.create(null), s = Object.create(null), n = await this._fetchTankPage(e, 0);
+        let l = 0, u = 0;
+        n && (u = Number(n.total), n.result.length > 0 && (this._absorbTankPage(n, a, o, i, s),
+        l = n.result.length));
+        for (let t = 1; n && t < 100 && l < u; t += 16) {
+            const r = Math.min(16, 100 - t), n = await this._fetchTankPageBatch(e, t, r);
+            let c = !1;
+            for (let e = 0; e < n.length; e++) {
+                const t = n[e];
                 if (!t || 0 === t.result.length) {
-                    d = !0;
+                    c = !0;
                     break;
                 }
-                if (this._absorbTankPage(t, o, i, s, n), u += t.result.length, c = Number(t.total),
-                u >= c) {
-                    d = !0;
+                if (this._absorbTankPage(t, a, o, i, s), l += t.result.length, u = Number(t.total),
+                l >= u) {
+                    c = !0;
                     break;
                 }
             }
-            if (d) break;
+            if (c) break;
         }
-        if (l && u < c) throw LRR_TANK_INDEX_INCOMPLETE;
-        this._tankGeneration === a && this._identity().baseUrl === e && this._identity().key === t && (this._memberTank = o,
-        this._tankCover = i, this._tankName = s, this._tankServer = e, this._tankAuth = t);
+        if (n && l < u) throw LRR_TANK_INDEX_INCOMPLETE;
+        this._tankGeneration === r && this._identity().baseUrl === e && this._identity().key === t && (this._memberTank = a,
+        this._tankCover = o, this._tankName = i, this._tankServer = e, this._tankAuth = t);
     }
     _tankListComic(e, t, r) {
         const a = this._tankCover && this._tankCover[e], o = this._tankName && this._tankName[e], i = isLrrArchiveId(a) ? buildSelfHostedUrl(this._toAbsoluteBaseUrl(this.baseUrl), LRR_ROUTES.archiveThumbnailPath(String(a).toLowerCase())) : "", s = r && "object" == typeof r ? r : {};
@@ -592,7 +622,7 @@ class Lanraragi extends ComicSource {
     }
     async _fetchTankCard(e) {
         try {
-            const t = buildSelfHostedUrlFromSource(this, `/api/tankoubons/${e}`), r = await Network.get(t, this.headers);
+            const t = buildSelfHostedUrlFromSource(this, `/api/tankoubons/${e}`), r = await this._get(t);
             if (!r || 200 !== r.status) return null;
             const a = JSON.parse(r.body);
             if (!a || "object" != typeof a || Array.isArray(a)) return null;
@@ -658,7 +688,7 @@ class Lanraragi extends ComicSource {
         const e = buildSelfHostedUrlFromSource(this, `${LRR_ROUTES.searchPath}/random`, {
             count: String(20),
             groupby_tanks: "true"
-        }), t = await Network.get(e, this.headers);
+        }), t = await this._get(e);
         if (!t || 200 !== t.status) throw `Invalid status code: ${t ? t.status : 0}`;
         let r;
         try {
@@ -718,7 +748,7 @@ class Lanraragi extends ComicSource {
     async _fetchLrrSearch(e, t) {
         const r = buildSelfHostedUrlFromSource(this, LRR_ROUTES.searchPath, Object.assign({}, e, {
             start: String(t)
-        })), a = await Network.get(r, this.headers);
+        })), a = await this._get(r);
         if (!a || 200 !== a.status) throw `Invalid status code: ${a ? a.status : 0}`;
         let o;
         try {
@@ -825,8 +855,8 @@ class Lanraragi extends ComicSource {
     async init() {
         let e = "";
         try {
-            e = this._serverStamp();
-            const t = buildSelfHostedUrlFromSource(this, LRR_ROUTES.categoriesPath()), r = await Network.get(t, this.headers);
+            if (e = this._serverStamp(), this._categoriesFresh(e)) return;
+            const t = buildSelfHostedUrlFromSource(this, LRR_ROUTES.categoriesPath()), r = await this._get(t);
             if (this._serverStamp() !== e) return;
             if (200 !== r.status) return this._saveScopedList("categories", e, []), void this._saveScopedList("favorites", e, []);
             let a = [];
@@ -845,7 +875,26 @@ class Lanraragi extends ComicSource {
     async _loadTankInfo(e) {
         const t = String(e || "");
         if (!isLrrTankId(t)) throw "Invalid LANraragi tankoubon ID.";
-        const r = buildSelfHostedUrlFromSource(this, `/api/tankoubons/${t}`), a = await Network.get(r, this.headers);
+        const r = this._serverStamp();
+        this._tankInfo && this._tankInfo.stamp === r || (this._tankInfo = {
+            stamp: r,
+            byId: Object.create(null),
+            pending: Object.create(null)
+        });
+        const a = this._tankInfo.byId[t];
+        if (a) return a;
+        const o = this._tankInfo.pending[t];
+        if (o) return o;
+        const i = this._readTankInfo(t, r);
+        this._tankInfo.pending[t] = i;
+        try {
+            return await i;
+        } finally {
+            this._tankInfo && this._tankInfo.stamp === r && this._tankInfo.pending[t] === i && delete this._tankInfo.pending[t];
+        }
+    }
+    async _readTankInfo(e, t) {
+        const r = buildSelfHostedUrlFromSource(this, `/api/tankoubons/${e}`), a = await this._get(r);
         if (200 !== a.status) throw `Invalid status code: ${a.status}`;
         const o = JSON.parse(a.body), i = o && Array.isArray(o.archives) ? o.archives : [], s = [], n = {};
         for (const e of i) {
@@ -854,12 +903,12 @@ class Lanraragi extends ComicSource {
             if (!Object.prototype.hasOwnProperty.call(n, t) && (n[t] = !0, s.push(t), s.length >= 2e3)) break;
         }
         if (!s.length) throw "LANraragi tankoubon has no chapters.";
-        this._tankChapters || (this._tankChapters = Object.create(null)), this._tankChapters[t] = s;
+        this._tankChapters || (this._tankChapters = Object.create(null)), this._tankChapters[e] = s;
         const l = {}, u = s.slice(0, 40);
         await Promise.all(u.map(async (e, t) => {
             l[e] = "Chapter " + (t + 1);
             try {
-                const t = buildSelfHostedUrlFromSource(this, LRR_ROUTES.archiveMetadataPath(e)), r = await Network.get(t, this.headers);
+                const t = buildSelfHostedUrlFromSource(this, LRR_ROUTES.archiveMetadataPath(e)), r = await this._get(t);
                 if (200 !== r.status) return;
                 const a = JSON.parse(r.body);
                 a && "string" == typeof a.title && a.title.trim() && (l[e] = a.title.trim().slice(0, 300));
@@ -870,9 +919,8 @@ class Lanraragi extends ComicSource {
             const t = s[e];
             c[t] = l[t] || "Chapter " + (e + 1);
         }
-        const d = buildSelfHostedUrlFromSource(this, LRR_ROUTES.archiveThumbnailPath(s[0]));
-        return {
-            title: o && (o.name || o.title) || t,
+        const d = buildSelfHostedUrlFromSource(this, LRR_ROUTES.archiveThumbnailPath(s[0])), p = {
+            title: o && (o.name || o.title) || e,
             cover: d,
             description: o && o.summary || "",
             tags: {},
@@ -881,11 +929,21 @@ class Lanraragi extends ComicSource {
             isFavorite: !1,
             folders: []
         };
+        return this._tankInfo && this._tankInfo.stamp === t && (this._tankInfo.byId[e] = p),
+        p;
+    }
+    _sameTankChapter(e, t) {
+        const r = String(e || "").toLowerCase(), a = String(t || "").toLowerCase();
+        if (!isLrrArchiveId(r) || !isLrrArchiveId(a) || r === a) return !1;
+        const o = this._memberTank && this._memberTank[r];
+        if (!isLrrTankId(o)) return !1;
+        const i = this._tankChapters && this._tankChapters[o];
+        return !!(i && i.indexOf(a) >= 0);
     }
     _imageBelongs(e, t, r) {
         const a = String(r || "").toLowerCase(), o = String(t || ""), i = String(e || "");
         if (isLrrArchiveId(o) && o.toLowerCase() !== a) return !1;
-        if (isLrrArchiveId(i)) return i.toLowerCase() === a;
+        if (isLrrArchiveId(i)) return i.toLowerCase() === a || this._sameTankChapter(i, a);
         if (!isLrrTankId(i)) return !1;
         const s = this._tankChapters && this._tankChapters[i];
         if (s) return s.indexOf(a) >= 0;
@@ -2954,7 +3012,7 @@ const LRR_ROUTES = createSelfHostedRouteHelpers(), LRR_TAG_PREFIXES = {
     rating: "rating:",
     dateAdded: "date_added:",
     source: "source:"
-}, LRR_TAG_FILTER_PREFIXES = [ LRR_TAG_PREFIXES.rating, LRR_TAG_PREFIXES.dateAdded, LRR_TAG_PREFIXES.source ], LRR_SORT_KEYS = [ "title", "date_added", "lastread" ], LRR_ORDERS = [ "asc", "desc" ], LRR_BOOLS = [ "true", "false" ], LRR_TANK_INDEX_PAGES = 100, LRR_TANK_INDEX_INCOMPLETE = "LANraragi tank index is incomplete.", LRR_TANK_PAGE_FETCHES = 16, LRR_EXPLORE_RANDOM_COUNT = 20;
+}, LRR_TAG_FILTER_PREFIXES = [ LRR_TAG_PREFIXES.rating, LRR_TAG_PREFIXES.dateAdded, LRR_TAG_PREFIXES.source ], LRR_SORT_KEYS = [ "title", "date_added", "lastread" ], LRR_ORDERS = [ "asc", "desc" ], LRR_BOOLS = [ "true", "false" ], LRR_TANK_INDEX_PAGES = 100, LRR_TANK_INDEX_INCOMPLETE = "LANraragi tank index is incomplete.", LRR_TANK_PAGE_FETCHES = 16, LRR_EXPLORE_RANDOM_COUNT = 20, LRR_CATEGORY_TTL_MS = 6e4;
 
 function unwrapLrrOption(e, t) {
     let r = e;
