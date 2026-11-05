@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-11-05T22:26:56.119Z",
+  "generatedAt": "2026-11-05T22:48:55.026Z",
   "releaseAuthorityPath": "scripts/config/release-authority.json",
   "releaseAuthority": {
     "provider": "jsdelivr",
@@ -143,7 +143,7 @@
       "name": "Lanraragi",
       "fileName": "lanraragi.js",
       "key": "lanraragi",
-      "version": "1.2.7",
+      "version": "1.2.8",
       "url": "https://cdn.jsdelivr.net/gh/mythic3011/venera-configs@main/dist/plugins/lanraragi.js"
     },
     {
@@ -916,7 +916,7 @@
       "id": "lanraragi",
       "artifact": "lanraragi.js",
       "name": "Lanraragi",
-      "version": "1.2.7",
+      "version": "1.2.8",
       "minAppVersion": "1.4.0",
       "description": null,
       "aliases": [],
@@ -945,8 +945,8 @@
       "outputPath": "dist/plugins/lanraragi.js",
       "publicUrl": "https://cdn.jsdelivr.net/gh/mythic3011/venera-configs@main/dist/plugins/lanraragi.js",
       "checksums": {
-        "sha256": "d8e3e5a14c1cafdb903beffed0bd4744da499f839191c6e64ef9d3129080d091",
-        "bytes": 124556
+        "sha256": "4389f04cc0fc4799102ed0c5506fc0aa17b703e62d798ac6b433e2c756a3bbd5",
+        "bytes": 123755
       }
     },
     {

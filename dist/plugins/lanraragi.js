@@ -1,6 +1,6 @@
 class Lanraragi extends ComicSource {
     constructor(...e) {
-        super(...e), this.name = "Lanraragi", this.key = "lanraragi", this.version = "1.2.7",
+        super(...e), this.name = "Lanraragi", this.key = "lanraragi", this.version = "1.2.8",
         this.minAppVersion = "1.4.0", this.url = resolvePluginUpdateUrl("lanraragi.js"),
         this.settings = {
             api: {
@@ -231,7 +231,7 @@ class Lanraragi extends ComicSource {
                 });
                 let h = a.summary || "";
                 p.length && (h && (h += "\n"), h += "关联：" + p.join(", "));
-                let g = !1, f = [];
+                let f = !1, g = [];
                 try {
                     const t = buildSelfHostedUrlFromSource(this, LRR_ROUTES.archiveCategoriesPath(e)), r = await Network.get(t, this.headers);
                     if (200 === r.status) {
@@ -248,7 +248,7 @@ class Lanraragi extends ComicSource {
                                 const t = Array.isArray(a.archives) ? a.archives : [];
                                 Array.isArray(t) && t.some(t => String(t) === String(e)) && r.push(a);
                             }
-                            r.length > 0 && (g = !0, f = r.map(e => {
+                            r.length > 0 && (f = !0, g = r.map(e => {
                                 var t, r, a;
                                 return String(null != (t = null != (r = null != (a = e.id) ? a : e._id) ? r : e.name) ? t : e);
                             }));
@@ -266,8 +266,8 @@ class Lanraragi extends ComicSource {
                     tags: d,
                     stars: m,
                     chapters: y,
-                    isFavorite: g,
-                    folders: f
+                    isFavorite: f,
+                    folders: g
                 };
             },
             loadThumbnails: async (e, t) => {
@@ -513,16 +513,9 @@ class Lanraragi extends ComicSource {
         }
     }
     async _fetchTankPageBatch(e, t, r, a) {
-        const o = new Array(a);
-        let i = 0;
-        const s = async () => {
-            for (;i < a; ) {
-                const a = i;
-                i += 1, o[a] = await this._fetchTankPage(e, t, r + a);
-            }
-        }, n = Math.min(4, a), l = [];
-        for (let e = 0; e < n; e++) l.push(s());
-        return await Promise.all(l), o;
+        const o = [];
+        for (let i = 0; i < a; i++) o.push(this._fetchTankPage(e, t, r + i));
+        return Promise.all(o);
     }
     _absorbTankPage(e, t, r, a, o) {
         for (const i of e.result) {
@@ -564,23 +557,22 @@ class Lanraragi extends ComicSource {
         let u = 0, c = 0;
         l && l.result.length > 0 && (this._absorbTankPage(l, o, i, s, n), u = l.result.length,
         c = Number(l.total));
-        let d = 2;
-        for (;l && d <= 100 && u < c; ) {
-            const t = Math.min(4, 100 - d + 1), a = await this._fetchTankPageBatch(e, r, d, t);
-            let l = !1;
-            for (let e = 0; e < a.length; e++) {
-                const t = a[e];
+        for (let t = 2; l && t <= 100 && u < c; t += 16) {
+            const a = Math.min(16, 100 - t + 1), l = await this._fetchTankPageBatch(e, r, t, a);
+            let d = !1;
+            for (let e = 0; e < l.length; e++) {
+                const t = l[e];
                 if (!t || 0 === t.result.length) {
-                    l = !0;
+                    d = !0;
                     break;
                 }
                 if (this._absorbTankPage(t, o, i, s, n), u += t.result.length, c = Number(t.total),
-                d += 1, u >= c) {
-                    l = !0;
+                u >= c) {
+                    d = !0;
                     break;
                 }
             }
-            if (l) break;
+            if (d) break;
         }
         if (l && u < c) throw LRR_TANK_INDEX_INCOMPLETE;
         this._tankGeneration === a && this._identity().baseUrl === e && this._identity().key === t && (this._memberTank = o,
@@ -627,16 +619,10 @@ class Lanraragi extends ComicSource {
         const r = [];
         for (const t of e) this._tankCards.byId[t] || r.push(t);
         if (!r.length) return;
-        const a = new Array(r.length);
-        let o = 0;
-        const i = async () => {
-            for (;o < r.length; ) {
-                const e = o;
-                o += 1, a[e] = await this._fetchTankCard(r[e]);
-            }
-        }, s = Math.min(4, r.length), n = [];
-        for (let e = 0; e < s; e++) n.push(i());
-        if (await Promise.all(n), this._tankCards && this._tankCards.stamp === t) for (let e = 0; e < r.length; e++) a[e] && (this._tankCards.byId[r[e]] = a[e]);
+        const a = [];
+        for (let e = 0; e < r.length; e++) a.push(this._fetchTankCard(r[e]));
+        const o = await Promise.all(a);
+        if (this._tankCards && this._tankCards.stamp === t) for (let e = 0; e < r.length; e++) o[e] && (this._tankCards.byId[r[e]] = o[e]);
     }
     _tankListComicFromCard(e, t) {
         const r = isLrrArchiveId(t && t.cover) ? buildSelfHostedUrl(this._toAbsoluteBaseUrl(this.baseUrl), LRR_ROUTES.archiveThumbnailPath(t.cover)) : e.cover || "";
@@ -712,21 +698,16 @@ class Lanraragi extends ComicSource {
         }
         return r;
     }
-    _lrrSearchScope(e, t) {
-        const r = t && "object" == typeof t ? t : {}, a = [ "filter", "sortby", "order", "newonly", "untaggedonly", "groupby_tanks", "category" ], o = [ String(e || "") ];
-        for (const e of a) o.push(null == r[e] ? "" : String(r[e]));
-        return o.join("");
+    _lrrPageSizeKey() {
+        return `lrr_page_size_${this._serverStamp()}`;
     }
-    _lrrPageSizeKey(e) {
-        return `lrr_page_size_${this._serverStamp()}_${e}`;
-    }
-    _readLrrPageSize(e) {
+    _readLrrPageSize() {
         if ("function" != typeof this.loadData) return null;
-        const t = Number(this.loadData(this._lrrPageSizeKey(e)));
-        return Number.isInteger(t) && t >= 1 ? t : null;
+        const e = Number(this.loadData(this._lrrPageSizeKey()));
+        return Number.isInteger(e) && e >= 1 ? e : null;
     }
-    _storeLrrPageSize(e, t) {
-        "function" == typeof this.saveData && (!Number.isInteger(t) || t < 1 || this.saveData(this._lrrPageSizeKey(e), t));
+    _storeLrrPageSize(e) {
+        "function" == typeof this.saveData && (!Number.isInteger(e) || e < 1 || this.saveData(this._lrrPageSizeKey(), e));
     }
     _fullLrrPageSize(e, t, r) {
         return t > 0 && "number" == typeof r && e + t < r ? t : null;
@@ -765,34 +746,34 @@ class Lanraragi extends ComicSource {
         };
     }
     async _loadArchivePage(e, t, r, a) {
-        const o = Number(e), i = Number.isInteger(o) && o >= 1 ? o : 1, s = this._lrrSearchScope(t, r);
-        let n = this._readLrrPageSize(s);
-        if (i > 1 && !n) {
+        const o = Number(e), i = Number.isInteger(o) && o >= 1 ? o : 1;
+        let s = this._readLrrPageSize();
+        if (i > 1 && !s) {
             const e = await this._fetchLrrSearch(r, 0), t = this._fullLrrPageSize(0, e.list.length, e.total);
             if (!t) return this._packArchivePage({
                 data: e.data,
                 list: []
             }, a, 1);
-            if (this._storeLrrPageSize(s, t), n = t, (i - 1) * n >= e.total) return this._packArchivePage({
+            if (this._storeLrrPageSize(t), s = t, (i - 1) * s >= e.total) return this._packArchivePage({
                 data: e.data,
                 list: []
-            }, a, Math.max(1, Math.ceil(e.total / n)));
+            }, a, Math.max(1, Math.ceil(e.total / s)));
         }
-        const l = i <= 1 ? 0 : (i - 1) * n;
-        let u = await this._fetchLrrSearch(r, l);
-        const c = this._fullLrrPageSize(l, u.list.length, u.total);
-        if (c && c !== n) {
-            if (this._storeLrrPageSize(s, c), n && i > 1) {
-                const e = (i - 1) * c;
-                if (e !== l) {
-                    u = await this._fetchLrrSearch(r, e);
-                    const t = this._fullLrrPageSize(e, u.list.length, u.total);
-                    t && t !== c && this._storeLrrPageSize(s, t);
+        const n = i <= 1 ? 0 : (i - 1) * s;
+        let l = await this._fetchLrrSearch(r, n);
+        const u = this._fullLrrPageSize(n, l.list.length, l.total);
+        if (u && u !== s) {
+            if (this._storeLrrPageSize(u), s && i > 1) {
+                const e = (i - 1) * u;
+                if (e !== n) {
+                    l = await this._fetchLrrSearch(r, e);
+                    const t = this._fullLrrPageSize(e, l.list.length, l.total);
+                    t && t !== u && this._storeLrrPageSize(t);
                 }
             }
-            n = c;
-        } else c && (this._storeLrrPageSize(s, c), n = c);
-        return this._packArchivePage(u, a, this._lrrMaxPage(i, u.list.length, u.total, n));
+            s = u;
+        } else u && (this._storeLrrPageSize(u), s = u);
+        return this._packArchivePage(l, a, this._lrrMaxPage(i, l.list.length, l.total, s));
     }
     _toStarsFromValue(e) {
         if (null == e) return null;
@@ -1042,10 +1023,10 @@ ManagedRequestClient.prototype.get = function(e, t, r) {
     if (d && d > Date.now()) throw `${c.action} blocked: temporary cooldown in effect`;
     const p = this._resolveHeaders(e, t, r || {}, c), h = c.requestKey;
     if (c.allowDedup && h && i.requestState.inflight.has(h)) return i.requestState.inflight.get(h);
-    const g = createDomainQueue(i.requestState, c.domainKey, () => this._sendWithRetry(e, t, p, a, c));
-    c.allowDedup && h && i.requestState.inflight.set(h, g);
+    const f = createDomainQueue(i.requestState, c.domainKey, () => this._sendWithRetry(e, t, p, a, c));
+    c.allowDedup && h && i.requestState.inflight.set(h, f);
     try {
-        return await g;
+        return await f;
     } finally {
         c.allowDedup && h && i.requestState.inflight.delete(h);
     }
@@ -1616,9 +1597,9 @@ function createOffsetSearchLoader(e) {
     if (!a || !o || !i) throw new Error("Invalid createOffsetSearchLoader options");
     return async function(e, t) {
         if (!e || "object" != typeof e) throw new Error("runOffsetSearch requires plugin source");
-        const l = t && "object" == typeof t && !Array.isArray(t) ? t : {}, u = Number(l.page || 1), c = stripSelfHostedTrailingSlash(e.baseUrl), d = a(l), p = readSelfHostedOffset(e, d, u), h = buildSelfHostedQueryFromSource(o(l, p)), g = h ? `${c}${r}?${h}` : `${c}${r}`, f = await Network.get(g, e.headers);
-        if (200 !== f.status) throw `${n}: ${f.status}`;
-        const y = parseSelfHostedJsonBody(f.body) || {}, m = Array.isArray(y.data) ? y.data : [], S = m.map(t => i(t, {
+        const l = t && "object" == typeof t && !Array.isArray(t) ? t : {}, u = Number(l.page || 1), c = stripSelfHostedTrailingSlash(e.baseUrl), d = a(l), p = readSelfHostedOffset(e, d, u), h = buildSelfHostedQueryFromSource(o(l, p)), f = h ? `${c}${r}?${h}` : `${c}${r}`, g = await Network.get(f, e.headers);
+        if (200 !== g.status) throw `${n}: ${g.status}`;
+        const y = parseSelfHostedJsonBody(g.body) || {}, m = Array.isArray(y.data) ? y.data : [], S = m.map(t => i(t, {
             source: e,
             base: c,
             input: l
@@ -2973,7 +2954,7 @@ const LRR_ROUTES = createSelfHostedRouteHelpers(), LRR_TAG_PREFIXES = {
     rating: "rating:",
     dateAdded: "date_added:",
     source: "source:"
-}, LRR_TAG_FILTER_PREFIXES = [ LRR_TAG_PREFIXES.rating, LRR_TAG_PREFIXES.dateAdded, LRR_TAG_PREFIXES.source ], LRR_SORT_KEYS = [ "title", "date_added", "lastread" ], LRR_ORDERS = [ "asc", "desc" ], LRR_BOOLS = [ "true", "false" ], LRR_TANK_INDEX_PAGES = 100, LRR_TANK_INDEX_INCOMPLETE = "LANraragi tank index is incomplete.", LRR_TANK_PAGE_FETCHES = 4, LRR_EXPLORE_RANDOM_COUNT = 20;
+}, LRR_TAG_FILTER_PREFIXES = [ LRR_TAG_PREFIXES.rating, LRR_TAG_PREFIXES.dateAdded, LRR_TAG_PREFIXES.source ], LRR_SORT_KEYS = [ "title", "date_added", "lastread" ], LRR_ORDERS = [ "asc", "desc" ], LRR_BOOLS = [ "true", "false" ], LRR_TANK_INDEX_PAGES = 100, LRR_TANK_INDEX_INCOMPLETE = "LANraragi tank index is incomplete.", LRR_TANK_PAGE_FETCHES = 16, LRR_EXPLORE_RANDOM_COUNT = 20;
 
 function unwrapLrrOption(e, t) {
     let r = e;

@@ -15,7 +15,7 @@ const LRR_ORDERS = ["asc", "desc"];
 const LRR_BOOLS = ["true", "false"];
 const LRR_TANK_INDEX_PAGES = 100;
 const LRR_TANK_INDEX_INCOMPLETE = "LANraragi tank index is incomplete.";
-const LRR_TANK_PAGE_FETCHES = 4;
+const LRR_TANK_PAGE_FETCHES = 16;
 const LRR_EXPLORE_RANDOM_COUNT = 20;
 
 // Venera-Next may pass a select value as a JSON string ("false"). LANraragi
@@ -208,7 +208,7 @@ function resolveLrrBaseUrl(rawValue, fallbackValue) {
 class Lanraragi extends ComicSource {
   name = "Lanraragi";
   key = "lanraragi";
-  version = "1.2.7";
+  version = "1.2.8";
   minAppVersion = "1.4.0";
   url = resolvePluginUpdateUrl("lanraragi.js");
 
@@ -360,20 +360,11 @@ class Lanraragi extends ComicSource {
   }
 
   async _fetchTankPageBatch(base, headers, startPage, count) {
-    const out = new Array(count);
-    let next = 0;
-    const worker = async () => {
-      while (next < count) {
-        const index = next;
-        next += 1;
-        out[index] = await this._fetchTankPage(base, headers, startPage + index);
-      }
-    };
-    const width = Math.min(LRR_TANK_PAGE_FETCHES, count);
-    const workers = [];
-    for (let i = 0; i < width; i++) workers.push(worker());
-    await Promise.all(workers);
-    return out;
+    const jobs = [];
+    for (let i = 0; i < count; i++) {
+      jobs.push(this._fetchTankPage(base, headers, startPage + i));
+    }
+    return Promise.all(jobs);
   }
 
   _absorbTankPage(response, memberTank, covers, names, ambiguous) {
@@ -448,8 +439,11 @@ class Lanraragi extends ComicSource {
       seen = first.result.length;
       total = Number(first.total);
     }
-    let page = 2;
-    while (first && page <= LRR_TANK_INDEX_PAGES && seen < total) {
+    for (
+      let page = 2;
+      first && page <= LRR_TANK_INDEX_PAGES && seen < total;
+      page += LRR_TANK_PAGE_FETCHES
+    ) {
       const count = Math.min(LRR_TANK_PAGE_FETCHES, LRR_TANK_INDEX_PAGES - page + 1);
       const batch = await this._fetchTankPageBatch(base, headers, page, count);
       let stop = false;
@@ -462,7 +456,6 @@ class Lanraragi extends ComicSource {
         this._absorbTankPage(response, memberTank, covers, names, ambiguous);
         seen += response.result.length;
         total = Number(response.total);
-        page += 1;
         if (seen >= total) {
           stop = true;
           break;
@@ -539,19 +532,11 @@ class Lanraragi extends ComicSource {
       if (!this._tankCards.byId[id]) missing.push(id);
     }
     if (!missing.length) return;
-    const cards = new Array(missing.length);
-    let next = 0;
-    const worker = async () => {
-      while (next < missing.length) {
-        const index = next;
-        next += 1;
-        cards[index] = await this._fetchTankCard(missing[index]);
-      }
-    };
-    const width = Math.min(LRR_TANK_PAGE_FETCHES, missing.length);
-    const workers = [];
-    for (let i = 0; i < width; i++) workers.push(worker());
-    await Promise.all(workers);
+    const jobs = [];
+    for (let i = 0; i < missing.length; i++) {
+      jobs.push(this._fetchTankCard(missing[i]));
+    }
+    const cards = await Promise.all(jobs);
     if (!this._tankCards || this._tankCards.stamp !== stamp) return;
     for (let i = 0; i < missing.length; i++) {
       if (cards[i]) this._tankCards.byId[missing[i]] = cards[i];
@@ -674,38 +659,20 @@ class Lanraragi extends ComicSource {
     return comics;
   }
 
-  _lrrSearchScope(offsetKey, query) {
-    const source = query && typeof query === "object" ? query : {};
-    const fields = [
-      "filter",
-      "sortby",
-      "order",
-      "newonly",
-      "untaggedonly",
-      "groupby_tanks",
-      "category",
-    ];
-    const parts = [String(offsetKey || "")];
-    for (const field of fields) {
-      parts.push(source[field] == null ? "" : String(source[field]));
-    }
-    return parts.join("\u0001");
+  _lrrPageSizeKey() {
+    return `lrr_page_size_${this._serverStamp()}`;
   }
 
-  _lrrPageSizeKey(scope) {
-    return `lrr_page_size_${this._serverStamp()}_${scope}`;
-  }
-
-  _readLrrPageSize(scope) {
+  _readLrrPageSize() {
     if (typeof this.loadData !== "function") return null;
-    const size = Number(this.loadData(this._lrrPageSizeKey(scope)));
+    const size = Number(this.loadData(this._lrrPageSizeKey()));
     return Number.isInteger(size) && size >= 1 ? size : null;
   }
 
-  _storeLrrPageSize(scope, size) {
+  _storeLrrPageSize(size) {
     if (typeof this.saveData !== "function") return;
     if (!Number.isInteger(size) || size < 1) return;
-    this.saveData(this._lrrPageSizeKey(scope), size);
+    this.saveData(this._lrrPageSizeKey(), size);
   }
 
   _fullLrrPageSize(start, returned, total) {
@@ -767,8 +734,7 @@ class Lanraragi extends ComicSource {
   async _loadArchivePage(page, offsetKey, query, collapse) {
     const parsed = Number(page);
     const requested = Number.isInteger(parsed) && parsed >= 1 ? parsed : 1;
-    const scope = this._lrrSearchScope(offsetKey, query);
-    let size = this._readLrrPageSize(scope);
+    let size = this._readLrrPageSize();
 
     if (requested > 1 && !size) {
       const probe = await this._fetchLrrSearch(query, 0);
@@ -776,7 +742,7 @@ class Lanraragi extends ComicSource {
       if (!learned) {
         return this._packArchivePage({ data: probe.data, list: [] }, collapse, 1);
       }
-      this._storeLrrPageSize(scope, learned);
+      this._storeLrrPageSize(learned);
       size = learned;
       if ((requested - 1) * size >= probe.total) {
         return this._packArchivePage(
@@ -791,7 +757,7 @@ class Lanraragi extends ComicSource {
     let fetched = await this._fetchLrrSearch(query, start);
     const learned = this._fullLrrPageSize(start, fetched.list.length, fetched.total);
     if (learned && learned !== size) {
-      this._storeLrrPageSize(scope, learned);
+      this._storeLrrPageSize(learned);
       if (size && requested > 1) {
         const corrected = (requested - 1) * learned;
         if (corrected !== start) {
@@ -801,12 +767,12 @@ class Lanraragi extends ComicSource {
             fetched.list.length,
             fetched.total,
           );
-          if (again && again !== learned) this._storeLrrPageSize(scope, again);
+          if (again && again !== learned) this._storeLrrPageSize(again);
         }
       }
       size = learned;
     } else if (learned) {
-      this._storeLrrPageSize(scope, learned);
+      this._storeLrrPageSize(learned);
       size = learned;
     }
 

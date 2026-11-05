@@ -16,7 +16,7 @@ test("lanraragi artifact boots under runtime shim", () => {
   vm.runInContext(`${source}\nthis.__Ctor__=Lanraragi;`, context, { filename: plugin.outputPath });
   const instance = new context.__Ctor__();
   assert.equal(instance.key, "lanraragi");
-  assert.equal(instance.version, "1.2.7");
+  assert.equal(instance.version, "1.2.8");
 });
 
 test("lanraragi search sends bare booleans and tanks are not archives", async () => {
@@ -444,11 +444,11 @@ test("lanraragi page jumps use the learned page size and a new query starts over
 
   calls.length = 0;
   await instance.search.load("nest", { 0: "date_added", 1: "desc" }, 2);
+  assert.equal(calls.length, 1);
   assert.equal(
     calls[0],
-    "http://10.0.0.102:3000/api/search?filter=nest&sortby=date_added&order=desc&newonly=false&untaggedonly=false&groupby_tanks=true&start=0",
+    "http://10.0.0.102:3000/api/search?filter=nest&sortby=date_added&order=desc&newonly=false&untaggedonly=false&groupby_tanks=true&start=2",
   );
-  assert.equal(calls[1].includes("start=2"), true);
 });
 
 test("lanraragi refuses to favorite a tank", async () => {
