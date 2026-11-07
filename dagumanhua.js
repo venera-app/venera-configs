@@ -9,13 +9,17 @@ class DaGuManHua extends ComicSource {
 
   key = "dagumanhua";
 
-  version = "1.0.0";
+  version = "1.0.1";
 
   minAppVersion = "1.4.0";
 
   url = "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/dagumanhua.js";
 
   baseUrl = "https://www.dgmh123.com";
+
+  // dgmh123.com 会 301 到 dagumanhua.cc; 搜索必须直接 POST 到 HTTP 的
+  // dagumanhua.cc, 否则跨域/HTTPS 重定向会丢掉 POST 表单。
+  searchBaseUrl = "http://www.dagumanhua.cc";
 
   get headers() {
     return {
@@ -51,10 +55,84 @@ class DaGuManHua extends ComicSource {
     return url;
   }
 
+  // EmpireCMS 搜索: POST /e/search/ 会返回 /search/{id}/1.html, 但这个美化
+  // 地址的模板是空的; 需要用返回的 searchid 再请求 /e/search/result/index.php。
   search = {
-    // 站点搜索接口当前总是返回“没有搜索到相关的内容”
-    load: async () => {
-      throw "站点搜索接口不可用，请从发现页浏览";
+    load: async (keyword, options, page) => {
+      // HTTPS 站点禁用了搜索, HTTP 的 dagumanhua.cc 仍可用同源搜索
+      const searchBase = "http://www.dagumanhua.cc";
+      const res = await Network.post(
+        `${searchBase}/e/search/`,
+        {
+          "content-type": "application/x-www-form-urlencoded",
+          ...this.headers,
+          Referer: searchBase + "/",
+        },
+        [
+          "show=title,writer",
+          "tempid=1",
+          "tbname=book",
+          `keyboard=${encodeURIComponent(keyword)}`,
+        ].join("&")
+      );
+      if (res.status !== 200) {
+        throw `Invalid search status code: ${res.status}`;
+      }
+      const idMatch = res.body.match(/\/search\/(\d+)\/1\.html/);
+      if (!idMatch) {
+        throw "搜索接口异常";
+      }
+
+      // EmpireCMS 结果页的页码从 0 开始。
+      const pageParam = Math.max(1, page || 1) - 1;
+      const result = await Network.get(
+        `${searchBase}/e/search/result/index.php?searchid=${idMatch[1]}&page=${pageParam}`,
+        {
+          ...this.headers,
+          Referer: searchBase + "/",
+        }
+      );
+      if (result.status !== 200) {
+        throw `Invalid search result status: ${result.status}`;
+      }
+
+      const doc = new HtmlDocument(result.body);
+      const comics = [];
+      const seen = {};
+      for (const dl of doc.querySelectorAll("#sitembox dl")) {
+        const a = dl.querySelector("dt a[href]") || dl.querySelector("h3 a[href]");
+        const href = a?.attributes["href"];
+        if (!href || seen[href]) {
+          continue;
+        }
+        const title = (dl.querySelector("dd h3 a")?.text || "")
+          .replace(/\s+/g, " ")
+          .trim();
+        if (!title) {
+          continue;
+        }
+        const img = dl.querySelector("dt img");
+        seen[href] = true;
+        comics.push(
+          new Comic({
+            id: this.fixUrl(href),
+            title: title,
+            cover: this.fixUrl(img?.attributes["src"] || ""),
+          })
+        );
+      }
+
+      let maxPage = 1;
+      for (const a of doc.querySelectorAll(".pages a[href]")) {
+        const match = (a.attributes["href"] || "").match(/[?&]page=(\d+)/);
+        if (match) {
+          const n = parseInt(match[1], 10) + 1;
+          if (n > maxPage) {
+            maxPage = n;
+          }
+        }
+      }
+      return { comics: comics, maxPage: maxPage };
     },
 
     enableTagsSuggestions: false,

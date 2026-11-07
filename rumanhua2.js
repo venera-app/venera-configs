@@ -13,7 +13,7 @@ class RuManHua2 extends ComicSource {
 
   key = "rumanhua2";
 
-  version = "1.0.0";
+  version = "1.0.1";
 
   minAppVersion = "1.4.0";
 
@@ -120,11 +120,39 @@ class RuManHua2 extends ComicSource {
     return JSON.parse(json);
   }
 
-  // 站点搜索接口 (/s?k=) 目前对任何关键词都返回"小于2个字", 无法使用;
-  // 保留 search 字段以满足解析器要求, 实际通过发现页浏览。
+  // 搜索是表单 POST /s (字段 k), 不是 GET /s?k=, 用 GET 会一直提示"小于2个字"。
+  // 另外必须用 www 域名 POST, 非 www 的搜索接口会返回错误页。
   search = {
-    load: async () => {
-      throw "站点搜索接口已关闭，请从发现页浏览";
+    load: async (keyword, options, page) => {
+      const res = await Network.post(
+        "http://www.rumanhua2.com/s",
+        {
+          "content-type": "application/x-www-form-urlencoded",
+          ...this.headers,
+        },
+        `k=${encodeURIComponent(keyword)}`
+      );
+      if (res.status !== 200) {
+        throw `Invalid status code: ${res.status}`;
+      }
+
+      // POST /s 返回的是 JSON: {code:"200", data:[{id,imgurl,name,remarks}]}
+      const json = JSON.parse(res.body);
+      if (String(json.code) !== "200" || !Array.isArray(json.data)) {
+        throw json.msg || "搜索接口异常";
+      }
+      return {
+        comics: json.data.map(
+          (item) =>
+            new Comic({
+              id: `/${item.id}/`,
+              title: (item.name || "").replace(/\s+/g, " ").trim(),
+              cover: this.fixUrl(item.imgurl || ""),
+              subTitle: (item.remarks || "").replace(/\s+/g, " ").trim(),
+            })
+        ),
+        maxPage: 1,
+      };
     },
 
     enableTagsSuggestions: false,
