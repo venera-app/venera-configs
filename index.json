@@ -279,5 +279,11 @@
         "fileName": "dongmanla.js",
         "key": "dongmanla",
         "version": "1.0.0"
+    },
+    {
+        "name": "大古漫画",
+        "fileName": "dagumanhua.js",
+        "key": "dagumanhua",
+        "version": "1.0.0"
     }
 ]
