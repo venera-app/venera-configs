@@ -285,5 +285,11 @@
         "fileName": "dagumanhua.js",
         "key": "dagumanhua",
         "version": "1.0.0"
+    },
+    {
+        "name": "鸟鸟韩漫",
+        "fileName": "nnhanman.js",
+        "key": "nnhanman",
+        "version": "1.0.0"
     }
 ]
