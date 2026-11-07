@@ -201,5 +201,11 @@
         "key": "mycomic",
         "version": "1.1.0",
         "description": "mycomic.com漫画源, 遇到Cloudflare验证请在源设置中登录"
+    },
+    {
+        "name": "漫画家",
+        "fileName": "mhjia.js",
+        "key": "mhjia",
+        "version": "1.0.0"
     }
 ]
