@@ -207,5 +207,17 @@
         "fileName": "mhjia.js",
         "key": "mhjia",
         "version": "1.0.0"
+    },
+    {
+        "name": "污漫天堂",
+        "fileName": "wmtt5.js",
+        "key": "wmtt5",
+        "version": "1.0.0"
+    },
+    {
+        "name": "漫画屋",
+        "fileName": "mhua5.js",
+        "key": "mhua5",
+        "version": "1.0.0"
     }
 ]
