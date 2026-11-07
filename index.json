@@ -297,5 +297,29 @@
         "fileName": "kxkmh.js",
         "key": "kxkmh",
         "version": "1.0.0"
+    },
+    {
+        "name": "漫客栈",
+        "fileName": "mkzhan.js",
+        "key": "mkzhan",
+        "version": "1.0.1"
+    },
+    {
+        "name": "WeebCentral",
+        "fileName": "weebcentral.js",
+        "key": "weebcentral",
+        "version": "1.0.0"
+    },
+    {
+        "name": "4KHD",
+        "fileName": "fourkhd.js",
+        "key": "fourkhd",
+        "version": "1.4.3"
+    },
+    {
+        "name": "Hanime1 H漫画",
+        "fileName": "hanime1_comics.js",
+        "key": "hanime1_comics",
+        "version": "1.2.1"
     }
 ]
