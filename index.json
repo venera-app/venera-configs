@@ -231,5 +231,11 @@
         "fileName": "rumanhua2.js",
         "key": "rumanhua2",
         "version": "1.0.0"
+    },
+    {
+        "name": "极速漫画",
+        "fileName": "jisu.js",
+        "key": "jisu",
+        "version": "1.0.0"
     }
 ]
