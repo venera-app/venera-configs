@@ -206,13 +206,15 @@
         "name": "漫画家",
         "fileName": "mhjia.js",
         "key": "mhjia",
-        "version": "1.0.0"
+        "version": "1.0.0",
+        "description": "需要梯子，18+"
     },
     {
         "name": "污漫天堂",
         "fileName": "wmtt5.js",
         "key": "wmtt5",
-        "version": "1.0.0"
+        "version": "1.0.0",
+        "description": "18+"
     },
     {
         "name": "漫画屋",
@@ -224,7 +226,8 @@
         "name": "A漫",
         "fileName": "aman92.js",
         "key": "aman92",
-        "version": "1.0.0"
+        "version": "1.0.0",
+        "description": "18+"
     },
     {
         "name": "如漫画",
@@ -260,7 +263,8 @@
         "name": "WEBTOON",
         "fileName": "webtoon.js",
         "key": "webtoon",
-        "version": "1.0.0"
+        "version": "1.0.0",
+        "description": "需要梯子"
     },
     {
         "name": "知音漫客",
@@ -290,13 +294,15 @@
         "name": "鸟鸟韩漫",
         "fileName": "nnhanman.js",
         "key": "nnhanman",
-        "version": "1.0.0"
+        "version": "1.0.0",
+        "description": "需要梯子，18+"
     },
     {
         "name": "开心看漫画",
         "fileName": "kxkmh.js",
         "key": "kxkmh",
-        "version": "1.0.0"
+        "version": "1.0.0",
+        "description": "18+"
     },
     {
         "name": "漫客栈",
@@ -314,13 +320,15 @@
         "name": "4KHD",
         "fileName": "fourkhd.js",
         "key": "fourkhd",
-        "version": "1.4.3"
+        "version": "1.4.3",
+        "description": "需要梯子，18+"
     },
     {
         "name": "Hanime1 H漫画",
         "fileName": "hanime1_comics.js",
         "key": "hanime1_comics",
-        "version": "1.2.1"
+        "version": "1.2.1",
+        "description": "需要梯子，18+"
     },
     {
         "name": "动漫屋",
