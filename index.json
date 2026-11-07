@@ -249,5 +249,11 @@
         "fileName": "acgn.js",
         "key": "acgn",
         "version": "1.0.0"
+    },
+    {
+        "name": "快看漫画",
+        "fileName": "kuaikan.js",
+        "key": "kuaikan",
+        "version": "1.0.0"
     }
 ]
