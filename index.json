@@ -291,5 +291,11 @@
         "fileName": "nnhanman.js",
         "key": "nnhanman",
         "version": "1.0.0"
+    },
+    {
+        "name": "开心看漫画",
+        "fileName": "kxkmh.js",
+        "key": "kxkmh",
+        "version": "1.0.0"
     }
 ]
