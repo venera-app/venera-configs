@@ -181,7 +181,7 @@
         "fileName": "hot_manga.js",
         "key": "hot_manga",
         "version": "1.0.0"
-	},
+    },
     {
         "name": "Kavita",
         "fileName": "kavita.js",
@@ -335,5 +335,96 @@
         "fileName": "dm5.js",
         "key": "dm5",
         "version": "0.2.0"
+    },
+    {
+        "name": "51漫画",
+        "fileName": "51manga.js",
+        "key": "manga51",
+        "version": "1.1.0",
+        "description": "需要梯子"
+    },
+    {
+        "name": "zero搬运网",
+        "fileName": "zerobyw33.js",
+        "key": "zerobyw33",
+        "version": "1.2.0",
+        "description": "需要梯子，18+"
+    },
+    {
+        "name": "嗶哩漫畫",
+        "fileName": "bilimanga.js",
+        "key": "bilimanga",
+        "version": "1.2.0",
+        "description": "需要梯子"
+    },
+    {
+        "name": "Pixiv",
+        "fileName": "pixiv.js",
+        "key": "pixiv",
+        "version": "0.4.2",
+        "description": "需要梯子，18+"
+    },
+    {
+        "name": "Rawkuma",
+        "fileName": "rawkuma.js",
+        "key": "rawkuma",
+        "version": "1.0.0",
+        "description": "需要梯子，18+"
+    },
+    {
+        "name": "神奇漫画",
+        "fileName": "shenqimanhua.js",
+        "key": "shenqimanhua",
+        "version": "1.0.0",
+        "description": "需要梯子，18+"
+    },
+    {
+        "name": "ACG漫画网",
+        "fileName": "acg.js",
+        "key": "acgmanga",
+        "version": "1.0.0",
+        "description": "需要梯子，18+"
+    },
+    {
+        "name": "HentaiEra",
+        "fileName": "hentaiera.js",
+        "key": "hentaiera",
+        "version": "1.0.0",
+        "description": "需要梯子，18+"
+    },
+    {
+        "name": "vomic漫",
+        "fileName": "vomic.js",
+        "key": "vomic",
+        "version": "1.0.0",
+        "description": "需要梯子，18+；章节阅读需要登录"
+    },
+    {
+        "name": "Mangabz",
+        "fileName": "mangabz.js",
+        "key": "mangabz",
+        "version": "1.0.0",
+        "description": "需要梯子"
+    },
+    {
+        "name": "花咔漫画",
+        "fileName": "huaka.js",
+        "key": "huaka",
+        "version": "1.0.0",
+        "description": "需要梯子，18+"
+    },
+    {
+        "name": "MangaForFree",
+        "fileName": "mangaforfree.js",
+        "key": "mangaforfree",
+        "version": "0.7.4",
+        "description": "需要梯子，18+"
+    },
+    {
+        "name": "Manga18FX",
+        "fileName": "manga18fx.js",
+        "key": "manga18fx",
+        "version": "1.0.2",
+        "description": "需要梯子，18+"
     }
 ]
