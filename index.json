@@ -273,5 +273,11 @@
         "fileName": "mangaread.js",
         "key": "mangaread",
         "version": "1.0.0"
+    },
+    {
+        "name": "动漫啦",
+        "fileName": "dongmanla.js",
+        "key": "dongmanla",
+        "version": "1.0.0"
     }
 ]
