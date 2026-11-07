@@ -255,5 +255,11 @@
         "fileName": "kuaikan.js",
         "key": "kuaikan",
         "version": "1.0.0"
+    },
+    {
+        "name": "WEBTOON",
+        "fileName": "webtoon.js",
+        "key": "webtoon",
+        "version": "1.0.0"
     }
 ]
