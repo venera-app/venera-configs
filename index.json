@@ -248,12 +248,6 @@
         "version": "1.0.0"
     },
     {
-        "name": "動漫戲說",
-        "fileName": "acgn.js",
-        "key": "acgn",
-        "version": "1.0.0"
-    },
-    {
         "name": "快看漫画",
         "fileName": "kuaikan.js",
         "key": "kuaikan",
@@ -283,12 +277,6 @@
         "fileName": "dongmanla.js",
         "key": "dongmanla",
         "version": "1.0.0"
-    },
-    {
-        "name": "大古漫画",
-        "fileName": "dagumanhua.js",
-        "key": "dagumanhua",
-        "version": "1.0.2"
     },
     {
         "name": "鸟鸟韩漫",
