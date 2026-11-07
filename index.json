@@ -348,7 +348,7 @@
         "fileName": "zerobyw33.js",
         "key": "zerobyw33",
         "version": "1.2.0",
-        "description": "需要梯子，18+"
+        "description": "需要梯子"
     },
     {
         "name": "嗶哩漫畫",
@@ -362,14 +362,14 @@
         "fileName": "rawkuma.js",
         "key": "rawkuma",
         "version": "1.0.0",
-        "description": "需要梯子，18+"
+        "description": "18+"
     },
     {
         "name": "ACG漫画网",
         "fileName": "acg.js",
         "key": "acgmanga",
         "version": "1.0.0",
-        "description": "需要梯子，18+"
+        "description": "18+"
     },
     {
         "name": "HentaiEra",
@@ -383,7 +383,7 @@
         "fileName": "vomic.js",
         "key": "vomic",
         "version": "1.0.0",
-        "description": "需要梯子，18+；章节阅读需要登录"
+        "description": "章节阅读需要登录"
     },
     {
         "name": "Mangabz",
@@ -397,7 +397,7 @@
         "fileName": "huaka.js",
         "key": "huaka",
         "version": "1.0.0",
-        "description": "需要梯子，18+"
+        "description": "需要梯子"
     },
     {
         "name": "MangaForFree",
