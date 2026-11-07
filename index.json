@@ -267,5 +267,11 @@
         "fileName": "zymk.js",
         "key": "zymk",
         "version": "1.0.0"
+    },
+    {
+        "name": "MangaRead",
+        "fileName": "mangaread.js",
+        "key": "mangaread",
+        "version": "1.0.0"
     }
 ]
