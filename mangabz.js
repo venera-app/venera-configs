@@ -11,7 +11,7 @@
 class Mangabz extends ComicSource {
   name = "Mangabz"
   key = "mangabz"
-  version = "1.0.0"
+  version = "1.0.1"
   minAppVersion = "1.6.0"
   url = "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/mangabz.js"
 
@@ -273,5 +273,11 @@ class Mangabz extends ComicSource {
       url: url,
       headers: { Referer: this.base + "/" },
     }
+  }
+
+  comic = {
+    loadInfo: (id) => this.loadInfo(id),
+    loadEp: (comicId, epId) => this.loadEp(comicId, epId),
+    onImageLoad: (url) => this.onImageLoad(url),
   }
 }

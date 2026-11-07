@@ -12,7 +12,7 @@
 class Rawkuma extends ComicSource {
   name = "Rawkuma"
   key = "rawkuma"
-  version = "1.0.0"
+  version = "1.0.1"
   minAppVersion = "1.6.0"
   url = "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/rawkuma.js"
 
@@ -344,5 +344,11 @@ class Rawkuma extends ComicSource {
 
   onImageLoad(url) {
     return { url: url }
+  }
+
+  comic = {
+    loadInfo: (id) => this.loadInfo(id),
+    loadEp: (comicId, epId) => this.loadEp(comicId, epId),
+    onImageLoad: (url) => this.onImageLoad(url),
   }
 }

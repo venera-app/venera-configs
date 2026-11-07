@@ -361,42 +361,42 @@
         "name": "Rawkuma",
         "fileName": "rawkuma.js",
         "key": "rawkuma",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "description": "18+"
     },
     {
         "name": "ACG漫画网",
         "fileName": "acg.js",
         "key": "acgmanga",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "description": "18+"
     },
     {
         "name": "HentaiEra",
         "fileName": "hentaiera.js",
         "key": "hentaiera",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "description": "需要梯子，18+"
     },
     {
         "name": "vomic漫",
         "fileName": "vomic.js",
         "key": "vomic",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "description": "章节阅读需要登录"
     },
     {
         "name": "Mangabz",
         "fileName": "mangabz.js",
         "key": "mangabz",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "description": "需要梯子"
     },
     {
         "name": "花咔漫画",
         "fileName": "huaka.js",
         "key": "huaka",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "description": "需要梯子"
     },
     {

@@ -10,7 +10,7 @@
 class HentaiEra extends ComicSource {
   name = "HentaiEra"
   key = "hentaiera"
-  version = "1.0.0"
+  version = "1.0.1"
   minAppVersion = "1.6.0"
   url = "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/hentaiera.js"
 
@@ -210,5 +210,10 @@ class HentaiEra extends ComicSource {
       if (img) images.push(img)
     }
     return { images: images }
+  }
+
+  comic = {
+    loadInfo: (id) => this.loadInfo(id),
+    loadEp: (comicId, epId) => this.loadEp(comicId, epId),
   }
 }

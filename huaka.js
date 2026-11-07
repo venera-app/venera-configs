@@ -12,7 +12,7 @@
 class HuaKa extends ComicSource {
   name = "花咔漫画"
   key = "huaka"
-  version = "1.0.0"
+  version = "1.0.1"
   minAppVersion = "1.6.0"
   url = "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/huaka.js"
 
@@ -210,5 +210,10 @@ class HuaKa extends ComicSource {
 
     if (images.length === 0) throw "未找到图片"
     return { images: images }
+  }
+
+  comic = {
+    loadInfo: (id) => this.loadInfo(id),
+    loadEp: (comicId, epId) => this.loadEp(comicId, epId),
   }
 }
