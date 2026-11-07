@@ -3,7 +3,7 @@ class Pixiv extends ComicSource {
 
     key = "pixiv"
 
-    version = "0.4.1"
+    version = "0.4.2"
 
     minAppVersion = "1.6.0"
 
@@ -970,8 +970,10 @@ class Pixiv extends ComicSource {
                     let work = series[i]
                     chapters[String(work.id)] = work.title || `第 ${i + 1} 篇`
                 }
-            } else if ((illust.page_count || 1) > 1) {
-                chapters['0'] = `1-${illust.page_count}`
+            } else {
+                // 单页作品也必须提供一个章节，否则阅读器会报 Invalid chapter
+                let pageCount = illust.page_count || 1
+                chapters['0'] = pageCount > 1 ? `1-${pageCount}` : '1'
             }
             return new ComicDetails({
                 title: illust.title,
