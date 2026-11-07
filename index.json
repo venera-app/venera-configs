@@ -243,5 +243,11 @@
         "fileName": "dogemanga.js",
         "key": "dogemanga",
         "version": "1.0.0"
+    },
+    {
+        "name": "動漫戲說",
+        "fileName": "acgn.js",
+        "key": "acgn",
+        "version": "1.0.0"
     }
 ]
