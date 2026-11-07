@@ -13,7 +13,7 @@ class RuManHua2 extends ComicSource {
 
   key = "rumanhua2";
 
-  version = "1.0.1";
+  version = "1.0.2";
 
   minAppVersion = "1.4.0";
 
@@ -121,11 +121,11 @@ class RuManHua2 extends ComicSource {
   }
 
   // 搜索是表单 POST /s (字段 k), 不是 GET /s?k=, 用 GET 会一直提示"小于2个字"。
-  // 另外必须用 www 域名 POST, 非 www 的搜索接口会返回错误页。
+  // 注意: 非 www 域名返回 JSON, www 域名返回 HTML 结果页, 这里用 JSON。
   search = {
     load: async (keyword, options, page) => {
       const res = await Network.post(
-        "http://www.rumanhua2.com/s",
+        "http://rumanhua2.com/s",
         {
           "content-type": "application/x-www-form-urlencoded",
           ...this.headers,

@@ -9,7 +9,7 @@ class DaGuManHua extends ComicSource {
 
   key = "dagumanhua";
 
-  version = "1.0.1";
+  version = "1.0.2";
 
   minAppVersion = "1.4.0";
 
@@ -59,14 +59,12 @@ class DaGuManHua extends ComicSource {
   // 地址的模板是空的; 需要用返回的 searchid 再请求 /e/search/result/index.php。
   search = {
     load: async (keyword, options, page) => {
-      // HTTPS 站点禁用了搜索, HTTP 的 dagumanhua.cc 仍可用同源搜索
-      const searchBase = "http://www.dagumanhua.cc";
       const res = await Network.post(
-        `${searchBase}/e/search/`,
+        `${this.searchBaseUrl}/e/search/`,
         {
           "content-type": "application/x-www-form-urlencoded",
           ...this.headers,
-          Referer: searchBase + "/",
+          Referer: this.searchBaseUrl + "/",
         },
         [
           "show=title,writer",
@@ -75,10 +73,14 @@ class DaGuManHua extends ComicSource {
           `keyboard=${encodeURIComponent(keyword)}`,
         ].join("&")
       );
-      if (res.status !== 200) {
+      if (res.status < 200 || res.status >= 400) {
         throw `Invalid search status code: ${res.status}`;
       }
-      const idMatch = res.body.match(/\/search\/(\d+)\/1\.html/);
+      const location =
+        (res.headers && (res.headers.location || res.headers.Location)) || "";
+      const idMatch = `${res.body || ""} ${location}`.match(
+        /\/search\/(\d+)\/1\.html/
+      );
       if (!idMatch) {
         throw "搜索接口异常";
       }
@@ -86,10 +88,10 @@ class DaGuManHua extends ComicSource {
       // EmpireCMS 结果页的页码从 0 开始。
       const pageParam = Math.max(1, page || 1) - 1;
       const result = await Network.get(
-        `${searchBase}/e/search/result/index.php?searchid=${idMatch[1]}&page=${pageParam}`,
+        `${this.searchBaseUrl}/e/search/result/index.php?searchid=${idMatch[1]}&page=${pageParam}`,
         {
           ...this.headers,
-          Referer: searchBase + "/",
+          Referer: this.searchBaseUrl + "/",
         }
       );
       if (result.status !== 200) {
