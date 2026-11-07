@@ -237,5 +237,11 @@
         "fileName": "jisu.js",
         "key": "jisu",
         "version": "1.0.0"
+    },
+    {
+        "name": "漫畫狗",
+        "fileName": "dogemanga.js",
+        "key": "dogemanga",
+        "version": "1.0.0"
     }
 ]
