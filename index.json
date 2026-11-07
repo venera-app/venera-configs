@@ -230,7 +230,7 @@
         "name": "如漫画",
         "fileName": "rumanhua2.js",
         "key": "rumanhua2",
-        "version": "1.0.0"
+        "version": "1.0.1"
     },
     {
         "name": "极速漫画",
@@ -284,7 +284,7 @@
         "name": "大古漫画",
         "fileName": "dagumanhua.js",
         "key": "dagumanhua",
-        "version": "1.0.0"
+        "version": "1.0.1"
     },
     {
         "name": "鸟鸟韩漫",
@@ -321,5 +321,11 @@
         "fileName": "hanime1_comics.js",
         "key": "hanime1_comics",
         "version": "1.2.1"
+    },
+    {
+        "name": "动漫屋",
+        "fileName": "dm5.js",
+        "key": "dm5",
+        "version": "0.2.0"
     }
 ]
