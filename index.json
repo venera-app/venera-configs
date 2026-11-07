@@ -261,5 +261,11 @@
         "fileName": "webtoon.js",
         "key": "webtoon",
         "version": "1.0.0"
+    },
+    {
+        "name": "知音漫客",
+        "fileName": "zymk.js",
+        "key": "zymk",
+        "version": "1.0.0"
     }
 ]
