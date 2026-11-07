@@ -358,23 +358,9 @@
         "description": "需要梯子"
     },
     {
-        "name": "Pixiv",
-        "fileName": "pixiv.js",
-        "key": "pixiv",
-        "version": "0.4.2",
-        "description": "需要梯子，18+"
-    },
-    {
         "name": "Rawkuma",
         "fileName": "rawkuma.js",
         "key": "rawkuma",
-        "version": "1.0.0",
-        "description": "需要梯子，18+"
-    },
-    {
-        "name": "神奇漫画",
-        "fileName": "shenqimanhua.js",
-        "key": "shenqimanhua",
         "version": "1.0.0",
         "description": "需要梯子，18+"
     },
