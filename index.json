@@ -1,5 +1,12 @@
 [
     {
+        "name": "栗子漫画",
+        "fileName": "lizimh.js",
+        "key": "lizimh",
+        "version": "1.0.0",
+        "description": "章节图片按封面目录探测，登录后可获取官方顺序"
+    },
+    {
         "name": "拷贝漫画",
         "fileName": "copy_manga.js",
         "key": "copy_manga",
