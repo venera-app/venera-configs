@@ -201,5 +201,12 @@
         "key": "mycomic",
         "version": "1.1.0",
         "description": "mycomic.com漫画源, 遇到Cloudflare验证请在源设置中登录"
+    },
+    {
+        "name": "栗子漫画",
+        "fileName": "lizimh.js",
+        "key": "lizimh",
+        "version": "1.0.0",
+        "description": "章节图片按封面目录探测，登录后可获取官方顺序"
     }
 ]
