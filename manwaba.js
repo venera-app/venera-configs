@@ -6,13 +6,10 @@ function isAuthError(e) {
   return /status code: (401|403)/.test(msg) || /Unauthorized/i.test(msg) || /Forbidden/i.test(msg);
 }
 
-// 这个站的接口在不同线路上字段大小写不一致：
-//   manwadz.cc / manwaze.cc 的 categories 返回 {Id,Name,Count,Total,Uncategorized,List}
-//   manwaxu.cc 返回 {id,name,count,total,uncategorized,list}
-// 统一取任意大小写。
+// 不同线路返回的字段大小写不一致（如 categories 的 Id / id），统一用 pick() 兼容。
 
-// 图片解密：站点所有 /en_images 图片都是 IV(16B) + AES-256-CBC(PKCS#7) 包裹。
-// onImageLoad 与 onThumbnailLoad 共用。已是普通图片则原样返回。
+
+// 图片解密：站点所有 /en_images 图片都是 IV(16B) + AES-256-CBC 包裹，已是图片则原样返回。
 function manwabaDecryptImage(bytes) {
   const input = new Uint8Array(bytes);
   const isImage = (d) =>
@@ -72,22 +69,13 @@ class ManWaBa extends ComicSource {
   // update url
   url = "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/manwaba.js";
 
-  // 线路表（实测）：
-  //   manwaxu.cc  页面+API 正常，但 /api/user/login 返回 405
-  //   manwadz.cc  页面+API+登录 全部正常（默认线路）
-  //   manwaze.cc  同上，备用
-  //   manwala.cc  仅首页，API 404（不建议）
-  // base 由 settings.line 决定，见 init()
+  // 线路：manwadz.cc（默认，登录/收藏可用）/ manwaxu.cc（内容全但登录 405）/ manwaze.cc（备用）
+  // 实际取值由 settings.line 决定，见 init()。
   base = "https://manwadz.cc";
   api = "https://manwadz.cc/api";
-  // 登录接口：实测只有 manwadz.cc / manwaze.cc 可用
   accountBase = "https://manwadz.cc";
-  // 章节图源（实测）：mwtuwu.cc 可用；vip.mwtuwu.cc 超时不可用
+  // 章节图源：mwtuwu.cc 可用，vip.mwtuwu.cc 超时
   imageBase = "https://mwtuwu.cc";
-
-  // The site wraps every image under /en_images with AES-256-CBC: the response
-  // is 16 random bytes of IV followed by PKCS#7-padded ciphertext. The key is
-  // the UTF-8 bytes of this 32-character string.
 
   // 默认存入哪个收藏夹（0=未分类；可在详情页面板里选择具体收藏夹）
   settings = {
@@ -120,8 +108,7 @@ class ManWaBa extends ComicSource {
     // 登录接口只有 manwadz.cc / manwaze.cc 可用；manwaxu.cc 会 405。
     this.accountBase = line === "manwaxu.cc" ? "https://manwadz.cc" : this.base;
     try { this.imageBase = this.loadSetting("imageLine") || "https://mwtuwu.cc"; } catch (e) {}
-    // Keep a reference to the source instance: several callbacks (onImageLoad,
-    // onResponse) are invoked by the app without a reliable `this` binding.
+    // 保存实例引用：部分回调被调用时 this 不一定指向数据源。
     this.fetchJson = async (url, { method = "GET", params, headers, payload, withAuth = false } = {}) => {
       if (params) {
         const qs = Object.keys(params)
@@ -233,9 +220,7 @@ class ManWaBa extends ComicSource {
     enableRankingPage: false,
   };
 
-  /// category comic loading related
-  /// The category list is server-side rendered HTML; the JSON /api/cate endpoint
-  /// only accepts GET but responds 405, so pages are parsed from HTML.
+  /// 分类列表是服务端渲染的 HTML（/api/cate 返回 405），因此从页面解析。
   categoryComics = {
     load: async (category, param, options, page) => {
       const pathMap = {
@@ -370,8 +355,6 @@ class ManWaBa extends ComicSource {
         throw "章节 id 无效（当前漫画没有可用章节）";
       }
       const imgApi = `${this.base}/api/comic/image/${epId}`;
-      // vip.mwtuwu.cc 实测不可用（超时）；站点自身在用的稳定源是 mwtuwu.cc
-      // （页面 window.IMAGE_SOURCES 里的"稳定源"），图片同样是 AES 加密。
       const params = { page: 1, page_size: 1, image_source: this.imageBase };
       const pageNum = await this.fetchJson(imgApi, { params }).then((res) => res.data.pagination.total);
       const imageRes = await this.fetchJson(imgApi, {
@@ -380,8 +363,7 @@ class ManWaBa extends ComicSource {
       return { images: (imageRes || []).map((item) => item.url) };
     },
 
-    // Every image (covers and chapter pages) is AES-256-CBC wrapped:
-    // IV(16 bytes) || ciphertext(PKCS#7 padded). 解密共用 manwabaDecryptImage()。
+    // 章节大图：IV(16B) + AES-256-CBC，解密走 manwabaDecryptImage()。
     onImageLoad: (url, comicId, epId) => ({
       headers: {
         Referer: comicId && epId ? `${this.base}/comic/${comicId}/${epId}` : `${this.base}/`,
@@ -391,36 +373,22 @@ class ManWaBa extends ComicSource {
       onResponse: (bytes) => manwabaDecryptImage(bytes),
     }),
 
-    // Covers are served from the same encrypted /en_images path, so the
-    // thumbnail loader needs the same Referer (decryption happens via onImageLoad).
-    // 封面/缩略图走这里；不同图床可能需要不同 Referer，这里按域名补上。
-    // 注意：Venera 的缩略图加载不会调用 onImageLoad，所以解密也要在这里做一份。
-    onThumbnailLoad: (url) => {
-      const host = (() => { try { return new URL(url).host; } catch (e) { return ""; } })();
-      const referer = /mwzu\.cc|mwtuwu\.cc/.test(host) ? `${this.base}/` : `${this.base}/`;
-      return {
-        headers: {
-          Referer: referer,
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        },
-        onResponse: (bytes) => manwabaDecryptImage(bytes),
-      };
-    },
+    // 封面/缩略图走这里（Venera 的缩略图不经过 onImageLoad），所以解密要再做一份。
+    onThumbnailLoad: (url) => ({
+      headers: {
+        Referer: `${this.base}/`,
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+      },
+      onResponse: (bytes) => manwabaDecryptImage(bytes),
+    }),
   };
 
   // ============ 收藏（网站账号的云端收藏） ============
-  // 实测确认（浏览器抓包 + 逐参数对比）：
-  //   ★ 查询过滤必须用 categoryId（驼峰）！用 category_id 会返回全部收藏，
-  //     这就是之前"每个文件夹内容都一样"的根因。
-  //   ★ 但加收藏时 body 里是 category_id（下划线）。两种大小写各自固定，不能混。
-  //   加收藏  POST /api/user/favorite/add     form: comic_id=xxx&category_id=yyy
-  //   取消    POST /api/user/favorite/delete  form: comic_id=xxx
-  //   分类    GET  /api/user/favorites/categories
-  //           -> {Total,Uncategorized,List:[{Id,Name,Count}]}（也兼容小写）
-  //   列表    GET  /api/user/favorites?page&page_size[&categoryId=yyy]
-  //           -> {list:[{comic_id,title,cover,favorite_time,edittime,latest_chapter,read_chapter}],
-  //               page, page_size, total, total_page}
-  //   列表项里没有 category_id 字段，判断"某本在哪些夹"只能逐夹用 categoryId 查。
+  // 参数名大小写不统一：查询过滤用 categoryId（驼峰），加收藏 body 用 category_id（下划线）。
+  //   列表   GET  /api/user/favorites?page&page_size[&categoryId=]
+  //   加收藏 POST /api/user/favorite/add     form: comic_id&category_id
+  //   取消   POST /api/user/favorite/delete  form: comic_id
+  //   分类   GET  /api/user/favorites/categories
   favorites = {
     multiFolder: true,
     singleFolderForSingleComic: false,
@@ -473,8 +441,7 @@ class ManWaBa extends ComicSource {
       }
       if (Object.keys(folderMap).length === 0) folderMap["0"] = "未分类";
 
-      // ★ 用 categoryId 逐夹查询（不能用 category_id，否则每本都会命中全部夹）
-      let favorited = [];
+          let favorited = [];
       if (comicId) {
         for (const fid of Object.keys(folderMap)) {
           if (fid === "0") continue; // 未分类不作为"在某个命名夹"的判定
@@ -497,8 +464,7 @@ class ManWaBa extends ComicSource {
 
     loadComics: async (page, folder) => {
       const params = { page: page || 1, page_size: 20 };
-      // ★ 过滤参数名必须是 categoryId（驼峰）
-      const fid = folder === null || folder === undefined ? "" : String(folder);
+          const fid = folder === null || folder === undefined ? "" : String(folder);
       if (fid !== "" && fid !== "0") params.categoryId = fid;
       let res;
       try {
