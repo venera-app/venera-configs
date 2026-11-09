@@ -320,20 +320,29 @@ class ManWaBa extends ComicSource {
     loadInfo: async (id) => {
       const data = await this.fetchJson(`${this.base}/api/comic/${id}`).then((res) => res.data);
 
-      let chapterApi = `${this.base}/api/comic/chapter`;
-      let pageRes = await this.fetchJson(chapterApi, {
-        params: { comicId: data.id, page: 1, page_size: 1 },
+      // 章节列表：服务端把 page_size 硬限制为 20（传 50/100 都只回 20 条），
+      // 所以必须逐页翻，页数由 pagination.total 推出来。
+      const chapterApi = `${this.base}/api/comic/chapter`;
+      const pageSize = 20;
+      const first = await this.fetchJson(chapterApi, {
+        params: { comicId: data.id, page: 1, page_size: pageSize },
       });
-      const total = (pageRes.pagination && pageRes.pagination.total) || 0;
+      const total = (first.pagination && first.pagination.total) || 0;
+      const pageCount = Math.max(1, Math.ceil(total / pageSize));
 
-      let chapters = new Map();
-      if (total > 0) {
-        const chapterRes = await this.fetchJson(chapterApi, {
-          params: { comicId: data.id, page: 1, page_size: total },
-        });
-        (chapterRes.data || []).forEach((item) => {
+      const chapters = new Map();
+      const addChapters = (list) => {
+        (list || []).forEach((item) => {
           chapters.set(item.id.toString(), item.title.toString());
         });
+      };
+      addChapters(first.data);
+      for (let page = 2; page <= pageCount; page++) {
+        const res = await this.fetchJson(chapterApi, {
+          params: { comicId: data.id, page: page, page_size: pageSize },
+        });
+        addChapters(res.data);
+        if (!res.data || res.data.length === 0) break;
       }
 
       return new ComicDetails({
