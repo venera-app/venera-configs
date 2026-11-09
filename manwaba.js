@@ -89,7 +89,7 @@ class ManWaBa extends ComicSource {
   // is 16 random bytes of IV followed by PKCS#7-padded ciphertext. The key is
   // the UTF-8 bytes of this 32-character string.
 
-  // 默认存入哪个收藏夹（0=未分类；填分类 id 可指定，例如 183886=追更）
+  // 默认存入哪个收藏夹（0=未分类；可在详情页面板里选择具体收藏夹）
   settings = {
     line: {
       title: "线路",
