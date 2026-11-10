@@ -139,18 +139,39 @@ class ManWaBa extends ComicSource {
   // ---------- account ----------
   account = {
     login: async (account, pwd) => {
-      const res = await Network.sendRequest(
-        "POST",
-        `${this.accountBase}/api/user/login`,
-        { "Content-Type": "application/json" },
-        JSON.stringify({ username: account, password: pwd })
-      );
-      if (res.status !== 200) throw `Login failed: HTTP ${res.status}`;
-      let json;
-      try {
-        json = JSON.parse(res.body);
-      } catch (e) {
-        throw `Login failed: unexpected response`;
+      // 登录域名不可用时依次尝试（manwaxu.cc 的登录接口固定 405，不列入）。
+      const hosts = [this.accountBase, "https://manwadz.cc", "https://manwaze.cc"];
+      const tried = [];
+      let lastErr = null;
+      let json = null;
+
+      for (const host of hosts) {
+        if (tried.indexOf(host) >= 0) continue;
+        tried.push(host);
+        try {
+          const res = await Network.sendRequest(
+            "POST",
+            `${host}/api/user/login`,
+            { "Content-Type": "application/json" },
+            JSON.stringify({ username: account, password: pwd })
+          );
+          if (res.status === 404 || res.status === 405) {
+            lastErr = `HTTP ${res.status}`;
+            continue; // 这个域名没有登录接口，换下一个
+          }
+          if (res.status !== 200) {
+            lastErr = `HTTP ${res.status}`;
+            continue;
+          }
+          json = JSON.parse(res.body);
+          break;
+        } catch (e) {
+          lastErr = String(e && e.message ? e.message : e);
+        }
+      }
+
+      if (!json) {
+        throw `Login failed: ${lastErr || "no available host"}`;
       }
       if (json.code !== 200 || !json.data || !json.data.token) {
         throw json.msg || "Login failed";
@@ -250,11 +271,11 @@ class ManWaBa extends ComicSource {
       const path = pathMap[param] || "/cate";
       const status = options && options[0] !== undefined ? options[0] : "2";
       const day = options && options[1] !== undefined ? options[1] : "0";
-      const q = new URLSearchParams();
-      q.set("page", String(page));
-      if (status !== "2") q.set("status", status);
-      if (day !== "0") q.set("day", day);
-      const url = `${this.base}${path}?${q.toString()}`;
+      // 引擎不提供 URLSearchParams，手工拼查询串。
+      const qs = [`page=${encodeURIComponent(page)}`];
+      if (status !== "2") qs.push(`status=${encodeURIComponent(status)}`);
+      if (day !== "0") qs.push(`day=${encodeURIComponent(day)}`);
+      const url = `${this.base}${path}?${qs.join("&")}`;
 
       const res = await Network.sendRequest("GET", url, {});
       if (res.status !== 200) throw `Invalid status code: ${res.status}`;
