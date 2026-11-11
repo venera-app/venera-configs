@@ -1,5 +1,9 @@
 const MANWABA_IMAGE_KEY = "0B6666A0-BB59-1381-B746-a0E4C9AC";
 
+// 数据源实例引用：settings 的 callback / onResponse 等回调被调用时，
+// this 不保证指向数据源，用它兜底。
+let __manwabaSelf = null;
+
 // 判断是否为鉴权类错误（HTTP 401/403）。fetchJson 抛的是字符串模板错误。
 function isAuthError(e) {
   const msg = String(e && e.message ? e.message : e);
@@ -62,7 +66,7 @@ class ManWaBa extends ComicSource {
   // unique id of the source
   key = "manwaba";
 
-  version = "1.0.5";
+  version = "1.1.0";
 
   minAppVersion = "1.5.0";
 
@@ -98,6 +102,26 @@ class ManWaBa extends ComicSource {
       ],
       default: "https://mwtuwu.cc",
     },
+    autoCheckin: {
+      title: "自动签到",
+      type: "switch",
+      default: true,
+      description: "打开源时自动签到（需先登录）。已签到则跳过。",
+    },
+    checkinButton: {
+      title: "立即签到",
+      type: "callback",
+      buttonText: "签到",
+      // callback 会被 func([]) 直接调用，this 不保证指向数据源，
+      // 所以用 init() 保存的实例引用。异常必须在此捕获，宿主不会提示。
+      callback: () => {
+        const self = __manwabaSelf;
+        if (!self || !self.doCheckin) { UI.showMessage("源未就绪，请重新打开本页面"); return; }
+        return self.doCheckin()
+          .then((r) => { UI.showMessage("[漫蛙吧] " + r.text); })
+          .catch((e) => { UI.showMessage("[漫蛙吧] 签到失败：" + (e && e.message ? e.message : e)); });
+      },
+    },
   };
 
   init() {
@@ -109,6 +133,7 @@ class ManWaBa extends ComicSource {
     this.accountBase = line === "manwaxu.cc" ? "https://manwadz.cc" : this.base;
     try { this.imageBase = this.loadSetting("imageLine") || "https://mwtuwu.cc"; } catch (e) {}
     // 保存实例引用：部分回调被调用时 this 不一定指向数据源。
+    __manwabaSelf = this;
     this.fetchJson = async (url, { method = "GET", params, headers, payload, withAuth = false } = {}) => {
       if (params) {
         const qs = Object.keys(params)
@@ -134,6 +159,21 @@ class ManWaBa extends ComicSource {
       info: (msg) => log("info", this.name, msg),
       warn: (msg) => log("warning", this.name, msg),
     };
+
+    // 自动签到：只做一次，不阻塞主流程（失败静默）。
+    // 用成功/失败标记判断，不靠文案（文案改动会让判断失效）。
+    if (this.loadSetting("autoCheckin") !== false) {
+      const token = this.loadData("token");
+      const today = new Date().toDateString();
+      if (token && this.loadData("lastCheckinDay") !== today) {
+        this.doCheckin()
+          .then((r) => {
+            this.logger.info("自动签到: " + r.text);
+            if (r.ok) this.saveData("lastCheckinDay", today);
+          })
+          .catch(() => {});
+      }
+    }
   }
 
   // ---------- account ----------
@@ -185,6 +225,82 @@ class ManWaBa extends ComicSource {
       this.deleteData("userId");
     },
     registerWebsite: null,
+  };
+
+  // ---------- 每日签到 ----------
+  // 实测接口（浏览器抓包）：
+  //   查状态 GET  /api/user/checkin/status  -> {has_signed_in, points_added, current_rank}
+  //   签到   POST /api/user/checkin  body {"checkin_type":"fixed"} -> {code:200,msg}
+  //   记录   GET  /api/user/checkin/calendar?year=&month= -> {signedDays,totalSignedThisMonth,continuousDays}
+  // 需要登录令牌；全部请求带 cache-time:no 避免命中本地缓存读到旧状态。
+  checkin = {
+    // 查询今天是否已签
+    status: async () => {
+      const res = await Network.sendRequest(
+        "GET",
+        `${this.base}/api/user/checkin/status`,
+        { Authorization: "Bearer " + (this.loadData("token") || ""), "cache-time": "no" }
+      );
+      if (res.status !== 200) throw `HTTP ${res.status}`;
+      const json = JSON.parse(res.body);
+      if (json.code !== 200) throw json.msg || "查询失败";
+      return json.data || {};
+    },
+    // 执行签到
+    sign: async (type) => {
+      const res = await Network.sendRequest(
+        "POST",
+        `${this.base}/api/user/checkin`,
+        { Authorization: "Bearer " + (this.loadData("token") || ""), "Content-Type": "application/json", "cache-time": "no" },
+        JSON.stringify({ checkin_type: type || "fixed" })
+      );
+      // 注意：重复签到等服务端错误也是 HTTP 200，必须看 body 里的 code，
+      // 实测「今天已经签到过了」返回 {code:400, msg:...}。
+      let json = null;
+      try { json = JSON.parse(res.body); } catch (e) { json = null; }
+      if (res.status !== 200) throw `HTTP ${res.status}`;
+      if (!json) throw "签到返回异常";
+      if (json.code !== 200) throw json.msg || "签到失败";
+      return json;
+    },
+  };
+
+  // 供设置页按钮和自动签到调用：返回 {ok, text}
+  // ok=true 表示「今天已经签到了」这一事实已确认（含原本就签过），自动签到据此记录日期。
+  doCheckin = async () => {
+    const token = this.loadData("token");
+    if (!token) return { ok: false, text: "未登录，请先登录后再签到" };
+
+    const signedText = (d) =>
+      `今日已签到（+${d.points_added || 0} 积分${d.current_rank ? "，当前第 " + d.current_rank + " 名" : ""}）`;
+
+    try {
+      // 1) 先问服务端今天签没签，已签直接返回，不再发签到请求
+      const st = await this.checkin.status();
+      if (st.has_signed_in) return { ok: true, text: signedText(st) };
+
+      // 2) 未签则签到
+      const r = await this.checkin.sign("fixed");
+      const msg = r.msg || "签到成功";
+
+      // 3) 签完复核一次，顺带取回积分/名次；查不到也不影响签到结果
+      try {
+        const after = await this.checkin.status();
+        if (after && after.has_signed_in) {
+          return { ok: true, text: `${msg}（+${after.points_added || 0} 积分${after.current_rank ? "，当前第 " + after.current_rank + " 名" : ""}）` };
+        }
+      } catch (e) { /* 复核失败不影响结果 */ }
+      return { ok: true, text: msg };
+    } catch (e) {
+      if (isAuthError(e)) {
+        this.deleteData("token");
+        return { ok: false, text: "登录已失效，请重新登录" };
+      }
+      // 服务端说「已经签到过了」：今天确实已签，算成功
+      const m = String(e && e.message ? e.message : e);
+      if (/已经签到/.test(m)) return { ok: true, text: "今日已签到" };
+      return { ok: false, text: "签到失败：" + m };
+    }
   };
 
   // explore page list
