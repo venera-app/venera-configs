@@ -108,7 +108,7 @@
         "name": "漫蛙吧",
         "fileName": "manwaba.js",
         "key": "manwaba",
-        "version": "1.0.5"
+        "version": "1.1.0"
     },
     {
         "name": "Lanraragi",
@@ -201,5 +201,11 @@
         "key": "mycomic",
         "version": "1.1.0",
         "description": "mycomic.com漫画源, 遇到Cloudflare验证请在源设置中登录"
+    },
+    {
+        "name": "漫蛙",
+        "fileName": "manwa.js",
+        "key": "manwa",
+        "version": "1.6.5"
     }
 ]
