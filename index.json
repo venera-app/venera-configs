@@ -96,7 +96,7 @@
         "name": "再漫画",
         "fileName": "zaimanhua.js",
         "key": "zaimanhua",
-        "version": "1.0.4",
+        "version": "1.0.5",
         "description": "已增加搜索栏作品ID号的索引与搜索功能，章节评论修复"
     },
     {
