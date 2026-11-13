@@ -4,7 +4,7 @@ class ManWa extends ComicSource {
 
   key = "manwa"
 
-  version = "1.6.5"
+  version = "1.6.6"
 
   minAppVersion = "1.5.0"
 
@@ -301,6 +301,35 @@ class ManWa extends ComicSource {
     return comics
   }
 
+  // 搜索页解析：ul.book-list > li > .book-list-cover > a[href="/book/{id}"][title] > img
+  parseSearchList(body) {
+    let doc = new HtmlDocument(body)
+    let comics = []
+    let seen = {}
+    for (let e of doc.querySelectorAll(".book-list-cover")) {
+      let a = e.querySelector("a")
+      let img = e.querySelector("img")
+      if (!a || !a.attributes) continue
+      let href = a.attributes["href"] || ""
+      let id = href ? href.split("/").pop() : ""
+      if (!id) continue
+      let title = a.attributes["title"] || ""
+      if (!title) {
+        try { title = (a.text || "").trim() } catch (err) {}
+      }
+      let cover = ""
+      if (img && img.attributes) {
+        cover = img.attributes["data-original"] || img.attributes["src"] || ""
+      }
+      if (title && !seen[id]) {
+        seen[id] = 1
+        comics.push(new Comic({ id: id, title: title, cover: cover }))
+      }
+    }
+    doc.dispose()
+    return comics
+  }
+
   explore = [
     {
       title: "漫蛙",
@@ -339,9 +368,10 @@ class ManWa extends ComicSource {
     load: async (keyword, options, page) => {
       let p = page && page > 0 ? page : 1
       let r = await this.fetchHtml(`/search?keyword=${encodeURIComponent(keyword)}&page=${p}`)
-      let comics = this.parseList(r.body)
+      // 搜索页用的是 .book-list 结构（不是发现页的 .manga-list-2-cover）
+      let comics = this.parseSearchList(r.body)
       let maxPage = null
-      if (comics.length > 0 && r.body.indexOf("下一页") >= 0) maxPage = p + 1
+      if (comics.length > 0 && r.body.indexOf("pagination2") >= 0) maxPage = p + 1
       return { comics: comics, maxPage: maxPage }
     },
     optionList: [],
@@ -441,7 +471,13 @@ class ManWa extends ComicSource {
         fid = String(folderId)
       }
       let json = await this.postForm("/addfavor", { book_id: comicId, val: val, folder_id: fid })
-      if (json && json.err == 1) throw "Login expired"
+      if (json && json.err == 1) {
+        let msg = json.msg || ""
+        // 只有真正"未登录"才抛 Login expired（触发 App 重新登录）；
+        // 其它 err==1（如"收藏数已达上限"）是普通业务错误，直接抛出提示，不能误判为登录过期
+        if (msg.indexOf("未登录") >= 0) throw "Login expired"
+        throw msg || "收藏操作失败"
+      }
       return "ok"
     },
     loadFolders: async (comicId) => {
@@ -463,9 +499,12 @@ class ManWa extends ComicSource {
     },
     loadComics: async (page, folder) => {
       let p = page && page > 0 ? page : 1
+      // 注意：/getfavors 的 page 参数其实是「起始偏移 offset」（1-based），每页固定 15 本，不是页码。
+      // Venera 传的是页码 1/2/3，需换算成 offset：1/16/31...
+      let offset = (p - 1) * 15 + 1
       let fid = folder === null || folder === undefined || String(folder) === "" ? "0" : String(folder)
       let json = await this.getJson("/getfavors", {
-        page: p,
+        page: offset,
         showOnlyUpdated: -1,
         isEnd: -1,
         isFullVersion: -1,
