@@ -7,7 +7,7 @@ class JM extends ComicSource {
     // unique id of the source
     key = "jm"
 
-    version = "1.4.0"
+    version = "1.4.1"
 
     minAppVersion = "1.5.0"
 
@@ -21,10 +21,19 @@ class JM extends ComicSource {
     dailyCheckInInProgress = false
 
     static fallbackServers = [
-        "www.cdntwice.org",
-        "www.cdnsha.org",
-        "www.cdnaspa.cc",
-        "www.cdnntr.cc",
+        "www.cdnutc.cc",
+        "www.cdngwc.club",
+        "www.cdngwc.cc",
+        "www.cdnutc.me",
+    ];
+
+    // 内置线路。旧域名（www.cdntwice.org / www.cdnsha.org / www.cdnaspa.cc / www.cdnntr.cc）已全部停用。
+    // 这里给 apiDomains 一个初始值，避免「启动时不刷新域名」导致 baseUrl 变成 https://undefined。
+    static apiDomains = [
+        "www.cdnutc.cc",
+        "www.cdngwc.club",
+        "www.cdngwc.cc",
+        "www.cdnutc.me",
     ];
 
     static imageUrl = "https://cdn-msp.jmapinodeudzn.net"
@@ -232,6 +241,10 @@ class JM extends ComicSource {
      * @returns {string}
      */
     convertData(input, secret) {  
+        // 上游域名接口的响应可能带 UTF-8 BOM（或被按 Latin-1 解码成 ï»¿），先清理再 base64 解码
+        if (typeof input === "string") {
+            input = input.replace(/^\uFEFF/, "").replace(/^\u00EF\u00BB\u00BF/, "").trim();
+        }
         let key = Convert.encodeUtf8(Convert.hexEncode(Convert.md5(Convert.encodeUtf8(secret))))
         let data = Convert.decodeBase64(input)
         let decrypted = Convert.decryptAesEcb(data, key)
@@ -247,12 +260,44 @@ class JM extends ComicSource {
         return res.substring(start, end + 1)
     }
 
+    // 生成候选 URL：优先当前选中线路，再依次其它线路，用于单条线路失败时自动切换
+    buildUrlCandidates(url) {
+        let out = []
+        let pattern = /^https?:\/\/[^\/]+/
+        let cur = this.baseUrl
+        if (cur && cur.indexOf('undefined') < 0) {
+            let u = url.replace(pattern, cur)
+            if (out.indexOf(u) < 0) out.push(u)
+        }
+        let domains = JM.apiDomains || JM.fallbackServers
+        for (let i = 0; i < domains.length; i++) {
+            let u = url.replace(pattern, `https://${domains[i]}`)
+            if (out.indexOf(u) < 0) out.push(u)
+        }
+        if (out.indexOf(url) < 0) out.push(url)
+        return out
+    }
+
     /**
      *
      * @param url {string}
      * @returns {Promise<string>}
      */
     async get(url) {
+        let urls = this.buildUrlCandidates(url)
+        let lastErr = null
+        for (let i = 0; i < urls.length; i++) {
+            try {
+                return await this.getOnce(urls[i])
+            } catch (e) {
+                if (e === 'Login expired') throw e
+                lastErr = e
+            }
+        }
+        throw lastErr !== null ? lastErr : 'All API domains failed'
+    }
+
+    async getOnce(url) {
         let time = Math.floor(Date.now() / 1000)
         let kJmSecret = "185Hcomic3PAPP7R"
         let res = await Network.get(url, this.getApiHeaders(time))
@@ -276,6 +321,20 @@ class JM extends ComicSource {
     }
 
     async post(url, body) {
+        let urls = this.buildUrlCandidates(url)
+        let lastErr = null
+        for (let i = 0; i < urls.length; i++) {
+            try {
+                return await this.postOnce(urls[i], body)
+            } catch (e) {
+                if (e === 'Login expired') throw e
+                lastErr = e
+            }
+        }
+        throw lastErr !== null ? lastErr : 'All API domains failed'
+    }
+
+    async postOnce(url, body) {
         let time = Math.floor(Date.now() / 1000)
         let kJmSecret = "185Hcomic3PAPP7R"
         let res = await Network.post(url, {
@@ -359,6 +418,15 @@ class JM extends ComicSource {
             if (json.uid) {
                 this.saveData("uid", json.uid)
             }
+            // 登录凭证按域名存放，换线路后会丢失登录态。这里登录成功后把凭证同步到所有线路。
+            try {
+                let cookies = await Network.getCookies(this.baseUrl)
+                if (cookies && cookies.length) {
+                    for (let i = 0; i < JM.apiDomains.length; i++) {
+                        Network.setCookies(`https://${JM.apiDomains[i]}`, cookies)
+                    }
+                }
+            } catch (e) {}
             return "ok"
         },
 
