@@ -4,7 +4,7 @@ class ManWa extends ComicSource {
 
   key = "manwa"
 
-  version = "1.6.6"
+  version = "1.7.0"
 
   minAppVersion = "1.5.0"
 
@@ -12,9 +12,9 @@ class ManWa extends ComicSource {
 
   // 可用线路：前四为大陆区，最后为非大陆区
   static LINES = [
-    "manwaue.cc",
     "manwaub.cc",
     "manwaua.cc",
+    "manwauf.cc",
     "manwaud.cc",
     "manwa.me",
   ]
@@ -24,13 +24,13 @@ class ManWa extends ComicSource {
       title: "线路",
       type: "select",
       options: [
-        { value: "manwaue.cc", text: "线路1 manwaue.cc（大陆）" },
-        { value: "manwaub.cc", text: "线路2 manwaub.cc（大陆）" },
-        { value: "manwaua.cc", text: "线路3 manwaua.cc（大陆）" },
+        { value: "manwaub.cc", text: "线路1 manwaub.cc（大陆，推荐）" },
+        { value: "manwaua.cc", text: "线路2 manwaua.cc（大陆）" },
+        { value: "manwauf.cc", text: "线路3 manwauf.cc（大陆）" },
         { value: "manwaud.cc", text: "线路4 manwaud.cc（大陆）" },
         { value: "manwa.me", text: "线路5 manwa.me（非大陆）" },
       ],
-      default: "manwaue.cc",
+      default: "manwaub.cc",
     },
     imageHost: {
       title: "章节图源",
@@ -59,14 +59,27 @@ class ManWa extends ComicSource {
         }
       },
     },
+    favoriteSort: {
+      title: "收藏排序",
+      type: "select",
+      options: [
+        { value: "0-0", text: "收藏时间（最新在前）" },
+        { value: "0-1", text: "收藏时间（最早在前）" },
+        { value: "1-0", text: "更新时间（最新在前）" },
+        { value: "1-1", text: "更新时间（最早在前）" },
+      ],
+      default: "1-0",
+    },
   }
 
   _base = null
 
   get baseUrl() {
     if (this._base) return this._base
-    let line = "manwaue.cc"
-    try { line = this.loadSetting("line") || "manwaue.cc" } catch (e) {}
+    let line = "manwaub.cc"
+    try { line = this.loadSetting("line") || "manwaub.cc" } catch (e) {}
+    // 旧域名已失效（如 manwaue.cc），或不在有效线路列表里，自动迁移到 manwaub.cc
+    if (line === "manwaue.cc" || ManWa.LINES.indexOf(line) < 0) line = "manwaub.cc"
     return "https://" + line
   }
 
@@ -503,13 +516,19 @@ class ManWa extends ComicSource {
       // Venera 传的是页码 1/2/3，需换算成 offset：1/16/31...
       let offset = (p - 1) * 15 + 1
       let fid = folder === null || folder === undefined || String(folder) === "" ? "0" : String(folder)
+      // 排序：读设置（格式 "order-orderType"，默认 1-0=更新时间最新在前；order 0=收藏时间 1=更新时间，order_type 0=降序 1=升序）
+      let sortVal = "1-0"
+      try { sortVal = this.loadSetting("favoriteSort") || "1-0" } catch (e) {}
+      let sortParts = String(sortVal).split("-")
+      let orderField = parseInt(sortParts[0]) || 0
+      let orderDir = sortParts.length > 1 ? (parseInt(sortParts[1]) || 0) : 0
       let json = await this.getJson("/getfavors", {
         page: offset,
         showOnlyUpdated: -1,
         isEnd: -1,
         isFullVersion: -1,
-        order: 0,
-        order_type: 0,
+        order: orderField,
+        order_type: orderDir,
         folder_id: fid,
       })
       if (!json || json.err !== 0) return { comics: [], maxPage: null }
