@@ -70,7 +70,7 @@ class ManWaBa extends ComicSource {
   // unique id of the source
   key = "manwaba";
 
-  version = "1.2.0";
+  version = "1.2.1";
 
   minAppVersion = "1.5.0";
 
@@ -117,6 +117,17 @@ class ManWaBa extends ComicSource {
         return self.refreshImageRoutes();
       },
     },
+    sortMode: {
+      title: "收藏排序",
+      type: "select",
+      options: [
+        { value: "update_time_desc", text: "更新时间：新→旧（默认）" },
+        { value: "update_time_asc", text: "更新时间：旧→新" },
+        { value: "collection_time_desc", text: "收藏时间：新→旧" },
+        { value: "collection_time_asc", text: "收藏时间：旧→新" },
+      ],
+      default: "update_time_desc",
+    },
     autoCheckin: {
       title: "自动签到",
       type: "switch",
@@ -154,6 +165,13 @@ class ManWaBa extends ComicSource {
       this.imageBase = img;
     } catch (e) {
       this.imageBase = DEFAULT_IMAGE_BASE;
+    }
+
+    // 收藏排序：服务端支持 sort_by=update_time / collection_time + sort_order
+    try {
+      this.sortMode = this.loadSetting("sortMode") || "update_time_desc";
+    } catch (e) {
+      this.sortMode = "update_time_desc";
     }
     // 保存实例引用：部分回调被调用时 this 不一定指向数据源。
     __manwabaSelf = this;
@@ -742,8 +760,20 @@ class ManWaBa extends ComicSource {
 
     loadComics: async (page, folder) => {
       const params = { page: page || 1, page_size: 20 };
-          const fid = folder === null || folder === undefined ? "" : String(folder);
+      const fid = folder === null || folder === undefined ? "" : String(folder);
       if (fid !== "" && fid !== "0") params.categoryId = fid;
+
+      // 收藏排序（服务端支持）。只有 update_time / collection_time 两种维度，
+      // 传其它值服务端会忽略并退回默认，所以这里做白名单。
+      const modeMap = {
+        update_time_desc: ["update_time", "desc"],
+        update_time_asc: ["update_time", "asc"],
+        collection_time_desc: ["collection_time", "desc"],
+        collection_time_asc: ["collection_time", "asc"],
+      };
+      const sortCfg = modeMap[this.sortMode] || modeMap.update_time_desc;
+      params.sort_by = sortCfg[0];
+      params.sort_order = sortCfg[1];
       let res;
       try {
         res = await this.fetchJson(`${this.base}/api/user/favorites`, { params, withAuth: true });
