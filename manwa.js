@@ -4,7 +4,7 @@ class ManWa extends ComicSource {
 
   key = "manwa"
 
-  version = "1.7.0"
+  version = "1.7.1"
 
   minAppVersion = "1.5.0"
 
@@ -231,7 +231,6 @@ class ManWa extends ComicSource {
       if (showStatus) { try { UI.showMessage("漫蛙福利：请先登录账号") } catch (e) {} }
       return "未登录"
     }
-    // 在本线路(manwaue.cc)上做福利，不用 manwa.me（会被 Cloudflare 拦）；且必须带全套 cookie（只 PHPSESSID 会被当未登录）
     let base = this.baseUrl
     let h = {
       "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
@@ -242,35 +241,47 @@ class ManWa extends ComicSource {
       "X-Requested-With": "XMLHttpRequest",
       "cache-time": "no",
     }
-    let res = await Network.get(base + "/users/welfare", h)
-    if (!res || res.status !== 200) {
-      if (showStatus) { try { UI.showMessage("漫蛙福利：打开福利页失败（网络或反爬）") } catch (e) {} }
-      return "失败"
+    // 从福利页 HTML 读取真实状态：签到（打开页即自动签到，页面渲染"已签到"）、广告进度 X/5、广告奖励是否已领取
+    let readState = (body) => {
+      let m = body.match(/ad-item-content-item-number[^>]*>\s*(\d+)\s*\/\s*5/)
+      return {
+        adCount: m ? parseInt(m[1]) : 0,
+        claimed: /ad-bonus[^>]*value="已领取"/.test(body),
+        signed: /已签到/.test(body),
+      }
     }
-    let body = res.body || ""
-    // 广告任务进度 X/5（数字在 ad-item-content-item-number 元素里）
-    let m = body.match(/ad-item-content-item-number[^>]*>\s*(\d+)\s*\/\s*5/)
-    let adCount = m ? parseInt(m[1]) : 0
-    let claimed = /ad-bonus[^>]*value="已领取"/.test(body)
-    let acts = []
-    if (adCount < 5) {
+    // 1) 首次打开福利页（这一步本身会触发服务端签到），同时读状态
+    let res1 = await Network.get(base + "/users/welfare", h)
+    let netOK = !!(res1 && res1.status === 200)
+    if (!netOK) {
+      let failMsg = "签到失败，广告奖励领取失败"
+      if (showStatus) { try { UI.showMessage("漫蛙福利：" + failMsg + "（打开福利页失败，网络或反爬）") } catch (e) {} }
+      return failMsg
+    }
+    let r1 = readState(res1.body || "")
+    // 2) 点广告补足 5 次
+    if (r1.adCount < 5) {
       let link = encodeURIComponent("https://s.zlinkc.com/d.php?z=4833772")
-      for (let i = adCount; i < 5; i++) {
+      for (let i = r1.adCount; i < 5; i++) {
         try { await Network.get(base + "/ad_click?task=1&group=ad_wawaweise&link=" + link, h) } catch (e) {}
       }
-      acts.push("点广告" + (5 - adCount) + "次")
     }
-    if (!claimed) {
+    // 3) 领取广告奖励
+    if (!r1.claimed) {
       try {
         let h2 = Object.assign({}, h, { "Content-Type": "application/x-www-form-urlencoded" })
         await Network.post(base + "/users/welfare", h2, "action=ad_bonus")
-        acts.push("领广告奖励")
       } catch (e) {}
     }
-    let msg = acts.length ? ("漫蛙福利已完成：" + acts.join("、")) : "漫蛙福利：今日任务已完成"
-    if (acts.length || showStatus) {
-      try { UI.showMessage(msg) } catch (e) {}
-    }
+    // 4) 重新拉一次福利页，核对真实结果（不信任发请求就算成功）
+    let res2 = await Network.get(base + "/users/welfare", h)
+    let r2 = (res2 && res2.status === 200) ? readState(res2.body || "") : r1
+    // 5) 合并展示：签到状态 + 广告状态
+    let signPart = r2.signed ? "已签到" : "签到失败"
+    let adOK = r2.adCount >= 5 && r2.claimed
+    let adPart = adOK ? ("广告奖励已领取(" + r2.adCount + "/5)") : "广告奖励领取失败"
+    let msg = signPart + "，" + adPart
+    if (showStatus) { try { UI.showMessage("漫蛙福利：" + msg) } catch (e) {} }
     return msg
   }
 
@@ -508,7 +519,17 @@ class ManWa extends ComicSource {
           }
         }
       } catch (e) {}
-      return { folders: folders, favorited: [] }
+      // 用详情页收藏按钮的 data-val 判断是否已收藏（1=已收藏，0=未收藏）；不遍历任何收藏夹
+      let favorited = []
+      if (comicId) {
+        try {
+          let rd = await this.fetchHtmlOne("/book/" + comicId)
+          let el = (rd.body || "").match(/<a[^>]*id="addfavor"[^>]*>/i)
+          let dv = el ? (el[0].match(/data-val="(-?\d+)"/) || [])[1] : null
+          if (dv === "1") favorited = ["0"] // 已收藏（具体夹不细分，用“全部收藏”占位，使详情页显示已收藏、可移除）
+        } catch (e) {}
+      }
+      return { folders: folders, favorited: favorited }
     },
     loadComics: async (page, folder) => {
       let p = page && page > 0 ? page : 1
