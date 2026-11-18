@@ -546,6 +546,28 @@ class NewComicSource extends ComicSource {
 
         },
         /**
+         * [Optional] search comics in favorites.
+         * Implement this or `searchNext`. `searchNext` is ignored when this is implemented.
+         * throw `Login expired` to indicate login expired, App will automatically re-login retry.
+         * @param keyword {string} - the text the user typed, without translation
+         * @param page {number}
+         * @param folder {string?} - folder id, null for non-multi-folder
+         * @returns {Promise<{comics: Comic[], maxPage: number}>}
+         */
+        search: async (keyword, page, folder) => {
+
+        },
+        /**
+         * [Optional] search comics in favorites with next page token.
+         * @param keyword {string}
+         * @param next {string | null} - next page token, null for first page
+         * @param folder {string?} - folder id, null for non-multi-folder
+         * @returns {Promise<{comics: Comic[], next: string?}>}
+         */
+        searchNext: async (keyword, next, folder) => {
+
+        },
+        /**
          * If the comic source only allows one comic in one folder, set this to true.
          */
         singleFolderForSingleComic: false,
