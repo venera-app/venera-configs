@@ -7,7 +7,7 @@ class Ehentai extends ComicSource {
     // unique id of the source
     key = "ehentai"
 
-    version = "1.2.0"
+    version = "1.2.1"
 
     minAppVersion = "1.5.3"
 
@@ -662,6 +662,23 @@ class Ehentai extends ComicSource {
                 url += `?favcat=${folder}`
             }
             return this.getGalleries(next ?? url, false);
+        },
+        /**
+         * [Optional] search comics in favorites with a next page token.
+         * @param keyword {string}
+         * @param next {string | null} - next page url, null for first page
+         * @param folder {string?} - folder id, null or '-1' for all folders
+         * @returns {Promise<{comics: Comic[], next: string?}>}
+         */
+        searchNext: async (keyword, next, folder) => {
+            if(next != null) {
+                return this.getGalleries(next, false)
+            }
+            let url = `${this.baseUrl}/favorites.php?f_search=${encodeURIComponent(keyword)}`
+            if(folder != null && folder !== '-1') {
+                url += `&favcat=${folder}`
+            }
+            return this.getGalleries(url, false)
         }
     }
 
