@@ -70,7 +70,7 @@ class ManWaBa extends ComicSource {
   // unique id of the source
   key = "manwaba";
 
-  version = "1.2.1";
+  version = "1.3.0";
 
   minAppVersion = "1.5.0";
 
@@ -116,6 +116,15 @@ class ManWaBa extends ComicSource {
         if (!self) { UI.showMessage("源未就绪，请重新打开本页面"); return; }
         return self.refreshImageRoutes();
       },
+    },
+    commentSort: {
+      title: "评论排序",
+      type: "select",
+      options: [
+        { value: "time", text: "按时间（最新优先）" },
+        { value: "hot", text: "按热度" },
+      ],
+      default: "time",
     },
     sortMode: {
       title: "收藏排序",
@@ -172,6 +181,13 @@ class ManWaBa extends ComicSource {
       this.sortMode = this.loadSetting("sortMode") || "update_time_desc";
     } catch (e) {
       this.sortMode = "update_time_desc";
+    }
+
+    // 评论排序：站点支持 sort=time（按时间）/ hot（按热度）
+    try {
+      this.commentSort = this.loadSetting("commentSort") || "time";
+    } catch (e) {
+      this.commentSort = "time";
     }
     // 保存实例引用：部分回调被调用时 this 不一定指向数据源。
     __manwabaSelf = this;
@@ -677,7 +693,143 @@ class ManWaBa extends ComicSource {
       },
       onResponse: (bytes) => manwabaDecryptImage(bytes),
     }),
+    // 漫画评论区（replyTo 为空：正常列表；非空：查看该评论的回复）
+    loadComments: async (id, subId, page, replyTo) => {
+      try {
+        if (replyTo) {
+          const replies = await this._loadReplies(id, null, replyTo, this.commentSort);
+          return { comments: replies, maxPage: null };
+        }
+        const r = await this._fetchComments(id, null, page, this.commentSort);
+        return { comments: r.comments, maxPage: r.maxPage };
+      } catch (e) {
+        if (isAuthError(e)) return { comments: [], maxPage: null };
+        throw e;
+      }
+    },
+
+    // 章节评论区（按 chapter_id 过滤）
+    loadChapterComments: async (comicId, epId, page, replyTo) => {
+      if (replyTo) {
+        const replies = await this._loadReplies(comicId, epId, replyTo, this.commentSort);
+        return { comments: replies, maxPage: null };
+      }
+      const r = await this._fetchComments(comicId, epId, page, this.commentSort);
+      return { comments: r.comments, maxPage: r.maxPage };
+    },
+
+    sendComment: async (id, subId, content, replyTo) => {
+      return await this._sendComment(id, content, replyTo, null);
+    },
+
+    sendChapterComment: async (comicId, epId, content, replyTo) => {
+      return await this._sendComment(comicId, content, replyTo, epId);
+    },
+
+    // 点赞/取消赞；App 自身维护计数，这里只要成功即可
+    likeComment: async (id, subId, commentId, isLiking) => {
+      const token = this.loadData("token");
+      if (!token) throw "请先登录后再点赞";
+      const action = isLiking ? "like" : "unlike";
+      const res = await this.fetchJson(
+        `${this.base}/api/comment/${encodeURIComponent(commentId)}/${action}?type=0`,
+        { method: "POST", headers: { "Content-Type": "application/json" }, withAuth: true }
+      );
+      if (!res || res.code !== 200) throw (res && res.msg) || "操作失败";
+      return true;
+    },
+
   };
+
+  // ---------- 评论辅助（放在实例级别：comic 里的箭头函数 this 指向实例）----------
+  // 站点接口（免登录可读，登录后可看点赞态/发评论/点赞）：
+  //   列表 GET  /api/comments?comic_id=&page=&page_size=&sort=(time|hot)[&chapter_id=]
+  //   发送 POST /api/comment  body {comic_id, content, parent_id, reply_to_id}
+  //   点赞 POST /api/comment/{id}/like?type=0   取消 POST /api/comment/{id}/unlike?type=0
+  // 站点没有"按评论 id 单独拉回复"的接口，回复随父评论的 replies 一起返回，
+  // 这里把回复拼进正文直接展示；replyCount 仍给真实数量，点开时翻页找父评论取回复。
+
+  // 站点评论对象 -> Venera Comment JSON
+  _mapComment = (c) => {
+    const u = (c && c.user) || {};
+    const replies = c && Array.isArray(c.replies) ? c.replies : [];
+    let content = c && c.content != null ? String(c.content) : "";
+    if (replies.length) {
+      const lines = replies.map((r) => {
+        const ru = (r && r.user) || {};
+        const rp = r && r.reply_user;
+        const who = ru.nickname || ru.username || "匿名";
+        const to = rp && (rp.nickname || rp.username) ? " 回复 " + (rp.nickname || rp.username) : "";
+        return "　↳ " + who + to + "：" + (r && r.content != null ? String(r.content) : "");
+      });
+      content += "\n\n── 回复 ──\n" + lines.join("\n");
+    }
+    return {
+      userName: u.nickname || u.username || "匿名",
+      avatar: u.avatar ? u.avatar : undefined,
+      content: content,
+      time: c && c.created_at ? String(c.created_at) : undefined,
+      id: String(c && c.id),
+      score: c && c.likes != null ? Number(c.likes) : 0,
+      isLiked: !!(c && c.is_liked),
+      replyCount: replies.length,
+    };
+  };
+
+  // 拉一页评论（chapterId 为空表示整本）
+  _fetchComments = async (comicId, chapterId, page, sort) => {
+    const pageSize = 20;
+    const params = { comic_id: comicId, page: page || 1, page_size: pageSize, sort: sort || "time" };
+    if (chapterId) params.chapter_id = chapterId;
+    const res = await this.fetchJson(`${this.base}/api/comments`, { params, withAuth: true });
+    if (!res || res.code !== 200) throw (res && res.msg) || "加载评论失败";
+    const data = res.data || {};
+    const rawList = Array.isArray(data.list) ? data.list : [];
+    const total = Number(data.total || 0);
+    return {
+      comments: rawList.map((c) => this._mapComment(c)),
+      maxPage: total > pageSize ? Math.ceil(total / pageSize) : 1,
+      rawList: rawList,
+    };
+  };
+
+  // 楼中楼：无单独接口，翻页找父评论取其 replies（最多翻 10 页）
+  _loadReplies = async (comicId, chapterId, parentId, sort) => {
+    const target = String(parentId);
+    for (let p = 1; p <= 10; p++) {
+      const r = await this._fetchComments(comicId, chapterId, p, sort);
+      const hit = r.rawList.find((c) => String(c.id) === target);
+      if (hit) {
+        const replies = Array.isArray(hit.replies) ? hit.replies : [];
+        return replies.map((x) => this._mapComment(x));
+      }
+      if (!r.rawList.length || p >= r.maxPage) break;
+    }
+    return [];
+  };
+
+  // 统一发送（replyTo 为空是发表新评论，非空是回复某条）
+  _sendComment = async (comicId, content, replyTo, chapterId) => {
+    const token = this.loadData("token");
+    if (!token) throw "请先登录后再评论";
+    if (!content || !String(content).trim()) throw "评论内容不能为空";
+    const body = {
+      comic_id: Number(comicId) || comicId,
+      content: String(content).trim(),
+      parent_id: replyTo ? Number(replyTo) || replyTo : 0,
+      reply_to_id: replyTo ? Number(replyTo) || replyTo : "",
+    };
+    if (chapterId) body.chapter_id = Number(chapterId) || chapterId;
+    const res = await this.fetchJson(`${this.base}/api/comment`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      payload: JSON.stringify(body),
+      withAuth: true,
+    });
+    if (!res || res.code !== 200) throw (res && (res.msg || res.message)) || "评论失败";
+    return true;
+  };
+
 
   // ============ 收藏（网站账号的云端收藏） ============
   // 参数名大小写不统一：查询过滤用 categoryId（驼峰），加收藏 body 用 category_id（下划线）。
