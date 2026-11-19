@@ -7,72 +7,156 @@ class Wnacg extends ComicSource {
     // unique id of the source
     key = "wnacg"
 
-    version = "1.0.6"
+    version = "1.0.8"
 
     minAppVersion = "1.0.0"
 
     // update url
     url = "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/wnacg.js"
 
-    static domains = [];
+    // 域名列表。内置当前发布页的线路，刷新域名列表后会被替换
+    static domains = [
+        "www.cloudwn.shop",
+        "www.wnmanga.shop",
+        "www.wnacg.buzz",
+        "www.wnacg.site",
+    ];
 
     get baseUrl() {
-        let selection = this.loadSetting('domainSelection')
-        if (selection === undefined || selection === null) selection = 0
-        selection = parseInt(selection)
+        let selection = parseInt(this.loadSetting('domainSelection'))
+        // 旧版本用 0 表示"自定义域名"，该选项已移除，按第一个域名处理
+        if (isNaN(selection) || selection < 1) selection = 1
 
-        if (selection === 0) {
-            // 选择自定义域名
-            let domain0 = this.loadSetting('domain0')
-            if (!domain0 || domain0.trim() === '') {
-                throw 'Custom domain is not set'
-            }
-            return `https://${domain0.trim()}`
-        } else {
-            // 选择获取的域名 (Domain 1-3)
-            let index = selection - 1
-            if (index >= Wnacg.domains.length) {
-                throw 'Selected domain is unavailable'
-            }
-            return `https://${Wnacg.domains[index]}`
+        let domain = Wnacg.domains[selection - 1]
+        if (!domain) {
+            throw 'Selected domain is unavailable'
         }
+        return `https://${domain}`
     }
 
     overwriteDomains(domains) {
         if (domains.length != 0) Wnacg.domains = domains
     }
 
+    /**
+     * 登录 Cookie 使用的域名，同时覆盖裸域名和 www，例如 ".wnacg.com"
+     * @param url {string}
+     * @returns {string}
+     */
+    getCookieDomain(url) {
+        let host = url.match(/^https?:\/\/([^\/]+)/)[1]
+        return "." + host.replace(/^www\./, "")
+    }
+
+    /**
+     * 清除站点（裸域名和 www）下的所有 Cookie
+     * @param url {string}
+     */
+    clearLoginCookies(url) {
+        let domain = this.getCookieDomain(url)
+        Network.deleteCookies(`https://${domain.substring(1)}`)
+        Network.deleteCookies(`https://www${domain}`)
+    }
+
+    /**
+     * 用给定的 Cookie 替换站点的登录 Cookie。
+     * 必须先清除旧 Cookie：App 保存 Cookie 时若已存在同名 Cookie，会沿用旧 Cookie 的域名
+     * @param url {string}
+     * @param cookies {{name: string, value: string}[]}
+     */
+    setLoginCookies(url, cookies) {
+        let domain = this.getCookieDomain(url)
+        this.clearLoginCookies(url)
+        Network.setCookies(`https://${domain.substring(1)}`, cookies.map((c) => new Cookie({
+            name: c.name,
+            value: c.value,
+            domain: domain
+        })))
+    }
+
+    /**
+     * 检查当前域名下是否已登录：未登录时收藏夹页面会跳转到登录页
+     * @returns {Promise<boolean>}
+     */
+    async checkLogin() {
+        let res = await Network.get(`${this.baseUrl}/users-addfav-id-210814.html`, {})
+        return res.status === 200 && !res.body.includes("login_form")
+    }
+
     // [Optional] account related
     account = {
         /**
-         * login, return any value to indicate success
-         * @param account {string}
-         * @param pwd {string}
-         * @returns {Promise<any>}
+         * 网页登录。登录页有滑块验证码，无法直接用账号密码登录。
+         * App 在加载漫画源时就读取登录页地址（早于获取域名列表），因此固定使用主站
          */
-        login: async (account, pwd) => {
-            let res = await Network.post(
-                `${this.baseUrl}/users-check_login.html`,
-                {
-                    'content-type': 'application/x-www-form-urlencoded'
-                },
-                `login_name=${encodeURIComponent(account)}&login_pass=${encodeURIComponent(pwd)}`
-            )
-            if (res.status !== 200) {
-                throw 'Login failed'
-            }
-            let json = JSON.parse(res.body)
-            if (json['html'].includes('登錄成功')) {
-                return 'ok'
-            }
-            throw 'Login failed'
+        loginWithWebview: {
+            url: "https://www.wnacg.com/users-login.html",
+            /**
+             * check login status
+             * @param url {string} - current url
+             * @param title {string} - current title
+             * @returns {boolean} - return true if login success
+             */
+            checkStatus: (url, title) => {
+                // 登录通过 ajax 提交，成功后离开登录/注册页即视为登录完成
+                return /^https?:\/\/(www\.)?wnacg\.com(\/|$)/.test(url)
+                    && !/users-(login|reg|getpass|check_login)|cdn-cgi/.test(url)
+            },
+            onLoginSuccess: async () => {
+                // App 按当前页面的主机名（www.wnacg.com）保存 Cookie，
+                // 改为 ".wnacg.com" 以覆盖裸域名，并复制到当前选择的镜像域名
+                let cookies = await Network.getCookies("https://www.wnacg.com") ?? []
+                this.setLoginCookies("https://www.wnacg.com", cookies)
+                try {
+                    if (this.getCookieDomain(this.baseUrl) !== ".wnacg.com") {
+                        this.setLoginCookies(this.baseUrl, cookies)
+                    }
+                } catch (e) {
+                    // 未选择可用域名
+                }
+            },
+        },
+
+        loginWithCookies: {
+            fields: [
+                "Cookie",
+            ],
+            /**
+             * 粘贴浏览器中该站点的完整 Cookie，例如 "a=1; b=2"
+             * @param values {string[]} - same order as `fields`
+             * @returns {Promise<boolean>}
+             */
+            validate: async (values) => {
+                let text = (values[0] ?? "").trim().replace(/^cookie:\s*/i, "")
+                let cookies = []
+                for (let part of text.split(";")) {
+                    let index = part.indexOf("=")
+                    if (index <= 0) {
+                        continue
+                    }
+                    cookies.push({
+                        name: part.substring(0, index).trim(),
+                        value: part.substring(index + 1).trim()
+                    })
+                }
+                if (cookies.length === 0) {
+                    return false
+                }
+                this.setLoginCookies(this.baseUrl, cookies)
+                return await this.checkLogin()
+            },
         },
 
         /**
          * logout function, clear account related data
          */
         logout: () => {
-            Network.deleteCookies(this.baseUrl)
+            this.clearLoginCookies("https://www.wnacg.com")
+            try {
+                this.clearLoginCookies(this.baseUrl)
+            } catch (e) {
+                // 未选择可用域名
+            }
         },
 
         // {string?} - register url
@@ -84,58 +168,69 @@ class Wnacg extends ComicSource {
     }
 
     /**
+     * 从发布页获取线路地址。发布页的线路由页面脚本动态渲染，HTML 里没有现成的 <a> 链接，
+     * 所以优先读同目录的 config.json，失败时回退到页面内联的 window.__INITIAL_CONFIG__，
+     * 两者的结构相同：{ sites: [{ name, url, ... }] }
+     * @param releaseUrl {string} - 发布页地址，不带结尾的 "/"
+     * @returns {Promise<string[]>} - 线路地址列表，例如 "https://www.cloudwn.shop"
+     */
+    async fetchReleaseSites(releaseUrl) {
+        try {
+            let res = await fetch(`${releaseUrl}/config.json`)
+            if (res.status == 200) {
+                let sites = (await res.json()).sites
+                if (Array.isArray(sites) && sites.length > 0) {
+                    return sites.map((site) => site.url)
+                }
+            }
+        } catch (e) {
+            // config.json 不可用，回退到页面内联配置
+        }
+
+        let res = await fetch(releaseUrl)
+        if (res.status != 200) return []
+        let match = (await res.text()).match(/__INITIAL_CONFIG__\s*=\s*(\{[\s\S]*?\});?\s*<\/script>/)
+        if (!match) return []
+        let sites = JSON.parse(match[1]).sites
+        return Array.isArray(sites) ? sites.map((site) => site.url) : []
+    }
+
+    /**
      * 刷新域名列表
      * @param showConfirmDialog {boolean}
      */
     async refreshDomains(showConfirmDialog) {
-        let url = "https://wn01.link/"
+        // 发布页，依次尝试，前一个取不到域名时使用下一个（备用）
+        let releaseUrls = ["https://wnacglink.com", "https://wnacglink.net"]
         let title = ""
         let message = ""
         let domains = []
 
-        try {
-            let res = await fetch(url)
-            if (res.status == 200) {
-                let html = await res.text()
-                let document = new HtmlDocument(html)
-                // 提取所有链接
-                let links = document.querySelectorAll("a[href]")
+        for (let releaseUrl of releaseUrls) {
+            try {
                 let seenDomains = new Set()
-
-                for (let link of links) {
-                    let href = link.attributes["href"]
-                    if (!href) continue
-
+                for (let site of await this.fetchReleaseSites(releaseUrl)) {
                     // 提取域名（支持 http:// 和 https://）
-                    let match = href.match(/^https?:\/\/([^\/]+)/)
-                    if (match) {
-                        let domain = match[1]
-                        // 只提取有效的域名，排除 wn01.link 自身和其他无关链接
-                        if (domain &&
-                            domain.includes(".") &&
-                            !domain.includes("wn01.link") &&
-                            !domain.includes("google.cn") &&
-                            !domain.includes("cdn-cgi") &&
-                            !seenDomains.has(domain)) {
-                            domains.push(domain)
-                            seenDomains.add(domain)
-                        }
+                    let match = String(site ?? "").match(/^https?:\/\/([^\/]+)/)
+                    if (match && match[1].includes(".") && !seenDomains.has(match[1])) {
+                        domains.push(match[1])
+                        seenDomains.add(match[1])
                     }
                 }
-                document.dispose()
-
-                if (domains.length > 0) {
-                    title = "Update Success"
-                    message = "Fetched: \n\n"
-                }
+            } catch (e) {
+                // 该发布页不可用，尝试下一个
             }
-        } catch (e) {
-            // 获取失败，使用自定义域名
+
+            if (domains.length > 0) {
+                title = "Update Success"
+                message = "Fetched: \n\n"
+                break
+            }
         }
 
         if (domains.length == 0) {
             title = "Update Failed"
-            message = "Using Custom: \n\n"
+            message = "Using Current: \n\n"
             domains = Wnacg.domains
         }
 
@@ -760,8 +855,8 @@ class Wnacg extends ComicSource {
     }
 
     get settings() {
-        // 动态生成选项，总是保留 Custom Domain (0)，然后根据 Wnacg.domains 数量添加选项
-        let domainOptions = [{ value: '0', text: 'Custom Domain' }]
+        // 根据 Wnacg.domains 动态生成域名选项
+        let domainOptions = []
         for (let i = 0; i < Wnacg.domains.length; i++) {
             domainOptions.push({
                 value: String(i + 1),
@@ -785,13 +880,7 @@ class Wnacg extends ComicSource {
                 title: "Domain Selection",
                 type: "select",
                 options: domainOptions,
-                default: "0",
-            },
-            domain0: {
-                title: "Custom Domain",
-                type: "input",
-                validator: String.raw`^(?!:\/\/)(?=.{1,253})([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$`,
-                default: 'wnacg.com',
+                default: "1",
             },
         }
     }
@@ -802,8 +891,6 @@ class Wnacg extends ComicSource {
             'Refresh': '刷新',
             'Refresh Domain List on Startup': '启动时刷新域名列表',
             'Domain Selection': '域名选择',
-            'Custom Domain': '自定义域名',
-            'Custom domain is not set': '未设置自定义域名',
             'Selected domain is unavailable': '所选域名不可用，请先刷新域名列表',
             'Day': '日',
             'Week': '周',
@@ -814,8 +901,6 @@ class Wnacg extends ComicSource {
             'Refresh': '刷新',
             'Refresh Domain List on Startup': '啟動時刷新域名列表',
             'Domain Selection': '域名選擇',
-            'Custom Domain': '自定義域名',
-            'Custom domain is not set': '未設置自定義域名',
             'Selected domain is unavailable': '所選域名不可用，請先刷新域名列表',
             'Day': '日',
             'Week': '周',
