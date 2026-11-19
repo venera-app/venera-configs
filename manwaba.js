@@ -8,10 +8,40 @@ let __manwabaSelf = null;
 const BROWSER_UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
-// 判断是否为鉴权类错误（HTTP 401/403）。fetchJson 抛的是字符串模板错误。
+// 站点"走失页"（发布页）：站点换域名时在这里公布最新线路，可动态解析。
+const MANWABA_LOST_PAGE = "https://manwami.cc/";
+// 走失页解析失败时的兜底候选线路（2026-11-19 实测均为直连可用）
+const MANWABA_FALLBACK_LINES = [
+  "manwauu.cc",
+  "manwarr.cc",
+  "www.manwamm.cc",
+  "manwayy.cc",
+  "www.manwawz.cc",
+];
+// 默认线路（走失页"漫蛙地址一"）
+const MANWABA_DEFAULT_LINE = "manwauu.cc";
+// 已知会 301 跳转/已失效的旧线路，读到这些值自动迁移到默认线路
+const MANWABA_DEAD_LINES = ["manwadz.cc", "manwaxu.cc", "manwaze.cc"];
+// 图床兜底列表（IMAGE_ROUTES 与图片 URL 都拿不到时使用）
+const MANWABA_FALLBACK_IMAGE_HOSTS = [
+  "https://52.128.238.250:5367",
+  "https://38.147.106.154:8088",
+  "https://38.246.114.12:8067",
+  "https://mwtusi.cc",
+  "https://tu.mwzu.cc",
+];
+
+// 判断是否为鉴权类错误（HTTP 401/403）。
+// Venera 的 Dio 抛错文本形如 "Invalid Status Code: 401. The Request is unauthorized."，
+// 也可能带 "status code of 401" / "HTTP 401"，这里全部兼容。
 function isAuthError(e) {
   const msg = String(e && e.message ? e.message : e);
-  return /status code: (401|403)/.test(msg) || /Unauthorized/i.test(msg) || /Forbidden/i.test(msg);
+  return (
+    /(status\s*code|invalid\s*status\s*code)[^0-9]{0,12}(401|403)/i.test(msg) ||
+    /\bHTTP\s*(401|403)\b/i.test(msg) ||
+    /Unauthorized/i.test(msg) ||
+    /Forbidden/i.test(msg)
+  );
 }
 
 // 不同线路返回的字段大小写不一致（如 categories 的 Id / id），统一用 pick() 兼容。
@@ -70,7 +100,7 @@ class ManWaBa extends ComicSource {
   // unique id of the source
   key = "manwaba";
 
-  version = "1.3.0";
+  version = "1.3.1";
 
   minAppVersion = "1.5.0";
 
@@ -86,88 +116,115 @@ class ManWaBa extends ComicSource {
   imageBase = "https://38.246.114.12:8067";
 
   // 默认存入哪个收藏夹（0=未分类；可在详情页面板里选择具体收藏夹）
-  settings = {
-    line: {
-      title: "线路",
-      type: "select",
-      options: [
-        { value: "manwadz.cc", text: "线路1 manwadz.cc（推荐，登录/收藏可用）" },
-        { value: "manwaxu.cc", text: "线路2 manwaxu.cc（内容全，但无法登录）" },
-        { value: "manwaze.cc", text: "线路3 manwaze.cc（备用）" },
-      ],
-      default: "manwadz.cc",
-    },
-    imageLine: {
-      title: "图床地址",
-      type: "input",
-      // 站点会不定期更换图床，做成可输入：站点换域名时直接在这里改即可。
-      // 只接受 http(s) 开头的地址，末尾斜杠会被自动去掉。
-      validator: "^https?://.+",
-      default: "https://38.246.114.12:8067",
-      description: "留空则用默认。站点换图床时可在此填新地址，如 https://1.2.3.4:8067",
-    },
-    refreshRoutes: {
-      title: "刷新可用线路",
-      type: "callback",
-      buttonText: "检测",
-      // 点击后：抓站点当前线路 -> 逐条测活 -> 弹窗展示，可一键采用某条可用线路
-      callback: () => {
-        const self = __manwabaSelf;
-        if (!self) { UI.showMessage("源未就绪，请重新打开本页面"); return; }
-        return self.refreshImageRoutes();
+  // 动态选项缓存（由 discoverDynamicOptions / _applyDynamicOptions 填充）
+  _lineOptsCache = null;
+  _imageOptsCache = null;
+
+  // settings 用 getter：每次被读取（Venera 渲染设置页时）都重新生成，
+  // 并用 loadSetting 取「保存的值」确保它一定在选项里——
+  // 否则 Venera 渲染 select 时 firstWhere 找不到会抛异常，整个设置项消失。
+  get settings() {
+    let lineOpts = (this._lineOptsCache || [
+      { value: "manwauu.cc", text: "manwauu.cc" },
+      { value: "manwarr.cc", text: "manwarr.cc" },
+      { value: "manwayy.cc", text: "manwayy.cc" },
+    ]).map((o) => ({ value: o.value, text: o.text }));
+    try {
+      const cur = this.loadSetting("line");
+      if (cur && !lineOpts.some((o) => o.value === cur)) lineOpts.unshift({ value: cur, text: cur });
+    } catch (e) {}
+
+    let imgOpts = (this._imageOptsCache || [
+      { value: "https://52.128.238.250:5367", text: "52.128.238.250:5367" },
+      { value: "https://38.147.106.154:8088", text: "38.147.106.154:8088" },
+    ]).map((o) => ({ value: o.value, text: o.text }));
+    try {
+      const cur = this.loadSetting("imageLine");
+      if (cur && !imgOpts.some((o) => o.value === cur)) {
+        imgOpts.unshift({ value: cur, text: String(cur).replace(/^https?:\/\//, "") });
+      }
+    } catch (e) {}
+
+    return {
+      line: {
+        title: "线路",
+        type: "select",
+        options: lineOpts,
+        default: "manwauu.cc",
       },
-    },
-    commentSort: {
-      title: "评论排序",
-      type: "select",
-      options: [
-        { value: "time", text: "按时间（最新优先）" },
-        { value: "hot", text: "按热度" },
-      ],
-      default: "time",
-    },
-    sortMode: {
-      title: "收藏排序",
-      type: "select",
-      options: [
-        { value: "update_time_desc", text: "更新时间：新→旧（默认）" },
-        { value: "update_time_asc", text: "更新时间：旧→新" },
-        { value: "collection_time_desc", text: "收藏时间：新→旧" },
-        { value: "collection_time_asc", text: "收藏时间：旧→新" },
-      ],
-      default: "update_time_desc",
-    },
-    autoCheckin: {
-      title: "自动签到",
-      type: "switch",
-      default: true,
-      description: "打开源时自动签到（需先登录）。已签到则跳过。",
-    },
-    checkinButton: {
-      title: "立即签到",
-      type: "callback",
-      buttonText: "签到",
-      // callback 会被 func([]) 直接调用，this 不保证指向数据源，
-      // 所以用 init() 保存的实例引用。异常必须在此捕获，宿主不会提示。
-      callback: () => {
-        const self = __manwabaSelf;
-        if (!self || !self.doCheckin) { UI.showMessage("源未就绪，请重新打开本页面"); return; }
-        return self.doCheckin()
-          .then((r) => { UI.showMessage("[漫蛙吧] " + r.text); })
-          .catch((e) => { UI.showMessage("[漫蛙吧] 签到失败：" + (e && e.message ? e.message : e)); });
+      imageLine: {
+        title: "图床",
+        type: "select",
+        options: imgOpts,
+        default: "https://52.128.238.250:5367",
       },
-    },
-  };
+      autoSetup: {
+        title: "线路与图床一键设置",
+        type: "callback",
+        buttonText: "检测并设置",
+        callback: () => {
+          const self = __manwabaSelf;
+          if (!self || !self.setupLineAndImage) { UI.showMessage("源未就绪"); return; }
+          return self.setupLineAndImage().catch((e) => {
+            UI.showMessage("检测失败：" + (e && e.message ? e.message : e));
+          });
+        },
+      },
+      commentSort: {
+        title: "评论排序",
+        type: "select",
+        options: [
+          { value: "time", text: "按时间（最新优先）" },
+          { value: "hot", text: "按热度" },
+        ],
+        default: "time",
+      },
+      sortMode: {
+        title: "收藏排序",
+        type: "select",
+        options: [
+          { value: "update_time_desc", text: "更新时间：新→旧（默认）" },
+          { value: "update_time_asc", text: "更新时间：旧→新" },
+          { value: "collection_time_desc", text: "收藏时间：新→旧" },
+          { value: "collection_time_asc", text: "收藏时间：旧→新" },
+        ],
+        default: "update_time_desc",
+      },
+      autoCheckin: {
+        title: "自动签到",
+        type: "switch",
+        default: true,
+        description: "打开源时自动签到（需先登录）。已签到则跳过。",
+      },
+      checkinButton: {
+        title: "立即签到",
+        type: "callback",
+        buttonText: "签到",
+        callback: () => {
+          const self = __manwabaSelf;
+          if (!self || !self.doCheckin) { UI.showMessage("源未就绪"); return; }
+          return self.doCheckin()
+            .then((r) => { UI.showMessage(r.text); })
+            .catch((e) => { UI.showMessage("签到失败：" + (e && e.message ? e.message : e)); });
+        },
+      },
+    };
+  }
 
   init() {
-    let line = "manwadz.cc";
-    try { line = this.loadSetting("line") || "manwadz.cc"; } catch (e) {}
+    let line = MANWABA_DEFAULT_LINE;
+    try { line = String(this.loadSetting("line") || "").trim() || MANWABA_DEFAULT_LINE; } catch (e) {}
+    // 旧线路（已 301 跳转/失效）自动迁移到默认线路，避免老用户升级后签到/收藏全挂。
+    if (MANWABA_DEAD_LINES.indexOf(line) >= 0) {
+      line = MANWABA_DEFAULT_LINE;
+      try { this._saveSetting("line", line); } catch (e) {}
+    }
     this.base = "https://" + line;
     this.api = this.base + "/api";
-    // 登录接口只有 manwadz.cc / manwaze.cc 可用；manwaxu.cc 会 405。
-    this.accountBase = line === "manwaxu.cc" ? "https://manwadz.cc" : this.base;
+    // 现各线路均支持登录，直接用当前 base。
+    this.accountBase = this.base;
     // 图床地址可自定义：去空白、去尾部斜杠，非法值回退到默认。
-    const DEFAULT_IMAGE_BASE = "https://38.246.114.12:8067";
+    const DEFAULT_IMAGE_BASE = "https://52.128.238.250:5367";
     try {
       let img = String(this.loadSetting("imageLine") || "").trim().replace(/\/+$/, "");
       if (!/^https?:\/\/./.test(img)) img = DEFAULT_IMAGE_BASE;
@@ -191,7 +248,7 @@ class ManWaBa extends ComicSource {
     }
     // 保存实例引用：部分回调被调用时 this 不一定指向数据源。
     __manwabaSelf = this;
-    this.fetchJson = async (url, { method = "GET", params, headers, payload, withAuth = false } = {}) => {
+    this.fetchJson = async (url, { method = "GET", params, headers, payload, withAuth = false, noCache = false } = {}) => {
       if (params) {
         const qs = Object.keys(params)
           .filter((k) => params[k] !== undefined && params[k] !== null)
@@ -204,6 +261,9 @@ class ManWaBa extends ComicSource {
         const token = this.loadData("token");
         if (token) h["Authorization"] = "Bearer " + token;
       }
+      // 缓存纪律：带认证的 GET（收藏/评论/用户信息等个人数据）必须读最新，
+      // 否则会显示缓存旧快照，把真实的 401/失败掩盖成"看着正常"。
+      if (noCache || (withAuth && method === "GET")) h["cache-time"] = "no";
       const res = await Network.sendRequest(method, url, h, payload);
       if (res.status !== 200) {
         // 只保留状态码：完整 body 可能很大，且会被风控误判
@@ -216,6 +276,12 @@ class ManWaBa extends ComicSource {
       info: (msg) => log("info", this.name, msg),
       warn: (msg) => log("warning", this.name, msg),
     };
+
+    // 后台发现最新线路/图床并刷新下拉选项（不阻塞启动）。
+    this.discoverDynamicOptions().catch(() => {});
+
+    // 自动线路跟随：后台校验当前线路是否可用，失效则自动切换（不阻塞、失败静默）。
+    this.autoFollowLine().catch(() => {});
 
     // 自动签到：只做一次，不阻塞主流程（失败静默）。
     // 用成功/失败标记判断，不靠文案（文案改动会让判断失效）。
@@ -350,8 +416,9 @@ class ManWaBa extends ComicSource {
       return { ok: true, text: msg };
     } catch (e) {
       if (isAuthError(e)) {
-        this.deleteData("token");
-        return { ok: false, text: "登录已失效，请重新登录" };
+        // 401/403：可能是登录过期，也可能是线路跳转导致凭证丢失。
+        // 不直接删 token（避免误删有效凭证），提示用户先重新登录/换线路。
+        return { ok: false, text: "登录已失效或线路异常：请重新登录；若仍失败请用「线路与图床一键设置」" };
       }
       // 服务端说「已经签到过了」：今天确实已签，算成功
       const m = String(e && e.message ? e.message : e);
@@ -382,92 +449,359 @@ class ManWaBa extends ComicSource {
   };
 
   // 用某条线路探测一话前几张图是否可下载
-  probeImageRoute = async (base, epId, n) => {
-    const api = `${this.base}/api/comic/image/${epId}?page=1&page_size=${n}&image_source=${encodeURIComponent(base)}`;
-    const r = await Network.sendRequest("GET", api, { "User-Agent": BROWSER_UA, "cache-time": "no" });
-    if (r.status !== 200) return { okCount: 0, total: 0, error: "接口 HTTP " + r.status };
-    let data;
-    try { data = JSON.parse(r.body); } catch (e) { return { okCount: 0, total: 0, error: "接口返回异常" }; }
-    const urls = ((data.data && data.data.images) || []).map((x) => x.url);
-    if (!urls.length) return { okCount: 0, total: 0, error: "接口未返回图片" };
-    let ok = 0;
-    for (const u of urls) {
-      try {
-        // 图片是二进制，必须用 fetchBytes（body 为 ArrayBuffer）判断真实字节数；
-        // sendRequest 返回的是 UTF-8 文本，会被解码破坏、长度不可信。
-        const res = await Network.fetchBytes("GET", u, { "User-Agent": BROWSER_UA, Referer: `${this.base}/` });
-        const nbytes = res && res.body ? (res.body.byteLength !== undefined ? res.body.byteLength : res.body.length) : 0;
-        if (res.status === 200 && nbytes > 1000) ok++;
-      } catch (e) { /* 单张失败忽略 */ }
-    }
-    return { okCount: ok, total: urls.length };
+  // 写"设置项"的值：Venera 设置项存在 data.settings，不是 data 顶层（saveData 存的是顶层，读不到）
+  _saveSetting = (key, value) => {
+    try {
+      const st = this.loadData("settings") || {};
+      st[key] = value;
+      this.saveData("settings", st);
+    } catch (e) {}
   };
 
-  // 设置页"检测"按钮入口
-  refreshImageRoutes = async () => {
-    let routes, epId;
-    try {
-      routes = await this.fetchImageRoutes();
-      // 取一章用于探测。探测用的漫画要选图片较稳定的样本，
-      // 换多本多话尝试，直到找到有章节的。
-      let ch = null;
-      const probeComics = [137419, 94399, 112156];
-      for (const cid of probeComics) {
-        try {
-          const r = await Network.sendRequest(
-            "GET", `${this.base}/api/comic/chapter?comicId=${cid}&page=1&page_size=2`,
-            { "User-Agent": BROWSER_UA, "cache-time": "no" });
-          const j = JSON.parse(r.body);
-          if (j && j.data && j.data.length) { ch = j; break; }
-        } catch (e) { /* 换下一本 */ }
-      }
-      epId = ch && ch.data && ch.data[0] && ch.data[0].id;
-    } catch (e) {
-      UI.showMessage("读取线路失败：" + (e && e.message ? e.message : e));
-      return;
-    }
-    if (!epId) { UI.showMessage("未取到测试章节，无法检测"); return; }
+  // 单张图下载判定。加 http_client: dart:io 换原生客户端，绕过 Venera 的
+  // CloudflareInterceptor（它会把正常图片响应误判成 Cloudflare 挑战而抛错）。
+  _probeImage = (u) => {
+    const t0 = Date.now();
+    return Network.fetchBytes("GET", u, {
+      "User-Agent": BROWSER_UA,
+      Referer: `${this.base}/`,
+      "http_client": "dart:io",
+    })
+      .then((res) => {
+        const ms = Date.now() - t0;
+        const nb = res && res.body ? (res.body.byteLength !== undefined ? res.body.byteLength : res.body.length) : 0;
+        if (res.status === 200 && nb > 1000) return { ok: 1, ms: ms };
+        return { ok: 0, err: "HTTP" + res.status + "/" + nb + "B", ms: ms };
+      })
+      .catch((e) => ({ ok: 0, err: String(e && e.message ? e.message : e).slice(0, 50), ms: Date.now() - t0 }));
+  };;
 
-    // 逐条测活
+  probeImageRoute = async (base, epId, n) => {
+    const take = Math.max(1, n || 3);
+    const api = `${this.base}/api/comic/image/${epId}?page=1&page_size=${take}&image_source=${encodeURIComponent(base)}`;
+    const r = await Network.sendRequest("GET", api, { "User-Agent": BROWSER_UA, "cache-time": "no" });
+    if (r.status !== 200) return { okCount: 0, total: 0, error: "HTTP " + r.status, avgMs: 0 };
+    let data;
+    try { data = JSON.parse(r.body); } catch (e) { return { okCount: 0, total: 0, error: "返回异常", avgMs: 0 }; }
+    const urls = ((data.data && data.data.images) || []).map((x) => x.url).slice(0, take);
+    if (!urls.length) return { okCount: 0, total: 0, error: "无图片", avgMs: 0 };
+    const marks = await Promise.all(urls.map((u) => this._probeImage(u)));
+    const ok = marks.reduce((a, b) => a + (b.ok ? 1 : 0), 0);
+    const errs = marks.filter((m) => !m.ok && m.err).map((m) => m.err);
+    const okMs = marks.filter((m) => m.ok).map((m) => m.ms || 0);
+    const avgMs = okMs.length ? Math.round(okMs.reduce((a, b) => a + b, 0) / okMs.length) : 0;
+    return { okCount: ok, total: urls.length, error: ok === 0 ? (errs[0] || "") : "", avgMs: avgMs };
+  };;
+
+  // 找一章用于探测（并发取候选漫画，首个有章节的即用）
+  findProbeEpisode = async () => {
+    for (const cid of [137419, 94399, 112156]) {
+      try {
+        const r = await Network.sendRequest(
+          "GET",
+          `${this.base}/api/comic/chapter?comicId=${cid}&page=1&page_size=2`,
+          { "User-Agent": BROWSER_UA, "cache-time": "no" }
+        );
+        const j = JSON.parse(r.body);
+        if (j && j.data && j.data.length) return j.data[0].id;
+      } catch (e) { /* 换下一本 */ }
+    }
+    return null;
+  };
+
+  // 图床列表（三层兜底）：① IMAGE_ROUTES ② 从实际图片 URL 提取 ③ 写死兜底
+  fetchImageRouteList = async () => {
+    let list = null;
+    try {
+      const routes = await this.fetchImageRoutes();
+      if (routes && routes.length) list = routes;
+    } catch (e) { /* 往下兜底 */ }
+    if (!list) {
+      try {
+        const ex = await this.extractImageHostsFromUrls();
+        if (ex.length) list = ex;
+      } catch (e) { /* 往下兜底 */ }
+    }
+    if (!list) list = MANWABA_FALLBACK_IMAGE_HOSTS.map((u) => ({ name: u.replace(/^https?:\/\//, ""), url: u }));
+    // 按 url 去重（IMAGE_ROUTES 可能有重复条目）
+    const seen = {};
+    return list.filter((r) => {
+      if (!r || !r.url || seen[r.url]) return false;
+      seen[r.url] = 1;
+      return true;
+    });
+  };
+
+  // 从实际图片地址反推图床域名（首页封面 + 章节图），能发现 IMAGE_ROUTES 未列出的
+  extractImageHostsFromUrls = async () => {
+    const hostOf = (u) => { const m = String(u || "").match(/^https?:\/\/([^\/?#]+)/i); return m ? m[1] : null; };
+    const found = [];
+    const add = (u) => { const h = hostOf(u); if (h && found.indexOf(h) < 0) found.push(h); };
+    try {
+      const r = await Network.sendRequest(
+        "GET",
+        `${this.base}/api/home?page=1&pageSize=3&type=&flag=false`,
+        { "User-Agent": BROWSER_UA, "cache-time": "no" }
+      );
+      const j = JSON.parse(r.body);
+      ((j.data && j.data.comicList) || []).forEach((c) => add(c.pic));
+    } catch (e) {}
+    try {
+      const epId = await this.findProbeEpisode();
+      if (epId) {
+        const r = await Network.sendRequest(
+          "GET",
+          `${this.base}/api/comic/image/${epId}?page=1&page_size=1`,
+          { "User-Agent": BROWSER_UA, "cache-time": "no" }
+        );
+        const j = JSON.parse(r.body);
+        ((j.data && j.data.images) || []).forEach((x) => add(x.url));
+      }
+    } catch (e) {}
+    return found.map((h) => ({ name: h, url: "https://" + h }));
+  };
+
+  // 检测所有图床（并发），每条测 2 张
+  detectImageHosts = async () => {
+    const routes = await this.fetchImageRouteList();
+    const epId = await this.findProbeEpisode();
+    if (!epId) throw "未取到测试章节";
     const results = [];
     for (const r of routes) {
       let pr;
-      try { pr = await this.probeImageRoute(r.url, epId, 5); }
-      catch (e) { pr = { okCount: 0, total: 0, error: String(e && e.message ? e.message : e) }; }
-      results.push({ name: r.name, url: r.url, okCount: pr.okCount, total: pr.total, error: pr.error, usable: pr.okCount > 0 });
+      try { pr = await this.probeImageRoute(r.url, epId, 3); }
+      catch (e) { pr = { okCount: 0, total: 0, error: String(e && e.message ? e.message : e), avgMs: 0 }; }
+      results.push({ name: r.name, url: r.url, okCount: pr.okCount, total: pr.total, error: pr.error, avgMs: pr.avgMs, usable: pr.okCount > 0 });
     }
+    return results;
+  };;
 
-    // 每条线路一行，格式：「✅ 线路1 4/5 · 38.246.114.12:8067」，
-    // 当前使用的那条末尾加标记，一眼能分辨。
+  // 后台发现最新线路/图床并刷新下拉选项（不阻塞启动）
+  discoverDynamicOptions = async () => {
+    try {
+      const hosts = await this.fetchLineCandidates();
+      if (hosts && hosts.length) this._lineOptsCache = hosts.map((h) => ({ value: h, text: h }));
+    } catch (e) {}
+    try {
+      const routes = await this.fetchImageRouteList();
+      if (routes && routes.length) {
+        this._imageOptsCache = routes.map((r) => ({
+          value: r.url,
+          text: (r.name ? r.name + " " : "") + r.url.replace(/^https?:\/\//, ""),
+        }));
+      }
+    } catch (e) {}
+  };;
+
+  // 单独刷新图床（保留旧按钮能力）
+  // 纯 JS base64 解码（不依赖引擎 API，用于 mwmw.cc 里加密的线路列表）
+  _b64decode = (str) => {
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+    let out = "", bc = 0, bs, buffer;
+    str = String(str).replace(/=+$/, "");
+    for (let i = 0; i < str.length; i++) {
+      buffer = chars.indexOf(str.charAt(i));
+      if (buffer === -1) continue;
+      bs = bc % 4 ? bs * 64 + buffer : buffer;
+      if (bc++ % 4) out += String.fromCharCode(255 & (bs >> ((-2 * bc) & 6)));
+    }
+    return out;
+  };
+
+  // 获取候选线路：① mwmw.cc 永久地址的 base64 列表（最全）② 走失页 manwami.cc ③ 兜底
+  fetchLineCandidates = async () => {
+    const hostOf = (u) => { const m = String(u || "").match(/^https?:\/\/([^\/?#]+)/i); return m ? m[1] : null; };
+    const push = (arr, h) => {
+      if (h && MANWABA_DEAD_LINES.indexOf(h) < 0 && arr.indexOf(h) < 0) arr.push(h);
+    };
+    // ① mwmw.cc（永久地址）
+    try {
+      const res = await Network.sendRequest("GET", "https://mwmw.cc/", { "User-Agent": BROWSER_UA, "cache-time": "no" });
+      if (res.status === 200) {
+        const m = String(res.body).match(/const e=\[([\s\S]*?)\]\.map/);
+        if (m) {
+          const hosts = [];
+          (m[1].match(/"[A-Za-z0-9+/=]+"/g) || []).forEach((q) => {
+            try { push(hosts, hostOf(this._b64decode(q.slice(1, -1)))); } catch (e) {}
+          });
+          if (hosts.length) return hosts;
+        }
+      }
+    } catch (e) {}
+    // ② 走失页
+    try {
+      const res = await Network.sendRequest("GET", MANWABA_LOST_PAGE, { "User-Agent": BROWSER_UA, "cache-time": "no" });
+      if (res.status === 200) {
+        const html = String(res.body);
+        const hosts = [];
+        const linkRe = /<a\s+([^>]*)>/gi;
+        let m;
+        while ((m = linkRe.exec(html))) {
+          const attrs = m[1];
+          if (!/testable/i.test(attrs)) continue;
+          const hm = attrs.match(/href="(https?:\/\/[^"]+)"/i);
+          if (hm) push(hosts, hostOf(hm[1]));
+        }
+        if (hosts.length) return hosts;
+      }
+    } catch (e) {}
+    // ③ 兜底
+    return MANWABA_FALLBACK_LINES.slice();
+  };
+
+  // 测单条线路：有 token 用 /api/user/info（同时验证直连 + 凭证有效），否则用 /api/home。
+  probeLineHost = async (host) => {
+    const token = this.loadData("token");
+    const hasToken = !!token;
+    const url = hasToken
+      ? `https://${host}/api/user/info`
+      : `https://${host}/api/home?page=1&pageSize=1&type=&flag=false`;
+    const h = { "User-Agent": BROWSER_UA, "cache-time": "no" };
+    if (hasToken) h["Authorization"] = "Bearer " + token;
+    const t0 = Date.now();
+    try {
+      const r = await Network.sendRequest("GET", url, h);
+      const ms = Date.now() - t0;
+      if (r.status === 200) {
+        let j = null;
+        try { j = JSON.parse(r.body); } catch (e) { j = null; }
+        if (j && j.code === 200) return { ok: true, detail: hasToken ? "直连正常" : "可访问", ms: ms };
+        return { ok: false, detail: (j && j.msg) || "接口异常", ms: ms };
+      }
+      return { ok: false, detail: "HTTP " + r.status, ms: ms };
+    } catch (e) {
+      const msg = String(e && e.message ? e.message : e);
+      const sm = msg.match(/\b(401|403|404|5\d\d)\b/);
+      return { ok: false, detail: sm ? "HTTP " + sm[1] : msg.slice(0, 40), ms: Date.now() - t0 };
+    }
+  };;
+
+  refreshImageRoutes = async () => {
+    let lid = null;
+    try { const im = this.loadSetting("imageLine"); if (im) this.imageBase = im; } catch (e) {}
+    let results;
+    try { lid = await UI.showLoading(null); results = await this.detectImageHosts(); }
+    catch (e) { if (lid !== null) UI.cancelLoading(lid); UI.showMessage("图床检测失败：" + (e && e.message ? e.message : e)); return; }
+    if (lid !== null) UI.cancelLoading(lid);
+    if (!results.some((r) => r.usable)) { UI.showMessage("无可用图床"); return; }
     const options = results.map((r) => {
-      const mark = r.usable ? "✅" : "❌";
-      const detail = r.total ? `${r.okCount}/${r.total}` : "无响应";
-      const cur = r.url === this.imageBase ? "（当前）" : "";
-      return `${mark} ${r.name} ${detail} · ${r.url}${cur}`;
+      const detail = r.total ? `${r.okCount}/${r.total}` : "-";
+      const err = !r.usable && r.error ? " (" + r.error + ")" : "";
+      return (r.usable ? "✅ " : "❌ ") + detail + " " + r.url.replace(/^https?:\/\//, "") + err;
     });
-
-    // 默认选中：优先当前线路，否则第一条可用线路
     let initial = results.findIndex((r) => r.url === this.imageBase);
     if (initial < 0) initial = results.findIndex((r) => r.usable);
-
-    // 没有可用线路时直接提示，不弹选择框
-    if (!results.some((r) => r.usable)) {
-      UI.showMessage(`没有可用线路（共 ${results.length} 条均失败），可稍后再试`);
-      return;
-    }
-
-    const idx = await UI.showSelectDialog("选择图床线路（✅可用 ❌不可用）", options, initial >= 0 ? initial : 0);
-    if (idx === null || idx === undefined || idx < 0 || idx >= results.length) return; // 用户取消
-
-    const picked = results[idx];
-    if (!picked.usable) {
-      UI.showMessage(picked.name + " 当前不可用（" + (picked.total ? picked.okCount + "/" + picked.total : "无响应") + "），未切换");
-      return;
-    }
-    this.saveData("imageLine", picked.url);
-    this.imageBase = picked.url;
-    UI.showMessage("已切换到 " + picked.name + "：" + picked.url);
+    const idx = await UI.showSelectDialog("图床", options, initial >= 0 ? initial : 0);
+    if (idx === null || idx === undefined || idx < 0 || idx >= results.length) return;
+    if (!results[idx].usable) { UI.showMessage("该图床不可用"); return; }
+    this._saveSetting("imageLine", results[idx].url);
+    this.imageBase = results[idx].url;
+    UI.showMessage("已切换");
   };
+
+  // 保存后同步刷新下拉选项，让设置页立刻反映
+  _applyDynamicOptions = (lineRes, curLine, imgRes, curImg) => {
+    try {
+      this._lineOptsCache = lineRes.filter((r) => r.ok).map((r) => ({ value: r.host, text: r.host }));
+    } catch (e) {}
+    try {
+      this._imageOptsCache = imgRes.filter((r) => r.usable).map((r) => ({ value: r.url, text: r.url.replace(/^https?:\/\//, "") }));
+    } catch (e) {}
+  };
+
+  // 一键设置：检测线路(并发) -> 选线路 -> 检测图床(并发) -> 选图床 -> 一次保存
+  setupLineAndImage = async () => {
+    let lid = null;
+    try {
+      const l = this.loadSetting("line");
+      if (l) { this.base = "https://" + l; this.api = this.base + "/api"; this.accountBase = this.base; }
+      const im = this.loadSetting("imageLine");
+      if (im) this.imageBase = im;
+    } catch (e) {}
+    // 1) 检测线路（带速度）
+    let hosts;
+    try {
+      lid = await UI.showLoading(null);
+      hosts = await this.fetchLineCandidates();
+    } catch (e) { hosts = MANWABA_FALLBACK_LINES.slice(); }
+    const lineRes = await Promise.all(
+      hosts.map(async (host) => {
+        try { const p = await this.probeLineHost(host); return { host: host, ok: p.ok, detail: p.detail, ms: p.ms || 0 }; }
+        catch (e) { return { host: host, ok: false, detail: "失败", ms: 99999 }; }
+      })
+    );
+    if (lid !== null) UI.cancelLoading(lid);
+    // 自动选：可用里延迟最低
+    const usableLines = lineRes.filter((r) => r.ok).sort((a, b) => a.ms - b.ms);
+    if (!usableLines.length) { UI.showMessage("线路均不可用"); return; }
+    const bestLine = usableLines[0];
+
+    // 2) 检测图床（用最优线路）
+    const oldBase = this.base;
+    this.base = "https://" + bestLine.host;
+    this.api = this.base + "/api";
+    this.accountBase = this.base;
+    let imgRes;
+    try {
+      lid = await UI.showLoading(null);
+      imgRes = await this.detectImageHosts();
+    } catch (e) {
+      this.base = oldBase;
+      if (lid !== null) UI.cancelLoading(lid);
+      UI.showMessage("图床检测失败：" + (e && e.message ? e.message : e));
+      return;
+    }
+    if (lid !== null) UI.cancelLoading(lid);
+    // 自动选：可用率最高，其次平均耗时最低
+    const usableImgs = imgRes.filter((r) => r.usable).sort((a, b) => {
+      const ra = a.total ? a.okCount / a.total : 0;
+      const rb = b.total ? b.okCount / b.total : 0;
+      if (rb !== ra) return rb - ra;
+      return (a.avgMs || 99999) - (b.avgMs || 99999);
+    });
+    if (!usableImgs.length) {
+      this.base = oldBase;
+      this._saveSetting("line", bestLine.host);
+      this._applyDynamicOptions(lineRes, bestLine.host, imgRes, null);
+      UI.showMessage("线路已设为 " + bestLine.host + "（" + bestLine.ms + "ms），无可用图床");
+      return;
+    }
+    const bestImg = usableImgs[0];
+
+    // 3) 保存
+    this._saveSetting("line", bestLine.host);
+    this._saveSetting("imageLine", bestImg.url);
+    this.imageBase = bestImg.url;
+    this._applyDynamicOptions(lineRes, bestLine.host, imgRes, bestImg.url);
+    UI.showMessage(
+      "已选最优：" + bestLine.host + "（" + bestLine.ms + "ms）｜" +
+      bestImg.url.replace(/^https?:\/\//, "") + "（" + bestImg.okCount + "/" + bestImg.total + "，" + bestImg.avgMs + "ms）"
+    );
+  };;;
+
+  // 自动线路跟随：登录状态下后台校验当前线路，失效则自动切到可用线路（不阻塞启动）。
+  // 未登录时无法准确判断"是否跨域跳转丢凭证"，故只在有 token 时做。
+  autoFollowLine = async () => {
+    const token = this.loadData("token");
+    if (!token) return;
+    const cur = String(this.base || "").replace(/^https?:\/\//, "");
+    const p = await this.probeLineHost(cur);
+    if (p.ok) return;
+    let hosts = MANWABA_FALLBACK_LINES.slice();
+    try { hosts = await this.fetchLineCandidates(); } catch (e) {}
+    for (const h of hosts) {
+      if (h === cur) continue;
+      const q = await this.probeLineHost(h);
+      if (q.ok) {
+        this.base = "https://" + h;
+        this.api = this.base + "/api";
+        this.accountBase = this.base;
+        try { this._saveSetting("line", h); } catch (e) {}
+        this.logger.info("线路自动切换: " + cur + " -> " + h);
+        return;
+      }
+    }
+  };;
 
   // explore page list
   explore = [
