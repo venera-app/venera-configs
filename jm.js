@@ -7,7 +7,7 @@ class JM extends ComicSource {
     // unique id of the source
     key = "jm"
 
-    version = "1.4.0"
+    version = "1.4.1"
 
     minAppVersion = "1.5.0"
 
@@ -20,14 +20,22 @@ class JM extends ComicSource {
 
     dailyCheckInInProgress = false
 
+    // 内置线路，刷新域名列表失败或尚未刷新时使用
     static fallbackServers = [
-        "www.cdntwice.org",
-        "www.cdnsha.org",
-        "www.cdnaspa.cc",
-        "www.cdnntr.cc",
+        "www.cdnbtd.cc",
+        "www.cdnutc.cc",
+        "www.cdngwc.net",
+        "www.cdngwc.club",
     ];
 
+    // 刷新域名列表后写入，为空时使用 fallbackServers
+    static apiDomains = null
+
     static imageUrl = "https://cdn-msp.jmapinodeudzn.net"
+
+    // 各图片分流最近一次解析到的域名，用于在设置里显示。
+    // 服务器会为同一分流随机分配域名，所以这只是最近一次的结果，不是固定对应关系
+    static imageHosts = {}
 
     static ua = "Mozilla/5.0 (Linux; Android 10; K; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/130.0.0.0 Mobile Safari/537.36"
 
@@ -35,9 +43,13 @@ class JM extends ComicSource {
         return JM.ua;
     }
 
+    get apiDomains() {
+        return JM.apiDomains ?? JM.fallbackServers
+    }
+
     get baseUrl() {
         let index = parseInt(this.loadSetting('apiDomain')) - 1
-        return `https://${JM.apiDomains[index]}`
+        return `https://${this.apiDomains[index]}`
     }
 
     get imageUrl() {
@@ -132,20 +144,21 @@ class JM extends ComicSource {
         let message = ""
         let servers = []
         let domains = []
-        let res = null;
         try {
-            res = await fetch(url, { headers: this.baseHeaders });
-        } catch (error) {
-            res = null;
-        }
-        if (res && res.status === 200) {
-            let data = this.convertData(await res.text(), domainSecret)
-            let json = JSON.parse(data)
-            if (json["Server"]) {
-                title = "Update Success"
-                message = "\n"
-                servers = json["Server"].slice(0, 4)
+            let res = await fetch(url, { headers: this.baseHeaders })
+            if (res.status === 200) {
+                // 源文件开头带 UTF-8 BOM，不去掉会导致 Base64 解码失败
+                let text = (await res.text()).replace(/^﻿/, "").trim()
+                let json = JSON.parse(this.convertData(text, domainSecret))
+                if (Array.isArray(json["Server"]) && json["Server"].length > 0) {
+                    title = "Update Success"
+                    message = "\n"
+                    servers = json["Server"].slice(0, 4)
+                }
             }
+        } catch (error) {
+            // 请求、解密或解析失败，使用内置线路
+            servers = []
         }
         if (servers.length === 0) {
             title = "Update Failed"
@@ -193,6 +206,7 @@ class JM extends ComicSource {
             if (showMessage) {
                 UI.showMessage(`Image Stream ${index}:\n${setting["img_host"]}`)
             }
+            JM.imageHosts[String(index)] = setting["img_host"].replace(/^https?:\/\//, "")
             this.overwriteImgUrl(setting["img_host"])
         }
     }
@@ -366,7 +380,7 @@ class JM extends ComicSource {
          * logout function, clear account related data
          */
         logout: () => {
-            for (let url of JM.apiDomains) {
+            for (let url of this.apiDomains) {
                 Network.deleteCookies(url)
             }
         },
@@ -990,82 +1004,74 @@ class JM extends ComicSource {
     console.log(setting1Value)
     ```
      */
-    settings = {
-        refreshDomains: {
-            title: "Refresh Domain List",
-            type: "callback",
-            buttonText: "Refresh",
-            callback: () => this.refreshApiDomains(true)
-        },
-        refreshDomainsOnStart: {
-            title: "Refresh Domain List on Startup",
-            type: "switch",
-            default: true,
-        },
-        apiDomain: {
-            title: "Api Domain",
-            type: "select",
-            options: [
-                {
-                    value: '1',
-                },
-                {
-                    value: '2',
-                },
-                {
-                    value: '3',
-                },
-                {
-                    value: '4',
-                },
-            ],
-            default: "1",
-        },
-        imageStream: {
-            title: "Image Stream",
-            type: "select",
-            options: [
-                {
-                    value: '1',
-                },
-                {
-                    value: '2',
-                },
-                {
-                    value: '3',
-                },
-                {
-                    value: '4',
-                },
-            ],
-            default: "1",
-        },
-        favoriteOrder: {
-            title: "Favorite Order",
-            type: "select",
-            options: [
-                {
-                    value: 'mr',
-                    text: 'Add Time',
-                },
-                {
-                    value: 'mp',
-                    text: 'Update Time',
-                }
-            ],
-            default: 'mr'
-        },
-        dailyCheckInTask: {
-            title: "Daily Check-in Task",
-            type: "switch",
-            default: false
-        },
-        dailyCheckIn: {
-            title: "Manual Check-In",
-            type: "callback",
-            buttonText: "Check-In",
-            callback: () => this.dailyCheckIn()
-        },
+    get settings() {
+        // 选项的 value 仍是序号（兼容已保存的设置），显示文字不直接用序号
+        // API 域名：显示当前线路的具体域名
+        let apiDomainOptions = this.apiDomains.map((domain, i) => ({
+            value: String(i + 1),
+            text: domain,
+        }))
+        // 图片分流：显示"图源N"，已知时附上最近一次解析到的域名
+        let imageStreamOptions = [1, 2, 3, 4].map((i) => {
+            let name = `${this.translate('Image Source')} ${i}`
+            let host = JM.imageHosts[String(i)]
+            return {
+                value: String(i),
+                text: host ? `${name} (${host})` : name,
+            }
+        })
+
+        return {
+            refreshDomains: {
+                title: "Refresh Domain List",
+                type: "callback",
+                buttonText: "Refresh",
+                callback: () => this.refreshApiDomains(true)
+            },
+            refreshDomainsOnStart: {
+                title: "Refresh Domain List on Startup",
+                type: "switch",
+                default: true,
+            },
+            apiDomain: {
+                title: "Api Domain",
+                type: "select",
+                options: apiDomainOptions,
+                default: "1",
+            },
+            imageStream: {
+                title: "Image Stream",
+                type: "select",
+                options: imageStreamOptions,
+                default: "1",
+            },
+            favoriteOrder: {
+                title: "Favorite Order",
+                type: "select",
+                options: [
+                    {
+                        value: 'mr',
+                        text: 'Add Time',
+                    },
+                    {
+                        value: 'mp',
+                        text: 'Update Time',
+                    }
+                ],
+                default: 'mr'
+            },
+            dailyCheckInTask: {
+                title: "Daily Check-in Task",
+                type: "switch",
+                default: false
+            },
+            dailyCheckIn: {
+                title: "Manual Check-In",
+                type: "callback",
+                buttonText: "Check-In",
+                callback: () => this.dailyCheckIn()
+            },
+        }
     }
 
     // [Optional] translations for the strings in this config
@@ -1076,6 +1082,7 @@ class JM extends ComicSource {
             'Refresh Domain List on Startup': '启动时刷新域名列表',
             'Api Domain': 'Api域名',
             'Image Stream': '图片分流',
+            'Image Source': '图源',
             'Favorite Order': '收藏夹排序',
             'Daily Check-in Task': '每日自动签到',
             'Manual Check-In': '手动签到',
@@ -1095,6 +1102,7 @@ class JM extends ComicSource {
             'Refresh Domain List on Startup': '啟動時刷新域名列表',
             'Api Domain': 'Api域名',
             'Image Stream': '圖片分流',
+            'Image Source': '圖源',
             'Favorite Order': '收藏夾排序',
             'Daily Check-in Task': '每日自動簽到',
             'Manual Check-In': '手動簽到',
