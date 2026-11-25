@@ -7,7 +7,7 @@ class Nhentai extends ComicSource {
     // unique id of the source
     key = "nhentai"
 
-    version = "1.1.0"
+    version = "1.1.2"
 
     minAppVersion = "1.0.0"
 
@@ -32,11 +32,23 @@ class Nhentai extends ComicSource {
     // [Optional] account related
     account = {
         loginWithWebview: {
-            url: "https://nhentai.net/login",
+            url: "https://nhentai.net/login/?next=/favorites/",
             checkStatus: (url, title) => {
-                return title === "nhentai: hentai doujinshi and manga"
+                let normalizedUrl = String(url || "").split("#")[0].split("?")[0]
+                let normalizedTitle = String(title || "").trim().toLowerCase()
+                let reachedAuthenticatedPage = normalizedUrl === this.baseUrl
+                    || normalizedUrl === `${this.baseUrl}/`
+                    || normalizedUrl === `${this.baseUrl}/favorites`
+                    || normalizedUrl.startsWith(`${this.baseUrl}/favorites/`)
+                    || normalizedUrl.startsWith(`${this.baseUrl}/user/`)
+                let loginCompletedWithoutRedirect = normalizedTitle.includes(
+                    "nhentai: hentai doujinshi and manga"
+                )
+                return reachedAuthenticatedPage || loginCompletedWithoutRedirect
             },
             onLoginSuccess: async () => {
+                // Keep the original cookie-sync flow. persistAuthFromCookies also
+                // falls back to the localStorage captured by Venera's WebView.
                 await this.persistAuthFromCookies()
             },
         },
@@ -276,8 +288,34 @@ class Nhentai extends ComicSource {
         if (!Array.isArray(cookies)) {
             return ""
         }
-        let cookie = cookies.find((item) => item?.name === name)
-        return typeof cookie?.value === "string" ? cookie.value : ""
+        let normalizedName = String(name || "").toLowerCase()
+        let cookie = cookies.find((item) => {
+            return typeof item?.name === "string"
+                && item.name.toLowerCase() === normalizedName
+                && typeof item?.value === "string"
+                && item.value.trim().length > 0
+        })
+        return this.normalizeAccessToken(cookie?.value)
+    }
+
+    normalizeAccessToken(value) {
+        if (typeof value !== "string") {
+            return ""
+        }
+        value = value.trim()
+        try {
+            value = decodeURIComponent(value)
+        } catch (e) {
+            // Keep the raw cookie value when it is not URL encoded.
+        }
+        if ((value.startsWith('"') && value.endsWith('"'))
+            || (value.startsWith("'") && value.endsWith("'"))) {
+            value = value.slice(1, -1).trim()
+        }
+        if (value.startsWith("User ")) {
+            value = value.slice(5).trim()
+        }
+        return value
     }
 
     getApiBaseHeaders() {
@@ -299,6 +337,7 @@ class Nhentai extends ComicSource {
             "access_token",
             "__Secure-access_token",
             "__Host-access_token",
+            "accessToken",
         ]
         for (let name of preferredNames) {
             let value = this.findCookieValue(cookies, name)
@@ -307,21 +346,92 @@ class Nhentai extends ComicSource {
             }
         }
         let fallback = cookies.find((item) => {
-            return typeof item?.name === "string"
-                && item.name.toLowerCase().includes("token")
-                && typeof item?.value === "string"
-                && item.value.length > 0
+            if (typeof item?.name !== "string" || typeof item?.value !== "string") {
+                return false
+            }
+            let name = item.name.toLowerCase()
+            return name.includes("access")
+                && name.includes("token")
+                && !name.includes("refresh")
+                && item.value.trim().length > 0
         })
-        return fallback?.value || ""
+        return this.normalizeAccessToken(fallback?.value)
     }
 
-    async persistAuthFromCookies() {
-        let cookies = await Network.getCookies(this.baseUrl)
-        let accessToken = this.findAccessToken(cookies)
+    findAccessTokenInStorage(storage, depth = 0) {
+        if (storage == null || depth > 3) {
+            return ""
+        }
+
+        if (typeof storage === "string") {
+            let value = storage.trim()
+            if (!value) {
+                return ""
+            }
+            try {
+                return this.findAccessTokenInStorage(JSON.parse(value), depth + 1)
+            } catch (e) {
+                return ""
+            }
+        }
+
+        if (typeof storage !== "object") {
+            return ""
+        }
+
+        let preferredNames = [
+            "access_token",
+            "accessToken",
+            "user_token",
+            "userToken",
+            "auth_token",
+            "authToken",
+        ]
+        for (let name of preferredNames) {
+            let value = storage[name]
+            if (typeof value === "string" && value.trim()) {
+                return this.normalizeAccessToken(value)
+            }
+        }
+
+        for (let name of Object.keys(storage)) {
+            let normalizedName = name.toLowerCase()
+            if (normalizedName.includes("refresh")) {
+                continue
+            }
+            let value = storage[name]
+            if (typeof value === "object" || (typeof value === "string" && value.trim().startsWith("{"))) {
+                let token = this.findAccessTokenInStorage(value, depth + 1)
+                if (token) {
+                    return token
+                }
+            }
+        }
+        return ""
+    }
+
+    persistAuthFromLocalStorage() {
+        let accessToken = this.findAccessTokenInStorage(this.loadData("_localStorage"))
         if (accessToken) {
             this.saveData("accessToken", accessToken)
         }
         return accessToken
+    }
+
+    async persistAuthFromCookies() {
+        let accessToken = ""
+        try {
+            let cookies = await Network.getCookies(this.baseUrl)
+            accessToken = this.findAccessToken(cookies)
+        } catch (e) {
+            // Cookie access can fail on individual WebView implementations.
+            // Continue with Venera's captured localStorage instead.
+        }
+        if (accessToken) {
+            this.saveData("accessToken", accessToken)
+            return accessToken
+        }
+        return this.persistAuthFromLocalStorage()
     }
 
     async getAuthHeaders(forceRefresh = false) {
